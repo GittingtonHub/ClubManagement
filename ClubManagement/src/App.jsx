@@ -1,6 +1,6 @@
-import Header from "./Header"
-import InventoryUI from "./InventoryUI"
-import Footer from "./Footer"
+import Header from "./components/Header"
+import Inventory from "./pages/Inventory"
+import Footer from "./components/Footer"
 
 
 function App() {
@@ -8,7 +8,7 @@ function App() {
   return (
     <>
       <Header />
-      <InventoryUI />
+      <Inventory />
       <Footer />
     </>
   )
