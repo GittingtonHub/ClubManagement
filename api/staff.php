@@ -3,7 +3,7 @@
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
 
-include_once 'db.php';
+include_once 'api.php';
 
 $query = "SELECT id, name, role, hourly_rate FROM staff";
 
