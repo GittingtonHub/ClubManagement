@@ -1,4 +1,5 @@
 <?php
+// to call this in front-end: http://167.99.165.60/api/resources.php
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
 
