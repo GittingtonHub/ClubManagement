@@ -10,29 +10,41 @@ function Login() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // TODO: Add actual authentication logic here
-    // For now, just simulate a successful login
+    // TODO: Replace with actual authentication logic
+    // Should POST to PHP backend (e.g., /api/login.php)
+    // Validate credentials, receive token/session
+    // Example:
+    // const response = await fetch('/api/login.php', {
+    //   method: 'POST',
+    //   body: JSON.stringify({ username, password })
+    // });
     login({ username });
     navigate('/');
   };
 
   return (
     <div className="login-container">
-      <h2>Login</h2>
-      <div>
+      <header>
+        <h1>Club Management</h1>
+      </header>
+
+      <div className='input-container'>
         <input
           type="text"
           placeholder="Username"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
         />
+
         <input
           type="password"
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
+
         <button onClick={handleSubmit}>Login</button>
+
       </div>
     </div>
   );

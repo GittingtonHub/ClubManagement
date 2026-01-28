@@ -3,23 +3,31 @@ function InventoryUI() {
   return (
 
     <>
-      <div class="table-div">
+      <div className="table-div">
         
-        <div class="add-item-button">
+        <div className="add-item-button">
             <button>Add Item</button>
         </div>
 
         <table>
-          {/* TODO: change field names to better match with database */}
-          <tr class="table-header">
+          {/* // TODO: Replace hardcoded data with API call to PHP backend
+          // Should fetch inventory from MySQL via PHP API
+          // Example:
+          // useEffect(() => {
+          //   fetch('/api/inventory.php')
+          //     .then(res => res.json())
+          //     .then(data => setInventory(data));
+          // }, []); */}
+          <tr className="table-header">
             <th>Item No.</th>
             <th>Item Name</th>
             <th>Quantity</th>
           </tr>
 
-          <tr class="table-row">
-            <td class="table-cell-itemno">1</td>
-            <td class="table-cell-name">Soccer Ball</td>
+          <tr className="table-row">
+            {/* TODO: Map over actual inventory data from backend */}
+            <td className="table-cell-itemno">1</td>
+            <td className="table-cell-name">Soccer Ball</td>
             <td>15</td>
           </tr>
         </table>
