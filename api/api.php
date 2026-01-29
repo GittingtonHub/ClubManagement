@@ -1,4 +1,6 @@
 <?php
+
+// CALL THIS FILE TO CONNECT TO THE DATABASE. WHEN POST REMEBER TO SANITIZE FIRST
 $host = "localhost";
 $db_name = "ClubManagementDB";
 $username = "Javi";
