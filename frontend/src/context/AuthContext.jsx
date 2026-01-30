@@ -18,40 +18,31 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      await fetch('/api/logout.php', {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        }
-      });
+      // this is a placeholder for an actual API call to log out
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      localStorage.removeItem('authToken');
+      // Clear client state regardless of API call success
       setIsAuthenticated(false);
       setUser(null);
     }
   };
 
+
   useEffect(() => {
     const checkAuth = async () => {
-      const token = localStorage.getItem('authToken');
-      if (token) {
-        try {
-          const response = await fetch('/api/validate-session.php', {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            setIsAuthenticated(true);
-            setUser(data.user);
-          } else {
-            localStorage.removeItem('authToken');
-          }
-        } catch (error) {
-          localStorage.removeItem('authToken');
+      try {
+        const response = await fetch('/api/check-session.php', {
+          credentials: 'include' // This sends the PHP session cookie
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setIsAuthenticated(true);
+          setUser(data.user);
         }
+      } catch (error) {
+        setIsAuthenticated(false);
       }
     };
     
