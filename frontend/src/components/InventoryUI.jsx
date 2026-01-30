@@ -245,9 +245,7 @@ function InventoryUI() {
                 <div className="button-group">
                   <button 
                     onClick={() => {
-                      // TODO: Handle add item logic - POST to backend
-                      setIsAddItemOpen(false);
-                      document.getElementById("table-div").style.display = "block";
+                      handleAddItem()
                     }}
                     className="inline"
                   >

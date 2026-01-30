@@ -225,9 +225,7 @@ function Login() {
               <div className="button-group">
                 <button 
                   onClick={() => {
-                    // TODO: Handle signup logic
-                    setIsSignUpOpen(false);
-                    document.getElementById("input-container").style.display = "flex";
+                    handleSignup()
                   }}
                   className="inline"
                 >
