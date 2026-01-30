@@ -32,11 +32,12 @@ function Login() {
         <h1>Club Management</h1>
       </header>
 
-      <div className='input-container'>
+      <div className='input-container' id="input-container">
         <input
           type="text"
           placeholder="Email"
           value={email}
+          //TODO: Add regex validation
           onChange={(e) => setEmail(e.target.value)}
         />
 
@@ -49,45 +50,57 @@ function Login() {
 
         <button onClick={handleSubmit}>Login</button>
 
-        <button onClick={() => setIsSignUpOpen(true)}>Sign Up</button>
+        <button onClick={() => {
+          setIsSignUpOpen(true);
+          document.getElementById("input-container").style.display = "none";
+        }}>Sign Up</button>
       </div>
 
-      <Dialog open={isSignUpOpen} onClose={() => setIsSignUpOpen(false)} className="relative z-50">
-        <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+      <Dialog open={isSignUpOpen} onClose={() => {
+        setIsSignUpOpen(false);
+        document.getElementById("input-container").style.display = "flex";
+      }} className="sign-up-dialog">
         
-        <div className="fixed inset-0 flex w-screen items-center justify-center p-4">
-          <DialogPanel className="w-full max-w-sm rounded bg-white p-6 shadow-lg">
-            <DialogTitle className="text-lg font-bold mb-4">Sign Up</DialogTitle>
+        <div className="signup-dialog-backdrop" aria-hidden="true" />
+        
+        <div className="signup-dialog-container">
+          <DialogPanel className="signup-dialog-panel">
+            <DialogTitle className="sign-up-header">Sign Up</DialogTitle>
             
-            <div className="flex flex-col gap-4">
+            <div className="inner-signup-container">
               <input
                 type="email"
                 placeholder="Email"
                 value={signupEmail}
                 onChange={(e) => setSignupEmail(e.target.value)}
-                className="border rounded px-3 py-2"
+                className="signup-email-input"
               />
               <input
                 type="password"
                 placeholder="Password"
                 value={signupPassword}
                 onChange={(e) => setSignupPassword(e.target.value)}
-                className="border rounded px-3 py-2"
+                className="signup-password-input"
               />
               
-              <div className="flex gap-2">
+              <div className="button-group">
                 <button 
                   onClick={() => {
                     // TODO: Handle signup logic
                     setIsSignUpOpen(false);
+                    document.getElementById("input-container").style.display = "flex";
                   }}
-                  className="flex-1 bg-blue-500 text-white py-2 rounded"
+                  className="inline"
                 >
                   Create Account
                 </button>
+
                 <button 
-                  onClick={() => setIsSignUpOpen(false)}
-                  className="flex-1 bg-gray-300 py-2 rounded"
+                  onClick={() => {
+                    setIsSignUpOpen(false);
+                    document.getElementById("input-container").style.display = "flex";
+                  }}
+                  className="inline"
                 >
                   Cancel
                 </button>
