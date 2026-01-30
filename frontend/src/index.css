@@ -163,6 +163,16 @@ th, td {
   color: black;
 }
 
+.login-container {
+  margin: 10px;
+  /* center the content in this container */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
 .input-container {
   margin: 10px;
   /* center the content in this container */
@@ -170,3 +180,4 @@ th, td {
   justify-content: center;
   align-items: center;
 }
+
