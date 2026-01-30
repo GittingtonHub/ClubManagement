@@ -83,7 +83,7 @@ body {
   margin: 0;
   min-height: 100vh;
   position: relative;
-
+  overflow-y: auto;
   font-family: Arial, Helvetica, sans-serif;
 }
 
@@ -136,12 +136,10 @@ th, td {
 }
 
 .add-item-button button{
-  /* background-color: blue; */
 
   background: rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  /* border-radius: 12px; */
 
   color: black;
   border: none;
@@ -181,3 +179,88 @@ th, td {
   align-items: center;
 }
 
+.input-container button {
+  background-color: blue;
+  color: white;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  background-color: blue;
+  color: white;
+  margin-right: 5px;
+
+}
+
+.input-container input {
+  padding: 10px;
+  /* margin-bottom: 10px; */
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  margin-right: 5px;
+
+}
+
+.signup-dialog-container, .add-item-dialog-container {
+  margin: 10px;
+  /* center the content in this container */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.inner-signup-container, .inner-add-item-container {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.signup-dialog-backdrop, .add-item-dialog-backdrop {
+  background: rgba(0, 0, 255, 0.725); 
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.signup-dialog-panel, .add-item-dialog-panel {
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 2rem;
+  max-width: 400px;
+  width: 90%;
+}
+
+.signup-dialog-panel input, .add-item-dialog-panel input{
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.signup-dialog-panel button, .add-item-dialog-panel button {
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  margin-top: 5px;
+  background-color: blue;
+  color: white;
+}
+
+button.inline {
+  display: inline-block;
+  margin-right: 5px;
+}
+
+.add-item-dialog-panel textarea {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  resize: vertical;
+}
