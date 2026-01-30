@@ -1,4 +1,5 @@
 import { createContext, useContext, useState } from 'react';
+import { useEffect } from 'react';
 
 const AuthContext = createContext(null);
 
@@ -15,12 +16,47 @@ export const AuthProvider = ({ children }) => {
     setUser(userData);
   };
 
-  const logout = () => {
-    // TODO: Replace with actual API call to invalidate session
-    // Should call PHP backend to destroy session
-    setIsAuthenticated(false);
-    setUser(null);
+  const logout = async () => {
+    try {
+      await fetch('/api/logout.php', {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        }
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      localStorage.removeItem('authToken');
+      setIsAuthenticated(false);
+      setUser(null);
+    }
   };
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        try {
+          const response = await fetch('/api/validate-session.php', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            setIsAuthenticated(true);
+            setUser(data.user);
+          } else {
+            localStorage.removeItem('authToken');
+          }
+        } catch (error) {
+          localStorage.removeItem('authToken');
+        }
+      }
+    };
+    
+    checkAuth();
+  }, []);
 
   return (
     <AuthContext.Provider value={{ isAuthenticated, user, login, logout }}>
