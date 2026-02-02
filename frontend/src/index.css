@@ -92,12 +92,12 @@ body::before {
   position: fixed;
   inset: 0;
 
-  background-image: url("assets/background.jpg");
+  background-image: url("../public/background.jpg");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
   background-attachment: fixed;
-
+  
   filter: blur(5px);
   transform: scale(1.05); /* prevents blurry edges */
   z-index: -1;
