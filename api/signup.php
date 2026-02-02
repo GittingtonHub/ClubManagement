@@ -1,38 +1,43 @@
 <?php
- include_once 'users.php'
-$email = $_POST["email"]
-$password = $_POST["password"] // if these dont work, change post to server
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+header('Content-Type: application/json');
 
-$size = count($data)
-$exists = 'false'
-for ($x = 0; $x < $size ; $x++) {
-  if $email == $data[$x]['email']
-  {
-    $exists = 'true';
-    break;
-  }
+include_once 'api.php';
+
+// Get JSON input instead of $_POST
+$input = json_decode(file_get_contents('php://input'), true);
+$email = $input["email"] ?? null;
+$password = $input["password"] ?? null;
+
+if (!$email || !$password) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'Email and password required']);
+    exit;
 }
 
-if ($exists == 'false')
-    {
-        $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-        $query = "INSERT INTO users ('email', 'password_hash) VALUES ($email, $password_hash)";
-        $stmt = $conn->prepare($query);
-        $stmt->execute();
+// Fetch existing users to check for duplicates
+$query = "SELECT id, email FROM users WHERE email = :email";
+$stmt = $conn->prepare($query);
+$stmt->bindParam(':email', $email);
+$stmt->execute();
+$existingUser = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    }
+if (!$existingUser)
+{
+    $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+    $query = "INSERT INTO users (email, password_hash) VALUES (:email, :password_hash)";
+    $stmt = $conn->prepare($query);
+    $stmt->bindParam(':email', $email);
+    $stmt->bindParam(':password_hash', $passwordHash);
+    $stmt->execute();
+    
+    echo json_encode(['success' => true]);
+}
 else
-    {
-        $errorcode = 'email already exists!'
-        echo ' <div class="alert alert-danger 
-            alert-dismissible fade show" role="alert">
-  
-        <strong>Error!</strong> '. $errorcode.'
-        <button type="button" class="close" 
-            data-dismiss="alert" aria-label="Close"> 
-            <span aria-hidden="true">×</span> 
-        </button>
-       </div> '; 
-    }
+{
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'Email already exists!']);
+}
 
 ?>

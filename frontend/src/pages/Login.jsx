@@ -76,10 +76,50 @@ function Login() {
     return true;
   };
 
+  // const handleSignup = async () => {
+  //   if (!validateSignupEmail(signupEmail) || !validateSignupPassword(signupPassword)) {
+  //     return;
+  //   }
+    
+  //   try {
+  //     const response = await fetch('/api/signup.php', {
+  //       method: 'POST',
+  //       headers: { 'Content-Type': 'application/json' },
+  //       body: JSON.stringify({ email: signupEmail, password: signupPassword })
+  //     });
+      
+  //     const data = await response.json();
+      
+  //     if (response.ok) {
+  //       setIsSignUpOpen(false);
+  //       document.getElementById("input-container").style.display = "flex";
+  //       // Optionally auto-login or show success message
+  //     } else {
+  //       setSignupEmailError(data.message || 'Signup failed');
+  //     }
+  //   } catch (error) {
+  //     setSignupEmailError('Server error. Please try again.');
+  //     console.error('Signup error:', error);
+  //   }
+  // };
+
   const handleSignup = async () => {
-    if (!validateSignupEmail(signupEmail) || !validateSignupPassword(signupPassword)) {
+    console.log('Starting signup validation...');
+    console.log('Email:', signupEmail);
+    console.log('Password length:', signupPassword.length);
+    
+    const emailValid = validateSignupEmail(signupEmail);
+    const passwordValid = validateSignupPassword(signupPassword);
+    
+    console.log('Email valid:', emailValid);
+    console.log('Password valid:', passwordValid);
+    
+    if (!emailValid || !passwordValid) {
+      console.log('Validation failed, stopping');
       return;
     }
+    
+    console.log('Validation passed, sending request...');
     
     try {
       const response = await fetch('/api/signup.php', {
@@ -88,7 +128,9 @@ function Login() {
         body: JSON.stringify({ email: signupEmail, password: signupPassword })
       });
       
+      console.log('Response status:', response.status);
       const data = await response.json();
+      console.log('Response data:', data);
       
       if (response.ok) {
         setIsSignUpOpen(false);
@@ -98,6 +140,7 @@ function Login() {
         setSignupEmailError(data.message || 'Signup failed');
       }
     } catch (error) {
+      console.log('Error caught:', error);
       setSignupEmailError('Server error. Please try again.');
     }
   };
@@ -116,18 +159,24 @@ function Login() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
-      
-      const data = await response.json();
+    
+      console.log('Response status:', response.status);
+      const text = await response.text();
+      console.log('Response text:', text);
+      const data = JSON.parse(text);
+      console.log('Response data:', data);
       
       if (response.ok) {
         localStorage.setItem('authToken', data.token);
-        login({ email: email });
+        login(data.user); // Update context state
         navigate('/');
       } else {
         setPasswordError(data.message || 'Login failed');
       }
     } catch (error) {
       setPasswordError('Server error. Please try again.');
+      // print error to console for debugging
+      console.error('Login error:', error);
     }
   };
 
