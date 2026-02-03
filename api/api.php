@@ -11,7 +11,7 @@ $password = DB_PASSWORD;
 
 
 try {
-    $conn = new PDO("mysql:host=$host;dbname=$db_name", $username, $password);
+    $conn = new PDO("mysql:host=$host;dbname=$db_name;port=" . DB_PORT, $username, $password);
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch(PDOException $e) {
     error_log("Connection failed: " . $e->getMessage());
