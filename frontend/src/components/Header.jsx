@@ -1,5 +1,5 @@
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, NavLink } from 'react-router-dom';
 
 
 function Header() {
@@ -16,14 +16,29 @@ function Header() {
   };
 
   return (
-    // The header should snap to the top of the page
     <header>
         <h1>Club Management</h1>
 
         <div className="topnav">
-            <a className="" href="#home">Home</a>
-            <a className="active" href="#inventory">Inventory</a>
-        </div>
+        <NavLink 
+          to="/" 
+          className={({ isActive }) => isActive ? "active" : ""}
+        >
+          Home
+        </NavLink>
+        <NavLink 
+          to="/inventory" 
+          className={({ isActive }) => isActive ? "active" : ""}
+        >
+          Inventory
+        </NavLink>
+        <NavLink 
+          to="/reservations" 
+          className={({ isActive }) => isActive ? "active" : ""}
+        >
+          Reservations
+        </NavLink>
+      </div>
 
         <div className="login">
         <button onClick={handleAuthClick}>

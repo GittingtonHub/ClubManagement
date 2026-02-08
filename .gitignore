@@ -10,8 +10,6 @@ lerna-debug.log*
 # environment files
 .env
 .env.*
-vite.config.js
-
 
 # Dependency directories
 node_modules

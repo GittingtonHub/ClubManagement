@@ -141,14 +141,6 @@ function InventoryUI() {
         </div>
 
         <table className='inventory-table' id='inventory-table'>
-          {/* // TODO: Replace hardcoded data with API call to PHP backend
-          // Should fetch inventory from MySQL via PHP API
-          // Example:
-          // useEffect(() => {
-          //   fetch('/api/inventory.php')
-          //     .then(res => res.json())
-          //     .then(data => setInventory(data));
-          // }, []); */}
           <tr className="table-header">
             <th>Item No.</th>
             <th>Item Name</th>

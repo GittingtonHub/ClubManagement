@@ -76,33 +76,6 @@ function Login() {
     return true;
   };
 
-  // const handleSignup = async () => {
-  //   if (!validateSignupEmail(signupEmail) || !validateSignupPassword(signupPassword)) {
-  //     return;
-  //   }
-    
-  //   try {
-  //     const response = await fetch('/api/signup.php', {
-  //       method: 'POST',
-  //       headers: { 'Content-Type': 'application/json' },
-  //       body: JSON.stringify({ email: signupEmail, password: signupPassword })
-  //     });
-      
-  //     const data = await response.json();
-      
-  //     if (response.ok) {
-  //       setIsSignUpOpen(false);
-  //       document.getElementById("input-container").style.display = "flex";
-  //       // Optionally auto-login or show success message
-  //     } else {
-  //       setSignupEmailError(data.message || 'Signup failed');
-  //     }
-  //   } catch (error) {
-  //     setSignupEmailError('Server error. Please try again.');
-  //     console.error('Signup error:', error);
-  //   }
-  // };
-
   const handleSignup = async () => {
     console.log('Starting signup validation...');
     console.log('Email:', signupEmail);
