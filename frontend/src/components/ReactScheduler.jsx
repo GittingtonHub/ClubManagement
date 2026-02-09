@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react';
 import { DayPilot, DayPilotScheduler } from "@daypilot/daypilot-lite-react";
-import "../assets/themes/dark.css";
-import "../assets/themes/light.css";
 import "../assets/toolbar.css";
 
 const ReactScheduler = () => {

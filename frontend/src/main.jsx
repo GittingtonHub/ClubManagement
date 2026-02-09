@@ -1,6 +1,9 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import './assets/themes/dark.css'  
+import './assets/themes/light.css'   
+
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { AuthProvider } from './context/AuthContext.jsx';
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -25,7 +28,7 @@ const router = createBrowserRouter([
       </ProtectedRoute>
     ),
     children: [
-      { path: "/", element: <Home /> },
+      { path: "/*", element: <Home /> },
       { path: "/home", element: <Home /> },
       { path: "/inventory", element: <Inventory /> },
       { path: "/reservations", element: <Reservations /> },
