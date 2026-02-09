@@ -5,12 +5,12 @@ export default defineConfig({
   plugins: [react()],
 
     server: {
-    proxy: {
-      "/api": {
-        target: "http://localhost",
-        changeOrigin: true,
-        secure: false,
+      proxy: {
+        "/api": {
+          target: "http://localhost",
+          changeOrigin: true,
+          secure: false,
+        },
       },
     },
-  },
 });

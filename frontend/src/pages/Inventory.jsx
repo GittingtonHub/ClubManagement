@@ -1,9 +1,13 @@
-import InventoryUI from "../components/InventoryUI";
+import ResourcesUI from "../components/ResourcesUI";
+import StaffUI from "../components/StaffUI";
+import UsersUI from "../components/UsersUI";
 
 function Inventory() {
     return(
         <>
-            <InventoryUI />
+            <ResourcesUI />
+            <StaffUI />
+            <UsersUI />
         </>
     );
 }

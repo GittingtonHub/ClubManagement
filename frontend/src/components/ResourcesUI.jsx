@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useEffect } from 'react';
 
 
-function InventoryUI() {
+function ResourcesUI() {
   const [itemName, setItemName] = useState('');
   const [itemType, setItemType] = useState('');
   const [itemPrice, setItemPrice] = useState('');
@@ -263,4 +263,4 @@ function InventoryUI() {
   );
 }
 
-export default InventoryUI;
+export default ResourcesUI;
