@@ -6,7 +6,7 @@ function Reservations() {
     return (
         <>
             <Header />
-            {/* <ReactScheduler /> */}
+            <ReactScheduler />
             <Footer />
         </>
     );
