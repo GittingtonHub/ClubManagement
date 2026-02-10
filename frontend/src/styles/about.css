@@ -1,0 +1,85 @@
+.about-section {
+   padding: 50px;
+   text-align: center;
+   background-color: #474e5d;
+   color: white;
+   margin: 16px auto;
+   width: 90%;
+   background: rgba(255, 255, 255, 0.2);
+   backdrop-filter: blur(10px);
+   -webkit-backdrop-filter: blur(10px);
+   border-radius: 12px;
+}
+
+.about-section .column {
+   float: left;
+   width: 33.3%;
+   margin-bottom: 16px;
+   padding: 0 8px;
+}
+
+.about-section .card {
+   box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+   margin: 8px;
+   background: rgba(255, 255, 255, 0.1);
+   border-radius: 12px;
+}
+
+.about-section .container {
+   padding: 0 16px;
+}
+
+.about-section .container::after,
+.about-section .row::after {
+   content: "";
+   clear: both;
+   display: table;
+}
+
+.about-section .title {
+   color: #b3b3b3;
+}
+
+.about-section .button {
+   border: none;
+   outline: 0;
+   display: inline-block;
+   padding: 8px;
+   color: white;
+   background-color: blue;
+   text-align: center;
+   cursor: pointer;
+   width: 100%;
+   border-radius: 12px;
+   font-size: 17px;
+}
+
+.about-section .button:hover {
+   background-color: black;
+   color: white;
+   border-radius: 12px;
+}
+
+@media screen and (max-width: 650px) {
+   .about-section .column {
+      width: 100%;
+      display: block;
+   }
+}
+
+body::before {
+   content: "";
+   position: fixed;
+   inset: 0;
+
+   background-image: url("../public/background.jpg");
+   background-size: cover;
+   background-position: center;
+   background-repeat: no-repeat;
+   background-attachment: fixed;
+
+   filter: blur(5px);
+   transform: scale(1.05);
+   /* prevents blurry edges */
+   z-index: -1;
+}

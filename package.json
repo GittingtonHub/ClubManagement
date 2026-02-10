@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@daypilot/daypilot-lite-react": "^5.3.1"
+  }
+}
