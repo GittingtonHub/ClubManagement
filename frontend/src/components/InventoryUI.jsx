@@ -129,6 +129,27 @@ function InventoryUI() {
     }
   };
 
+  
+  const handleDeleteItem = async (itemId) => {
+    if(window.confirm('Are you sure you want to delete this item?')) {
+      try{
+        const response = await fetch(`/api/inventory.php?id=${itemId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+          }
+        });
+        if (response.ok) {
+          setInventory(inventory.filter(item => item.id !== itemId));
+        }else{
+          console.error('Failed to delete item:', response.statusText);
+        }
+      }catch(error){
+        console.error('Failed to delete item:', error);
+      }
+    }
+  };
+
   return (
     <>
       <div className="table-div" id='table-div'>
@@ -140,29 +161,42 @@ function InventoryUI() {
             }}>Add Item</button>
         </div>
 
-        <table className='inventory-table' id='inventory-table'>
-          {/* // TODO: Replace hardcoded data with API call to PHP backend
-          // Should fetch inventory from MySQL via PHP API
-          // Example:
-          // useEffect(() => {
-          //   fetch('/api/inventory.php')
-          //     .then(res => res.json())
-          //     .then(data => setInventory(data));
-          // }, []); */}
-          <tr className="table-header">
-            <th>Item No.</th>
-            <th>Item Name</th>
-            <th>Quantity</th>
-          </tr>
-
-          {inventory.map((item, index) => (
-            <tr className="table-row" key={item.id}>
-              <td className="table-cell-itemno">{index + 1}</td>
-              <td className="table-cell-name">{item.name}</td>
-              <td>{item.quantity}</td>
+        {/*this is just in case the whole inventory gets deleted and there is no items for the table*/}
+        {inventory.length === 0 ? (
+          <p className="no-items-message">No items in inventory. Click "Add Item" to get started.</p>
+        ) : (
+          <table className='inventory-table' id='inventory-table'>
+            {/* // TODO: Replace hardcoded data with API call to PHP backend
+            // Should fetch inventory from MySQL via PHP API
+            // Example:
+            // useEffect(() => {
+            //   fetch('/api/inventory.php')
+            //     .then(res => res.json())
+            //     .then(data => setInventory(data));
+            // }, []); -- done? need to check */}
+            <tr className="table-header">
+              <th>Item No.</th>
+              <th>Item Name</th>
+              <th>Type</th>
+              <th>Price</th>
+              <th>Description</th>
+              <th>Actions</th>
             </tr>
-          ))}
-        </table>
+
+            {inventory.map((item, index) => (
+              <tr className="table-row" key={item.id}>
+                <td className="table-cell-itemno">{index + 1}</td>
+                <td className="table-cell-name">{item.name}</td>
+                <td>{item.type}</td>
+                <td>${item.price ? parseFloat(item.price).toFixed(2): '0.00'}</td>
+                <td>{item.description}</td>
+                <td>
+                  <button className="delete-item-button" onClick={() => handleDeleteItem(item.id)}>Delete</button>
+                </td>
+              </tr>
+            ))}
+          </table>
+        )}  
 
         <Dialog open={isAddItemOpen} onClose={() => {
           setIsAddItemOpen(false);
