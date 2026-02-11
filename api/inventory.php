@@ -4,21 +4,45 @@ header("Access-Control-Allow-Origin: *");
 
 include_once 'api.php';
 
+if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
+    // Get JSON input
+    $id = $_GET['id'] ?? null;
+    if (!$id) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'ID required']);
+        exit;
+    }
+
+    try {
+        $sqlDelete = "DELETE FROM resources WHERE id = :id";
+        $stmt = $conn->prepare($sqlDelete);
+        $stmt->bindParam(':id', $id);
+        $stmt->execute();
+
+        echo json_encode(['success' => true, 'message' => 'Item deleted']);
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+    }
+    // exit after handling DELETE request so it doesnt also run the GET code below
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Get JSON input
     $input = json_decode(file_get_contents('php://input'), true);
-    
+
     $name = $input['name'] ?? null;
     $type = $input['type'] ?? null;
     $price = $input['price'] ?? null;
     $description = $input['description'] ?? null;
-    
+
     if (!$name || !$type || !$price || !$description) {
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'All fields required']);
         exit;
     }
-    
+
     $sqlInsert = "INSERT INTO resources (name, type, price, description) VALUES (:name, :type, :price, :description)";
     $stmt = $conn->prepare($sqlInsert);
     $stmt->bindParam(':name', $name);
@@ -26,9 +50,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->bindParam(':price', $price);
     $stmt->bindParam(':description', $description);
     $stmt->execute();
-    
+
     $newId = $conn->lastInsertId();
-    
+
     echo json_encode([
         'success' => true,
         'item' => [
@@ -45,7 +69,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt = $conn->prepare($query);
     $stmt->execute();
     $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
+
     echo json_encode($data);
 }
-?>
