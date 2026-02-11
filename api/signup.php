@@ -4,11 +4,28 @@ ini_set('display_errors', 1);
 header('Content-Type: application/json');
 
 include_once 'api.php';
+function isValidPassword($password) {
+    // At least 8 characters and at least 1 special character
+    return preg_match('/^(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/', $password);
+}
+
+
 
 // Get JSON input instead of $_POST
 $input = json_decode(file_get_contents('php://input'), true);
 $email = $input["email"] ?? null;
 $password = $input["password"] ?? null;
+if (!isValidPassword($password)) {
+    http_response_code(400);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Password must be at least 8 characters and include a 
+special character.'
+    ]);
+    exit;
+}
+
+
 
 if (!$email || !$password) {
     http_response_code(400);
