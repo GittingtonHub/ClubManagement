@@ -64,7 +64,6 @@ const ReactScheduler = () => {
 
   const onBeforeEventRender = (args) => {
     args.data.borderColor = "darker";
-    // add edit icon to the event
     args.data.areas = [
       {
         right: 5,
@@ -88,6 +87,8 @@ const ReactScheduler = () => {
     const firstDayOfMonth = DayPilot.Date.today().firstDayOfMonth();
 
     const events = [
+      // TODO: load events from the server
+
       {
         id: 1,
         text: "Event 1",
