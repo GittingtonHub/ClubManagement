@@ -4,6 +4,30 @@ header("Access-Control-Allow-Origin: *");
 
 include_once 'api.php';
 
+if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
+    // Get JSON input
+    $id = $_GET['id'] ?? null;
+    if (!$id) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'ID required']);
+        exit;
+    }
+
+    try{
+        $sqlDelete = "DELETE FROM resources WHERE id = :id";
+        $stmt = $conn->prepare($sqlDelete);
+        $stmt->bindParam(':id', $id);
+        $stmt->execute();
+
+        echo json_encode(['success' => true, 'message' => 'Item deleted']);
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+    }
+    // exit after handling DELETE request so it doesnt also run the GET code below
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Get JSON input
     $input = json_decode(file_get_contents('php://input'), true);
