@@ -7,9 +7,9 @@ const ReactScheduler = () => {
   const [events, setEvents] = useState([]);
   const [resources, setResources] = useState([]);
 
-  const [startDate, setStartDate] = useState(DayPilot.Date.today().firstDayOfYear());
-  const [days, setDays] = useState(DayPilot.Date.today().daysInYear());
-  const [theme, setTheme] = useState("light");
+  const [startDate, setStartDate] = useState(DayPilot.Date.today().toDate());
+  const [days, setDays] = useState(DayPilot.Date.today().daysInMonth());
+  const [theme, setTheme] = useState("dark");
 
   const themes = [
     { name: "light", text: "Light" },
@@ -112,7 +112,7 @@ const ReactScheduler = () => {
       { name: "Resource 9", id: "R9"},
     ];
     setResources(resources);
-
+    //TODO: scroll to current day?
     scheduler?.scrollTo(DayPilot.Date.today().firstDayOfMonth());
 
   }, [scheduler]);
@@ -138,10 +138,10 @@ const ReactScheduler = () => {
     </div>
 
       <DayPilotScheduler
-        scale={"Day"}
+        scale={"Hour"} //
         timeHeaders={[
-          {groupBy: "Month"},
-          {groupBy: "Day", format: "d"}
+          {groupBy: "Day"}, //
+          {groupBy: "Hour", format: "H:mm"} // //
         ]}
         startDate={startDate}
         days={days}
