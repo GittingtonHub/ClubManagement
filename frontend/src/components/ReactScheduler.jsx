@@ -120,23 +120,6 @@ const ReactScheduler = () => {
   return (
     <div>
 
-    <div className="toolbar">
-      <label htmlFor="theme">Theme:</label>
-      <select
-        id="theme"
-        value={theme}
-        onChange={(e) => {
-          setTheme(e.target.value);
-        }}
-      >
-        {themes.map((t) => (
-          <option key={t.name} value={t.name}>
-            {t.text}
-          </option>
-        ))}
-      </select>
-    </div>
-
       <DayPilotScheduler
         scale={"Hour"} //
         timeHeaders={[

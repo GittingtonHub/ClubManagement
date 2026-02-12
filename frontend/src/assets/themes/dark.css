@@ -9,7 +9,8 @@ Theme Designer Version: 2025.12.31.41986
   --dp-scheduler-font-family: -apple-system,system-ui,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
   --dp-scheduler-font-size: 13px;
   --dp-scheduler-header-color: #ffffff;
-  --dp-scheduler-header-bg-color: #2e2e1f;
+  /* --dp-scheduler-header-bg-color: #2e2e1f; */
+  --dp-scheduler-header-bg-color: rgba(15, 15, 81, 0.547);
   --dp-scheduler-message-padding: 10px;
   --dp-scheduler-message-bg-color: #ffa216;
   --dp-scheduler-message-color: #ffffff;
@@ -25,8 +26,8 @@ Theme Designer Version: 2025.12.31.41986
   --dp-scheduler-event-bar-top: 0px;
   --dp-scheduler-event-bar-height: 4px;
   --dp-scheduler-event-bar-display: none;
-  --dp-scheduler-cell-bg-color: #5e5e5e;
-  --dp-scheduler-cell-business-bg-color: #6e6e6e;
+  --dp-scheduler-cell-bg-color: #5e5e5ea5;
+  --dp-scheduler-cell-business-bg-color: #898787a5;
   --dp-scheduler-event-vertical-align: center;
   --dp-scheduler-event-horizontal-align: ;
   --dp-scheduler-rowheader-padding: 7px;
