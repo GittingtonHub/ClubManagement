@@ -73,14 +73,8 @@ const onTimeRangeSelected = async (args) => {
     const payload = {
       // 1. Fallback to 1 if localStorage is empty to avoid sending 'null'
       user_id: localStorage.getItem('userId') || 1, 
-      
-      // 2. Use args.resource (we know this has the ID: 2 or 3)
       resource_id: args.resource, 
-      
-      // 3. Use the selectedResource we already found on line 18
       service_type: selectedResource.type, 
-      
-      // 4. Times usually come from the modal if the user edited them
       start_time: modal.result.start.toString(),
       end_time: modal.result.end.toString()
     };
