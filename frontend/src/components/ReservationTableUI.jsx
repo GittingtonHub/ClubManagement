@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 function ReservationTableUI() {
   const [reservations, setReservations] = useState([]);
 
-  useEffect(() => {
-    const fetchReservations = async () => {
+  const fetchReservations = useCallback(async () => {
       try {
         const response = await fetch('/api/reservations.php', {
           headers: {
@@ -24,10 +23,14 @@ function ReservationTableUI() {
         console.error('Failed to fetch reservations:', error);
         setReservations([]);
       }
-    };
-
-    fetchReservations();
   }, []);
+
+  useEffect(() => {
+    fetchReservations();
+    const handleRefresh = () => fetchReservations();
+    window.addEventListener('reservations:changed', handleRefresh);
+    return () => window.removeEventListener('reservations:changed', handleRefresh);
+  }, [fetchReservations]);
 
   const handleDeleteReservation = async (reservationId) => {
     if (window.confirm('Are you sure you want to delete this reservation?')) {
@@ -44,6 +47,7 @@ function ReservationTableUI() {
             const id = reservation.reservation_id ?? reservation.id;
             return id !== reservationId;
           }));
+          window.dispatchEvent(new Event('reservations:changed'));
         } else {
           console.error('Failed to delete reservation:', response.statusText);
         }
