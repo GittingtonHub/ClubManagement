@@ -13,6 +13,7 @@ export const AuthProvider = ({ children }) => {
     if (localStorage.getItem('authToken') != null)
     {
       isCurrently = true;
+          //change
     }
         
   const [user, setUser] = useState(null);

@@ -14,6 +14,7 @@ function Header() {
     } else {
       navigate('/login');
     }
+
   };
 
   return (
