@@ -28,7 +28,7 @@ const router = createBrowserRouter([
       </ProtectedRoute>
     ),
     children: [
-      { path: "/*", element: <Home /> },
+      { path: "/*", element: <Home />},
       { path: "/home", element: <Home /> },
       { path: "/inventory", element: <Inventory /> },
       { path: "/reservations", element: <Reservations /> },

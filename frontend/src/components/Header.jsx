@@ -9,10 +9,12 @@ function Header() {
   const handleAuthClick = () => {
     if (isAuthenticated) {
       logout();
+      localStorage.setItem('isAuthenticated',false)
       navigate('/login');
     } else {
       navigate('/login');
     }
+
   };
 
   return (

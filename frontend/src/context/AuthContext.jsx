@@ -1,30 +1,44 @@
 import { createContext, useContext, useState } from 'react';
 import { useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   // TODO: Replace with actual backend authentication state
   // Should check session/token with PHP backend on mount
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // This is just a bandaid fix for now, should be replaced with a more secure form of persistence
+     let isCurrently = false;
+
+    if (localStorage.getItem('authToken') != null)
+    {
+      isCurrently = true;
+          //change
+    }
+        
   const [user, setUser] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(isCurrently);
+  
 
   const login = (userData) => {
     // TODO: Replace with actual API call to PHP backend
     // Should send credentials to backend and receive token/session
     setIsAuthenticated(true);
-    setUser(userData);
+    setUser(userData); //userdata = to user+pass I believe
+    //console.log(userData)
   };
 
   const logout = async () => {
     try {
       // this is a placeholder for an actual API call to log out
+      // Call CheckSession API and delete current cookie
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
       // Clear client state regardless of API call success
       setIsAuthenticated(false);
       setUser(null);
+      // This part clears the frontend
     }
   };
 
@@ -35,14 +49,18 @@ export const AuthProvider = ({ children }) => {
         const response = await fetch('/api/check-session.php', {
           credentials: 'include' // This sends the PHP session cookie
         });
-        
+        // Check if stored Cookie is equal to stored Cookie
         if (response.ok) {
           const data = await response.json();
           setIsAuthenticated(true);
           setUser(data.user);
         }
-      } catch (error) {
-        setIsAuthenticated(false);
+      } catch (error) { 
+        //console.log(error)
+        setIsAuthenticated(true);
+        //console.log("no longer authenticated")
+        
+
       }
     };
     
