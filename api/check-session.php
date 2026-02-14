@@ -1,12 +1,17 @@
-<?php 
-// check-session.php
+<?php
 session_start();
+header('Content-Type: application/json');
 
-if ($email == $data[$x]['email'] && $id = $data[$x]['id']) 
-{
-  $loginFound = 'true';
-  $_SESSION['user_id'] = $data[$x]['id'];
-  $_SESSION['user'] = ['email' => $email, 'id' => $data[$x]['id']];
-  echo json_encode(['success' => true, 'token' => session_id()]);
+if (isset($_SESSION['user'])) {
+  echo json_encode([
+    'authenticated' => true,
+    'user' => $_SESSION['user']
+  ]);
+  exit;
 }
+
+echo json_encode([
+  'authenticated' => false,
+  'user' => null
+]);
 ?>
