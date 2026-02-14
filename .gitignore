@@ -10,6 +10,7 @@ lerna-debug.log*
 # environment files
 .env
 .env.*
+vite.config.js
 
 # Dependency directories
 node_modules
@@ -29,3 +30,4 @@ composer.*
 *.njsproj
 *.sln
 *.sw?
+frontend/vite.config.js
