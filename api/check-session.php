@@ -2,7 +2,7 @@
 // check-session.php
 session_start();
 
-if ($email == $data[$x]['email'] && password_verify($password,$data[$x]['password'])) 
+if ($email == $data[$x]['email'] && $id = $data[$x]['id']) 
 {
   $loginFound = 'true';
   $_SESSION['user_id'] = $data[$x]['id'];
