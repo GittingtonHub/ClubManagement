@@ -20,31 +20,38 @@ function Header() {
         <h1>Club Management</h1>
 
         <div className="topnav">
-        <NavLink 
-          to="/" 
-          className={({ isActive }) => isActive ? "active" : ""}
-        >
-          Home
-        </NavLink>
-        <NavLink 
-          to="/inventory" 
-          className={({ isActive }) => isActive ? "active" : ""}
-        >
-          Inventory
-        </NavLink>
-        <NavLink 
-          to="/reservations" 
-          className={({ isActive }) => isActive ? "active" : ""}
-        >
-          Reservations
-        </NavLink>
-      </div>
+          <NavLink 
+            to="/" 
+            className={({ isActive }) => isActive ? "active" : ""}
+          >
+            Home
+          </NavLink>
+          
+          <NavLink 
+            to="/inventory" 
+            className={({ isActive }) => isActive ? "active" : ""}
+          >
+            Inventory
+          </NavLink>
+
+          <NavLink 
+            to="/reservations" 
+            className={({ isActive }) => isActive ? "active" : ""}
+          >
+            Reservations
+          </NavLink>
+        </div>
 
         <div className="login">
-        <button onClick={handleAuthClick}>
-          {isAuthenticated ? 'Logout' : 'Login'}
-        </button>
-      </div>
+          <button onClick={handleShowProfile}>
+            {/* {isAuthenticated ? 'Logout' : 'Login'} */}
+            {/* maybe don't make this a wide ol button, just something like a bolded piece of text */}
+          </button>
+
+          <button onClick={handleAuthClick}>
+            {isAuthenticated ? 'Logout' : 'Login'}
+          </button>
+        </div>
         
     </header>
   );

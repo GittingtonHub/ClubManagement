@@ -8,6 +8,7 @@ function Inventory() {
             <ResourcesUI />
             <StaffUI />
             <UsersUI />
+            <ReservationTableUI />
         </>
     );
 }
