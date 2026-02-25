@@ -6,6 +6,10 @@ function Header() {
   const { isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
 
+  const handleShowProfile = () => {
+    navigate('/profile');
+  };
+
   const handleAuthClick = () => {
     if (isAuthenticated) {
       logout();
@@ -44,8 +48,7 @@ function Header() {
 
         <div className="login">
           <button onClick={handleShowProfile}>
-            {/* {isAuthenticated ? 'Logout' : 'Login'} */}
-            {/* maybe don't make this a wide ol button, just something like a bolded piece of text */}
+            Profile
           </button>
 
           <button onClick={handleAuthClick}>
