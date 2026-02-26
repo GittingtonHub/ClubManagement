@@ -10,6 +10,29 @@ function UsersUI() {
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [users, setUsers] = useState([]);
+  const safeUsers = Array.isArray(users) ? users : [];
+
+  const formatMetric = (value) => {
+    if (value === null || value === undefined || value === '') {
+      return 'Pending';
+    }
+    return value;
+  };
+
+  const getRegisteredDays = (createdAt) => {
+    if (!createdAt) {
+      return 'Pending';
+    }
+
+    const createdDate = new Date(createdAt);
+    if (Number.isNaN(createdDate.getTime())) {
+      return 'Pending';
+    }
+
+    const millisecondsPerDay = 1000 * 60 * 60 * 24;
+    const dayDiff = Math.floor((Date.now() - createdDate.getTime()) / millisecondsPerDay);
+    return Math.max(dayDiff, 0);
+  };
 
 
   const validateEmail = (email) => {
@@ -86,7 +109,9 @@ function UsersUI() {
       const data = await response.json();
       
       if (response.ok) {
-        setUsers([...users, data.user]); // Add new user to list
+        setUsers((previousUsers) =>
+          Array.isArray(previousUsers) ? [...previousUsers, data.user] : [data.user]
+        ); // Add new user to list
         setEmail('');
         setPassword('');
         setIsAddUserOpen(false);
@@ -108,16 +133,22 @@ function UsersUI() {
 
         <table className='inventory-table' id='users-table'>
           <tr className="table-header">
-            <th>User No.</th>
-            <th>Email</th>
-            <th>Created At</th>
+            <th>User ID</th>
+            <th>Email Address</th>
+            <th>Registered (Days)</th>
+            <th>Total Reservations</th>
+            <th>Past Reservations</th>
+            <th>Upcoming Reservations</th>
           </tr>
 
-          {users.map((user, index) => (
-            <tr className="table-row" key={user.id}>
-              <td className="table-cell-itemno">{index + 1}</td>
-              <td className="table-cell-name">{user.email}</td>
-              <td>{new Date(user.created_at).toLocaleDateString()}</td>
+          {safeUsers.map((user, index) => (
+            <tr className="table-row" key={user.id ?? index}>
+              <td className="table-cell-itemno">{formatMetric(user.id)}</td>
+              <td className="table-cell-name">{formatMetric(user.email)}</td>
+              <td>{getRegisteredDays(user.created_at)}</td>
+              <td>{formatMetric(user.total_reservations)}</td>
+              <td>{formatMetric(user.past_reservations)}</td>
+              <td>{formatMetric(user.upcoming_reservations)}</td>
             </tr>
           ))}
         </table>

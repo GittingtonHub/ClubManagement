@@ -44,6 +44,13 @@ function Header() {
           >
             Reservations
           </NavLink>
+
+          <NavLink 
+            to="/users" 
+            className={({ isActive }) => isActive ? "active" : ""}
+          >
+            Users
+          </NavLink>
         </div>
 
         <div className="login">
