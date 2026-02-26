@@ -108,7 +108,6 @@ function StaffUI() {
         setStaffRole('');
         setHourlyRate('');
         setIsAddStaffOpen(false);
-        document.getElementById("staff-table-div").style.display = "flex";
       }
     } catch (error) {
       console.error('Failed to add staff:', error);
@@ -122,7 +121,6 @@ function StaffUI() {
         <div className="add-item-button">
             <button onClick={() => {
               setIsAddStaffOpen(true);
-              document.getElementById("staff-table-div").style.display = "none";
             }}>Add Staff</button>
         </div>
 
@@ -146,7 +144,6 @@ function StaffUI() {
 
         <Dialog open={isAddStaffOpen} onClose={() => {
           setIsAddStaffOpen(false);
-          document.getElementById("staff-table-div").style.display = "flex";
         }} className="add-item-dialog">
           <div className="add-item-dialog-backdrop" aria-hidden="true" />
           <div className="add-item-dialog-container">
@@ -218,7 +215,6 @@ function StaffUI() {
                   <button 
                     onClick={() => {
                       setIsAddStaffOpen(false);
-                      document.getElementById("staff-table-div").style.display = "block";
                     }}
                     className="inline"
                   >

@@ -90,7 +90,6 @@ function UsersUI() {
         setEmail('');
         setPassword('');
         setIsAddUserOpen(false);
-        document.getElementById("users-table-div").style.display = "flex";
       }
     } catch (error) {
       console.error('Failed to add user:', error);
@@ -104,7 +103,6 @@ function UsersUI() {
         <div className="add-item-button">
             <button onClick={() => {
               setIsAddUserOpen(true);
-              document.getElementById("users-table-div").style.display = "none";
             }}>Add User</button>
         </div>
 
@@ -126,7 +124,6 @@ function UsersUI() {
 
         <Dialog open={isAddUserOpen} onClose={() => {
           setIsAddUserOpen(false);
-          document.getElementById("users-table-div").style.display = "flex";
         }} className="add-item-dialog">
           <div className="add-item-dialog-backdrop" aria-hidden="true" />
           <div className="add-item-dialog-container">
@@ -178,7 +175,6 @@ function UsersUI() {
                   <button 
                     onClick={() => {
                       setIsAddUserOpen(false);
-                      document.getElementById("users-table-div").style.display = "block";
                     }}
                     className="inline"
                   >
