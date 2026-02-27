@@ -5,7 +5,6 @@ function Reservations() {
     return (
         <>
             <ReactScheduler />
-            <ReservationTableUI />
         </>
     );
 }

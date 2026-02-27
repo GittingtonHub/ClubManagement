@@ -11,11 +11,19 @@
    border-radius: 12px;
 }
 
+.about-section .row {
+   display: flex;
+   flex-wrap: wrap;
+   justify-content: center;
+   gap: 16px;
+}
+
 .about-section .column {
-   float: left;
-   width: 33.3%;
+   float: none;
+   width: 100%;
+   flex: 0 1 280px;
    margin-bottom: 16px;
-   padding: 0 8px;
+   padding: 0;
 }
 
 .about-section .card {
@@ -62,8 +70,8 @@
 
 @media screen and (max-width: 650px) {
    .about-section .column {
-      width: 100%;
-      display: block;
+      flex-basis: 100%;
+      max-width: 100%;
    }
 }
 

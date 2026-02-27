@@ -6,6 +6,10 @@ function Header() {
   const { isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
 
+  const handleShowProfile = () => {
+    navigate('/profile');
+  };
+
   const handleAuthClick = () => {
     if (isAuthenticated) {
       logout();
@@ -22,31 +26,44 @@ function Header() {
         <h1>Club Management</h1>
 
         <div className="topnav">
-        <NavLink 
-          to="/" 
-          className={({ isActive }) => isActive ? "active" : ""}
-        >
-          Home
-        </NavLink>
-        <NavLink 
-          to="/inventory" 
-          className={({ isActive }) => isActive ? "active" : ""}
-        >
-          Inventory
-        </NavLink>
-        <NavLink 
-          to="/reservations" 
-          className={({ isActive }) => isActive ? "active" : ""}
-        >
-          Reservations
-        </NavLink>
-      </div>
+          <NavLink 
+            to="/" 
+            className={({ isActive }) => isActive ? "active" : ""}
+          >
+            Home
+          </NavLink>
+          
+          <NavLink 
+            to="/inventory" 
+            className={({ isActive }) => isActive ? "active" : ""}
+          >
+            Inventory
+          </NavLink>
+
+          <NavLink 
+            to="/reservations" 
+            className={({ isActive }) => isActive ? "active" : ""}
+          >
+            Reservations
+          </NavLink>
+
+          <NavLink 
+            to="/users" 
+            className={({ isActive }) => isActive ? "active" : ""}
+          >
+            Users
+          </NavLink>
+        </div>
 
         <div className="login">
-        <button onClick={handleAuthClick}>
-          {isAuthenticated ? 'Logout' : 'Login'}
-        </button>
-      </div>
+          <button onClick={handleShowProfile}>
+            Profile
+          </button>
+
+          <button onClick={handleAuthClick}>
+            {isAuthenticated ? 'Logout' : 'Login'}
+          </button>
+        </div>
         
     </header>
   );

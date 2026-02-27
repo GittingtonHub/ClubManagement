@@ -1,5 +1,4 @@
-import ProtectedRoute from "./components/ProtectedRoute"
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 
 import Header from "./components/Header"
 import Footer from "./components/Footer"
@@ -8,6 +7,8 @@ import Reservations from "./pages/Reservations"
 import Login from "./pages/Login"
 import Home from "./pages/Home"
 import Inventory from "./pages/Inventory"
+import Profile from "./pages/Profile"
+import Users from "./pages/Users"
 
 function App() {
 
@@ -18,7 +19,9 @@ function App() {
         <Routes>
           <Route path="/inventory" element={<Inventory />} />
           <Route path="/reservations" element={<Reservations />} />
+          <Route path="/profile" element={<Profile />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/users" element={<Users />} />
           <Route path="/*" element={<Home />} />
         </Routes>
 

@@ -2,7 +2,7 @@
 header('Content-Type: application/json');
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
-header("Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS");
+header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 include_once 'api.php'; 
 
 $method = $_SERVER['REQUEST_METHOD'];
@@ -16,9 +16,20 @@ if ($method === 'OPTIONS') {
 if ($method === 'GET') {
     try {
         // Include resource info for scheduler mapping and display
-        $sql = "SELECT r.*, res.name AS resource_name, res.type AS resource_type, res.description AS resource_description
+        $sql = "SELECT r.*, 
+                       res.name AS resource_name, 
+                       res.type AS resource_type, 
+                       res.description AS resource_description,
+                       bs.section_number,
+                       bs.guest_count,
+                       bs.minimum_spend,
+                       tr.event_id,
+                       tr.ticket_tier,
+                       tr.quantity
                 FROM reservations r
                 JOIN resources res ON r.resource_id = res.id
+                LEFT JOIN bottle_service bs ON bs.reservation_id = r.reservation_id
+                LEFT JOIN ticket_reservations tr ON tr.reservation_id = r.reservation_id
                 ORDER BY r.start_time ASC";
         $stmt = $conn->prepare($sql);
         $stmt->execute();
@@ -92,6 +103,7 @@ if ($method === 'POST') {
         ]);
 
         if ($checkStmt->rowCount() > 0) {
+            $conn->rollBack();
             http_response_code(409);
             echo json_encode(['success' => false, 'message' => 'This resource is already reserved during this time.']);
             exit;
@@ -162,7 +174,167 @@ if ($method === 'POST') {
     exit;
 }
 
-// --- 3. DELETE LOGIC (DELETE) ---
+// --- 3. UPDATE LOGIC (PUT) ---
+if ($method === 'PUT') {
+    $input = json_decode(file_get_contents('php://input'), true);
+
+    $reservation_id = $input['reservation_id'] ?? null;
+    $user_id = $input['user_id'] ?? null;
+    $resource_id = $input['resource_id'] ?? null;
+    $service_type = $input['service_type'] ?? null;
+    $status = $input['status'] ?? null;
+    $start_time = $input['start_time'] ?? null;
+    $end_time = $input['end_time'] ?? null;
+    $section_number = $input['section_number'] ?? null;
+    $guest_count = $input['guest_count'] ?? null;
+    $minimum_spend = $input['minimum_spend'] ?? null;
+    $event_id = $input['event_id'] ?? null;
+    $ticket_tier = $input['ticket_tier'] ?? null;
+    $quantity = $input['quantity'] ?? null;
+
+    if (!$reservation_id || !$user_id || !$resource_id || !$start_time || !$end_time || !$status) {
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'message' => 'reservation_id, user_id, resource_id, status, start_time, and end_time are required.'
+        ]);
+        exit;
+    }
+
+    try {
+        $conn->beginTransaction();
+
+        $existsStmt = $conn->prepare("SELECT reservation_id FROM reservations WHERE reservation_id = :reservation_id");
+        $existsStmt->execute([':reservation_id' => $reservation_id]);
+        if (!$existsStmt->fetch(PDO::FETCH_ASSOC)) {
+            $conn->rollBack();
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Reservation not found.']);
+            exit;
+        }
+
+        $resourceStmt = $conn->prepare("SELECT name FROM resources WHERE id = :rid");
+        $resourceStmt->execute([':rid' => $resource_id]);
+        $resource = $resourceStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$resource) {
+            $conn->rollBack();
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Invalid resource_id.']);
+            exit;
+        }
+
+        if (!$service_type) {
+            $service_type = $resource['name'];
+        } elseif ($service_type !== $resource['name']) {
+            $conn->rollBack();
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'service_type must match resource name.']);
+            exit;
+        }
+
+        $checkSql = "SELECT reservation_id
+                     FROM reservations
+                     WHERE resource_id = :rid
+                     AND reservation_id <> :reservation_id
+                     AND status != 'cancelled'
+                     AND NOT (end_time <= :start OR start_time >= :end)";
+        $checkStmt = $conn->prepare($checkSql);
+        $checkStmt->execute([
+            ':rid' => $resource_id,
+            ':reservation_id' => $reservation_id,
+            ':start' => $start_time,
+            ':end' => $end_time
+        ]);
+
+        if ($checkStmt->rowCount() > 0) {
+            $conn->rollBack();
+            http_response_code(409);
+            echo json_encode(['success' => false, 'message' => 'This resource is already reserved during this time.']);
+            exit;
+        }
+
+        $updateSql = "UPDATE reservations
+                      SET user_id = :uid,
+                          resource_id = :rid,
+                          service_type = :service,
+                          status = :status,
+                          start_time = :start,
+                          end_time = :end
+                      WHERE reservation_id = :reservation_id";
+        $updateStmt = $conn->prepare($updateSql);
+        $updateStmt->execute([
+            ':uid' => $user_id,
+            ':rid' => $resource_id,
+            ':service' => $service_type,
+            ':status' => $status,
+            ':start' => $start_time,
+            ':end' => $end_time,
+            ':reservation_id' => $reservation_id
+        ]);
+
+        $resource_name = $resource['name'];
+        if ($resource_name === 'Bottle Service Silver' || $resource_name === 'Bottle Service Gold') {
+            if (!$section_number || !$guest_count || !$minimum_spend) {
+                $conn->rollBack();
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Bottle service requires section_number, guest_count, and minimum_spend.']);
+                exit;
+            }
+            $childSql = "INSERT INTO bottle_service (reservation_id, section_number, guest_count, minimum_spend)
+                         VALUES (:rid, :section, :guests, :min_spend)
+                         ON DUPLICATE KEY UPDATE
+                            section_number = VALUES(section_number),
+                            guest_count = VALUES(guest_count),
+                            minimum_spend = VALUES(minimum_spend)";
+            $childStmt = $conn->prepare($childSql);
+            $childStmt->execute([
+                ':rid' => $reservation_id,
+                ':section' => $section_number,
+                ':guests' => $guest_count,
+                ':min_spend' => $minimum_spend
+            ]);
+
+            $conn->prepare("DELETE FROM ticket_reservations WHERE reservation_id = :rid")
+                 ->execute([':rid' => $reservation_id]);
+        } elseif ($resource_name === 'Event Ticket GA' || $resource_name === 'Event Ticket VIP') {
+            if (!$event_id || !$ticket_tier || !$quantity) {
+                $conn->rollBack();
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Event ticket requires event_id, ticket_tier, and quantity.']);
+                exit;
+            }
+            $childSql = "INSERT INTO ticket_reservations (reservation_id, event_id, ticket_tier, quantity)
+                         VALUES (:rid, :event_id, :tier, :qty)
+                         ON DUPLICATE KEY UPDATE
+                            event_id = VALUES(event_id),
+                            ticket_tier = VALUES(ticket_tier),
+                            quantity = VALUES(quantity)";
+            $childStmt = $conn->prepare($childSql);
+            $childStmt->execute([
+                ':rid' => $reservation_id,
+                ':event_id' => $event_id,
+                ':tier' => $ticket_tier,
+                ':qty' => $quantity
+            ]);
+
+            $conn->prepare("DELETE FROM bottle_service WHERE reservation_id = :rid")
+                 ->execute([':rid' => $reservation_id]);
+        }
+
+        $conn->commit();
+
+        echo json_encode(['success' => true, 'message' => 'Reservation updated successfully.']);
+    } catch (PDOException $e) {
+        if ($conn->inTransaction()) {
+            $conn->rollBack();
+        }
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// --- 4. DELETE LOGIC (DELETE) ---
 if ($method === 'DELETE') {
     $reservation_id = $_GET['id'] ?? null;
 
