@@ -44,6 +44,20 @@ if ($method === 'POST') {
     $start_time = $input['start_time'] ?? null;
     $end_time = $input['end_time'] ?? null;
 
+
+// --- NUMERIC VALIDATION ---
+if (isset($input['quantity']) && $input['quantity'] < 0) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'Quantity cannot be negative.']);
+    exit;
+}
+
+if (isset($input['minimum_spend']) && $input['minimum_spend'] < 0) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'Minimum spend cannot be negative.']);
+    exit;
+}
+
     // Updated Validation: Added $resource_id to the check
     if (!$user_id || !$resource_id || !$service_type || !$start_time || !$end_time) {
         http_response_code(400);
