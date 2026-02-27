@@ -3,6 +3,9 @@ header('Content-Type: application/json');
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+
+session_start();
+
 include_once 'api.php'; 
 
 $method = $_SERVER['REQUEST_METHOD'];
@@ -38,7 +41,14 @@ if ($method === 'GET') {
 if ($method === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true);
 
-    $user_id = $input['user_id'] ?? null;
+if (!isset($_SESSION['user_id'])) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'message' => 'You must be logged in to make a reservation.']);
+    exit;
+}
+
+$user_id = $_SESSION['user_id'];
+
     $resource_id = $input['resource_id'] ?? null; // Added this
     $service_type = $input['service_type'] ?? null;
     $start_time = $input['start_time'] ?? null;
