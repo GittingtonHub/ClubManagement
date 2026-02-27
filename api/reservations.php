@@ -16,7 +16,13 @@ if ($method === 'OPTIONS') {
 if ($method === 'GET') {
     try {
         // Including resource_id so the Scheduler knows which row to draw the event in
-        $sql = "SELECT * FROM reservations ORDER BY start_time ASC";
+        $sql = "
+            SELECT r.*, u.email
+            FROM reservations r
+            JOIN users u ON r.user_id = u.id
+            WHERE r.end_time >= NOW()
+            ORDER BY r.start_time ASC
+        ";
         $stmt = $conn->prepare($sql);
         $stmt->execute();
         $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
