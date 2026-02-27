@@ -1,6 +1,5 @@
 import ResourcesUI from "../components/ResourcesUI";
 import StaffUI from "../components/StaffUI";
-import UsersUI from "../components/UsersUI";
 import ReservationTableUI from "../components/ReservationTableUI";
 
 function Inventory() {
@@ -8,7 +7,6 @@ function Inventory() {
         <>
             <ResourcesUI />
             <StaffUI />
-            <UsersUI />
             <ReservationTableUI />
         </>
     );

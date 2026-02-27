@@ -72,21 +72,6 @@ const onTimeRangeSelected = async (args) => {
     const ticketTier = selectedResource?.name === "Event Ticket VIP" ? "VIP" : "GA";
     const minimumSpend = selectedResource?.name === "Bottle Service Gold" ? 1000 : 600;
 
-    const modal = await DayPilot.Modal.form(buildReservationForm(selectedResource), {
-      start: args.start,
-      end: args.end,
-      resource: args.resource, 
-      text: "New Event",
-      resource_description: selectedResource?.description || "",
-      ticket_tier: ticketTier,
-      minimum_spend: minimumSpend
-    });
-
-    if (modal.canceled) return;
-
-    // This tells the frontend to stop highlighting the cells
-    scheduler.clearSelection();
-
     console.log("DayPilot clicked ID:", args.resource);
     console.log("Current Resources State:", resources);
 
@@ -99,57 +84,79 @@ const onTimeRangeSelected = async (args) => {
       return; 
     }
 
-    const payload = {
-      // 1. Fallback to 1 if localStorage is empty to avoid sending 'null'
-      user_id: localStorage.getItem('userId') || 1, 
-      
-      // 2. Use args.resource (we know this has the ID: 2 or 3)
-      resource_id: args.resource, 
-      
-      // 3. Use the resource name (service_type matches resource name)
-      service_type: selectedResource.name,
-      
-      // 4. Times usually come from the modal if the user edited them
-      start_time: modal.result.start.toString(),
-      end_time: modal.result.end.toString()
+    // Stop highlighting selected cells behind the dialog
+    scheduler.clearSelection();
+
+    const toApiDateTime = (value) => (value && typeof value.toString === "function" ? value.toString() : value);
+    let modalData = {
+      start: args.start,
+      end: args.end,
+      resource: args.resource,
+      text: "New Event",
+      resource_description: selectedResource.description || "",
+      ticket_tier: ticketTier,
+      minimum_spend: minimumSpend
     };
 
-    if (selectedResource.name === "Bottle Service Silver" || selectedResource.name === "Bottle Service Gold") {
-      payload.section_number = modal.result.section_number;
-      payload.guest_count = modal.result.guest_count;
-      payload.minimum_spend = modal.result.minimum_spend;
-      if (!payload.section_number || !payload.guest_count || !payload.minimum_spend) {
-        alert("Please fill out section number, guest count, and minimum spend.");
-        return;
+    while (true) {
+      const modal = await DayPilot.Modal.form(buildReservationForm(selectedResource), modalData);
+      if (modal.canceled) return;
+      modalData = { ...modalData, ...modal.result };
+
+      const payload = {
+        user_id: localStorage.getItem('userId') || 1,
+        resource_id: args.resource,
+        service_type: selectedResource.name,
+        start_time: toApiDateTime(modalData.start),
+        end_time: toApiDateTime(modalData.end)
+      };
+
+      if (selectedResource.name === "Bottle Service Silver" || selectedResource.name === "Bottle Service Gold") {
+        payload.section_number = modalData.section_number;
+        payload.guest_count = modalData.guest_count;
+        payload.minimum_spend = modalData.minimum_spend;
+        if (!payload.section_number || !payload.guest_count || !payload.minimum_spend) {
+          alert("Please fill out section number, guest count, and minimum spend.");
+          continue;
+        }
       }
-    }
 
-    if (selectedResource.name === "Event Ticket GA" || selectedResource.name === "Event Ticket VIP") {
-      payload.event_id = modal.result.event_id;
-      payload.ticket_tier = modal.result.ticket_tier;
-      payload.quantity = modal.result.quantity;
-      if (!payload.event_id || !payload.ticket_tier || !payload.quantity) {
-        alert("Please fill out event ID and quantity.");
-        return;
+      if (selectedResource.name === "Event Ticket GA" || selectedResource.name === "Event Ticket VIP") {
+        payload.event_id = modalData.event_id;
+        payload.ticket_tier = modalData.ticket_tier;
+        payload.quantity = modalData.quantity;
+        if (!payload.event_id || !payload.ticket_tier || !payload.quantity) {
+          alert("Please fill out event ID and quantity.");
+          continue;
+        }
       }
-    }
 
-    const response = await fetch('/api/reservations.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+      try {
+        const response = await fetch('/api/reservations.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
 
-    if (response.ok) {
-        await loadData();
-        window.dispatchEvent(new Event('reservations:changed'));
-    } else {
-        // 1. Get the JSON error from the response
-        const errorData = await response.json(); 
-        
-        // 2. Show the specific message (e.g., "User already has a reservation...")
-        console.error("Database save failed:", errorData.message);
-        alert(errorData.message || "Could not save reservation.");
+        if (response.ok) {
+          await loadData();
+          window.dispatchEvent(new Event('reservations:changed'));
+          return;
+        }
+
+        let message = "Could not save reservation.";
+        try {
+          const errorData = await response.json();
+          message = errorData.message || message;
+          console.error("Database save failed:", errorData.message);
+        } catch {
+          // keep fallback message if response is not JSON
+        }
+        alert(message);
+      } catch (error) {
+        console.error("Failed to save reservation:", error);
+        alert("Could not save reservation.");
+      }
     }
   };
   const onBeforeEventRender = (args) => {

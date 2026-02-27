@@ -142,6 +142,42 @@ th, td {
   border: 1px solid black; /* Adds a solid, 1px black border to all elements */
 }
 
+.reservation-actions-cell, .delete-item-button {
+  text-align: center;
+}
+
+.reservation-actions-buttons, .delete-item-button {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+.reservation-actions-buttons button, .delete-item-button button {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.edit-item-button {
+  background-color: #0a66c2;
+  color: white;
+}
+
+.edit-item-button:hover {
+  background-color: #084f97;
+}
+
+.delete-item-button {
+  background-color: #c62828;
+  color: white;
+}
+
+.delete-item-button:hover {
+  background-color: #9d1f1f;
+}
+
 .add-item-button button{
 
   background: rgba(255, 255, 255, 0.2);
