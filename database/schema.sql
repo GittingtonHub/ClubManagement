@@ -40,15 +40,16 @@ CREATE TABLE bottle_service (
   reservation_id INT PRIMARY KEY,
   section_number INT NOT NULL,
   guest_count INT NOT NULL,
-  minimum_spend DECIMAL(8,2) NOT NULL,
+  minimum_spend DECIMAL(8,2) NOT NULL CHECK (minimum_spend >= 0),
   FOREIGN KEY (reservation_id) REFERENCES reservations(reservation_id)
+  
 );
 
 CREATE TABLE ticket_reservations (
   reservation_id INT PRIMARY KEY,
   event_id INT NOT NULL,
   ticket_tier VARCHAR(50),
-  quantity INT NOT NULL,
+  quantity INT NOT NULL CHECK (quantity >= 0),
   FOREIGN KEY (reservation_id) REFERENCES reservations(reservation_id)
 );
 
