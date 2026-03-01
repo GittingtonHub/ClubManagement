@@ -1,6 +1,8 @@
 import ProtectedRoute from "./components/ProtectedRoute"
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
+import Profile from "./pages/Profile"
+
 import Header from "./components/Header"
 import Footer from "./components/Footer"
 
@@ -18,6 +20,14 @@ function App() {
         <Routes>
           <Route path="/inventory" element={<Inventory />} />
           <Route path="/reservations" element={<Reservations />} />
+          <Route 
+              path="/profile" 
+              element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              } 
+          />
           <Route path="/login" element={<Login />} />
           <Route path="/*" element={<Home />} />
         </Routes>

@@ -42,12 +42,19 @@ $existingUser = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$existingUser)
 {
-    $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-    $query = "INSERT INTO users (email, password_hash) VALUES (:email, :password_hash)";
-    $stmt = $conn->prepare($query);
-    $stmt->bindParam(':email', $email);
-    $stmt->bindParam(':password_hash', $passwordHash);
-    $stmt->execute();
+$passwordHash = password_hash($password, PASSWORD_DEFAULT);
+
+// Generate username from email (before @)
+$username = explode('@', $email)[0];
+
+$query = "INSERT INTO users (email, username, password_hash, privilege) 
+          VALUES (:email, :username, :password_hash, 'user')";
+
+$stmt = $conn->prepare($query);
+$stmt->bindParam(':email', $email);
+$stmt->bindParam(':username', $username);
+$stmt->bindParam(':password_hash', $passwordHash);
+$stmt->execute();
     
     echo json_encode(['success' => true]);
 }

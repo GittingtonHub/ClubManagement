@@ -28,12 +28,14 @@ CREATE TABLE resources (
 CREATE TABLE reservations (
   reservation_id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL,
+  resource_id INT NOT NULL,
   service_type ENUM('bottle_service','event_ticket','bar') NOT NULL,
   status ENUM('pending','confirmed','cancelled') DEFAULT 'pending',
   start_time DATETIME NOT NULL,
   end_time DATETIME NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id)
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (resource_id) REFERENCES resources(id)
 );
 
 CREATE TABLE bottle_service (

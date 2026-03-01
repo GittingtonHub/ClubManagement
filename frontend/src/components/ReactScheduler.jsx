@@ -18,13 +18,13 @@ const ReactScheduler = () => {
 
   const colors = [
     { name: "(default)", id: null },
-    { name: "Blue",    id: "#6fa8dc" },
-    { name: "Green",   id: "#93c47d" },
-    { name: "Yellow",  id: "#ffd966" },
-    { name: "Red",     id: "#f6b26b" }
+    { name: "Blue", id: "#6fa8dc" },
+    { name: "Green", id: "#93c47d" },
+    { name: "Yellow", id: "#ffd966" },
+    { name: "Red", id: "#f6b26b" }
   ];
 
-  const eventEditForm =  [
+  const eventEditForm = [
     { name: "Text", id: "text" },
     { name: "Start", id: "start", type: "datetime", disabled: true },
     { name: "End", id: "end", type: "datetime", disabled: true },
@@ -34,74 +34,75 @@ const ReactScheduler = () => {
 
   const editEvent = async (e) => {
     const modal = await DayPilot.Modal.form(eventEditForm, e.data);
-    if (modal.canceled) {
-      return;
-    }
-
+    if (modal.canceled) return;
     scheduler.events.update(modal.result);
   };
 
-const onTimeRangeSelected = async (args) => {
+  const onTimeRangeSelected = async (args) => {
+    const userId = localStorage.getItem('userId');
+
+    if (!userId) {
+      alert("You must be logged in to make a reservation.");
+      scheduler.clearSelection();
+      return;
+    }
+
     const modal = await DayPilot.Modal.form(eventEditForm, {
       start: args.start,
       end: args.end,
-      resource: args.resource, 
+      resource: args.resource,
       text: "New Event"
     });
 
-    if (modal.canceled) return;
+    if (modal.canceled) {
+      scheduler.clearSelection();
+      return;
+    }
 
-    // This tells the frontend to stop highlighting the cells
     scheduler.clearSelection();
 
-    console.log("DayPilot clicked ID:", args.resource);
-    console.log("Current Resources State:", resources);
+    const selectedResource = resources.find(
+      r => String(r.id) === String(args.resource)
+    );
 
-    const selectedResource = resources.find(r => String(r.id) === String(args.resource));
-  
-    // DEBUG: If this logs 'undefined', the mapping in loadData is the problem
-    console.log("Found Resource:", selectedResource);
-
-
-    // 2. STRIKE SYSTEM: If we don't have the type, do NOT proceed.
     if (!selectedResource || !selectedResource.type) {
-      console.error("Resource Type Missing for ID:", args.resource);
-      alert("Error: Resource data not loaded properly. Cannot save.");
-      return; 
+      alert("Resource data not loaded properly.");
+      return;
     }
 
     const payload = {
-      // 1. Fallback to 1 if localStorage is empty to avoid sending 'null'
-      user_id: localStorage.getItem('userId') || 1, 
-      
-      // 2. Use args.resource (we know this has the ID: 2 or 3)
-      resource_id: args.resource, 
-      
-      // 3. Use the selectedResource we already found on line 18
-      service_type: selectedResource.type, 
-      
-      // 4. Times usually come from the modal if the user edited them
+      user_id: userId,
+      resource_id: args.resource,
+      service_type: selectedResource.type,
       start_time: modal.result.start.toString(),
       end_time: modal.result.end.toString()
     };
 
-    const response = await fetch('/api/reservations.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+    try {
+      const response = await fetch('/api/reservations.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
 
-    if (response.ok) {
-        scheduler.events.add(modal.result);
-    } else {
-        // 1. Get the JSON error from the response
-        const errorData = await response.json(); 
-        
-        // 2. Show the specific message (e.g., "User already has a reservation...")
-        console.error("Database save failed:", errorData.message);
+      if (response.ok) {
+        scheduler.events.add({
+          id: DayPilot.guid(),
+          text: selectedResource.name,
+          start: payload.start_time,
+          end: payload.end_time,
+          resource: payload.resource_id
+        });
+      } else {
+        const errorData = await response.json();
         alert(errorData.message || "Could not save reservation.");
+      }
+    } catch (error) {
+      console.error("Reservation save failed:", error);
+      alert("Server error while saving reservation.");
     }
   };
+
   const onBeforeEventRender = (args) => {
     args.data.borderColor = "darker";
     args.data.areas = [
@@ -122,41 +123,36 @@ const onTimeRangeSelected = async (args) => {
     ];
   };
 
-useEffect(() => {
+  useEffect(() => {
     if (!scheduler) return;
 
     const loadData = async () => {
       try {
-        // load events from the server
-        const eventsResponse = await fetch('/api/reservations.php', {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
-        });
+        const eventsResponse = await fetch('/api/reservations.php');
         const eventsData = await eventsResponse.json();
-        
-        // Mapping your DB fields to DayPilot fields
+
         const formattedEvents = eventsData.map(e => ({
           id: e.reservation_id,
-          text: e.service_type.replace('_', ' '), 
+          text: e.service_type.replace('_', ' '),
           start: e.start_time,
           end: e.end_time,
-          // CHANGE THIS: It must match the ID from your inventory table (e.g., 1, 2, or 3)
-          resource: e.resource_id, 
+          resource: e.resource_id,
           status: e.status
         }));
+
         setEvents(formattedEvents);
 
-        //load resources from the server
         const resourcesResponse = await fetch('/api/inventory.php');
         const resourcesData = await resourcesResponse.json();
-        
+
         const formattedResources = resourcesData.map(r => ({
           name: r.name,
           id: r.id,
           type: r.type
         }));
+
         setResources(formattedResources);
 
-        //scroll to current day?
         scheduler.scrollTo(DayPilot.Date.today());
 
       } catch (error) {
@@ -169,12 +165,11 @@ useEffect(() => {
 
   return (
     <div>
-
       <DayPilotScheduler
-        scale={"Hour"} //
+        scale={"Hour"}
         timeHeaders={[
-          {groupBy: "Day"}, //
-          {groupBy: "Hour", format: "H:mm"} // //
+          { groupBy: "Day" },
+          { groupBy: "Hour", format: "H:mm" }
         ]}
         startDate={startDate}
         days={days}
@@ -189,5 +184,6 @@ useEffect(() => {
       />
     </div>
   );
-}
+};
+
 export default ReactScheduler;
