@@ -2,8 +2,10 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate, NavLink } from 'react-router-dom';
 
 function Header() {
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated,user, logout } = useAuth();
   const navigate = useNavigate();
+
+  const username = user?.username || "";
 
   const handleShowProfile = () => {
     navigate('/profile');
