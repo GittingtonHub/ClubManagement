@@ -1,15 +1,18 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import react from '@vitejs/plugin-react';
 
-export default defineConfig({
+export default {
   plugins: [react()],
   server: {
     proxy: {
-      "/api": {
-        target: "http://localhost:80",
+      '/api': {
+        // We point this to the parent folder now
+        target: 'http://localhost/ClubManagement', 
         changeOrigin: true,
-        secure: false
-      }
-    }
-  }
-});
+        secure: false,
+        // Notice we COMPLETELY removed the 'rewrite' line!
+        // Now, fetch('/api/login.php') automatically translates to:
+        // http://localhost/ClubManagement/api/login.php
+      },
+    },
+  },
+};
