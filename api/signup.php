@@ -42,16 +42,21 @@ $stmt->bindParam(':email', $email);
 $stmt->execute();
 $existingUser = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$existingUser) {
-    $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-    
-    // I added "privilege" explicitly here so it always defaults to 'user'. 
-    // Now you don't have to worry about anyone sneaking in as an admin!
-    $query = "INSERT INTO users (email, password_hash, privilege) VALUES (:email, :password_hash, 'user')";
-    $stmt = $conn->prepare($query);
-    $stmt->bindParam(':email', $email);
-    $stmt->bindParam(':password_hash', $passwordHash);
-    $stmt->execute();
+if (!$existingUser)
+{
+$passwordHash = password_hash($password, PASSWORD_DEFAULT);
+
+// Generate username from email (before @)
+$username = explode('@', $email)[0];
+
+$query = "INSERT INTO users (email, username, password_hash, privilege) 
+          VALUES (:email, :username, :password_hash, 'user')";
+
+$stmt = $conn->prepare($query);
+$stmt->bindParam(':email', $email);
+$stmt->bindParam(':username', $username);
+$stmt->bindParam(':password_hash', $passwordHash);
+$stmt->execute();
     
     echo json_encode(['success' => true]);
 } else {

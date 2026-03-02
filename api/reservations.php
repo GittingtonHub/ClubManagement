@@ -13,7 +13,9 @@ if ($method === 'OPTIONS') {
     exit;
 }
 
-// --- 1. VIEW LOGIC (GET) ---
+// =============================
+// 1. VIEW LOGIC (GET)
+// =============================
 if ($method === 'GET') {
     try {
         // Include resource info for scheduler mapping and display
@@ -35,17 +37,23 @@ if ($method === 'GET') {
         $stmt = $conn->prepare($sql);
         $stmt->execute();
         $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
         echo json_encode($data);
+
     } catch (PDOException $e) {
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Query failed: ' . $e->getMessage()]);
+        echo json_encode([
+            'success' => false, 
+            'message' => 'Unable to retrieve reservations.'
+        ]);
     }
     exit;
 }
 
-// --- 2. SUBMIT & VALIDATION LOGIC (POST) ---
+// =============================
+// 2. CREATE RESERVATION (POST)
+// =============================
 if ($method === 'POST') {
-    $input = json_decode(file_get_contents('php://input'), true);
 
     if (isset($_SESSION['user']) && $_SESSION['user']['role'] === 'admin') {
         $user_id = $input['user_id'] ?? $_SESSION['user_id']; 
@@ -68,8 +76,7 @@ if ($method === 'POST') {
         http_response_code(400);
         echo json_encode([
             'success' => false, 
-            'message' => 'All fields are required (including resource_id).',
-            'debug_received' => $input // This helps you see exactly what reached the server
+            'message' => 'You must be logged in to make a reservation.'
         ]);
         exit;
     }
@@ -110,7 +117,10 @@ if ($method === 'POST') {
         if ($checkStmt->rowCount() > 0) {
             $conn->rollBack();
             http_response_code(409);
-            echo json_encode(['success' => false, 'message' => 'This resource is already reserved during this time.']);
+            echo json_encode([
+                'success' => false,
+                'message' => 'This resource is already reserved during that time.'
+            ]);
             exit;
         }
 
@@ -174,15 +184,22 @@ if ($method === 'POST') {
         $conn->commit();
 
         http_response_code(201);
-        echo json_encode(['success' => true, 'message' => 'Reservation submitted successfully!']);
+        echo json_encode([
+            'success' => true,
+            'message' => 'Reservation submitted successfully.'
+        ]);
 
     } catch (PDOException $e) {
         if ($conn->inTransaction()) {
             $conn->rollBack();
         }
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Unable to save reservation.'
+        ]);
     }
+
     exit;
 }
 
