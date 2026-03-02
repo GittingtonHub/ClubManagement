@@ -21,8 +21,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 
         echo json_encode(['success' => true, 'message' => 'Item deleted']);
     } catch (PDOException $e) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+        $FOREIGN_KEY_VIOLATION = '23000';
+        if ($e->getCode() == $FOREIGN_KEY_VIOLATION) {
+            http_response_code(409); // 409 Conflict
+            echo json_encode(['success' => false, 'message' => 'Cannot delete this resource because it has active reservations.']);
+        } else {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+        }
     }
     // exit after handling DELETE request so it doesnt also run the GET code below
     exit;
@@ -37,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $price = $input['price'] ?? null;
     $description = $input['description'] ?? null;
 
-    if (!$name || !$type || !$price || !$description) {
+    if (!$name || !$type || $price === null || $price === "" || !$description) {
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'All fields required']);
         exit;
