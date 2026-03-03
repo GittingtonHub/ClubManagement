@@ -1,6 +1,7 @@
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { useState } from 'react';
 import { useEffect } from 'react';
+import { AuthProvider } from '../context/AuthContext';
 
 
 function ResourcesUI() {
@@ -97,6 +98,7 @@ function ResourcesUI() {
     if (!isNameValid || !isTypeValid || !isPriceValid || !isDescValid) {
       return;
     }
+ 
     
     try {
       const response = await fetch('/api/inventory.php', {

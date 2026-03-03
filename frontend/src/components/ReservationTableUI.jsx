@@ -88,6 +88,8 @@ function ReservationTableUI() {
                     <button
                       className="delete-item-button"
                       onClick={() => handleDeleteReservation(reservationId)}
+                      // if user = normal do cancel reservation instead, whatever that means
+                      // also change v delete to cancel if that's the case
                     >
                       Delete
                     </button>

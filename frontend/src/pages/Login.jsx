@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 
 
+
 function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -72,6 +73,12 @@ function Login() {
       setSignupPasswordError('Password must contain uppercase, lowercase, and number');
       return false;
     }
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+/.test(password))
+    {
+      setSignupPasswordError("Password must contain atleast one special character");
+      return false
+    }
+    console.log("all good!")
     setSignupPasswordError('');
     return true;
   };

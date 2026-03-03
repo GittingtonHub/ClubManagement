@@ -49,13 +49,25 @@ if ($method === 'POST') {
         exit;
     }
 
+    $timestampStart = strtotime($start_time);
+    $timestampEnd = strtotime($end_time);
+    if ($timestampStart >= $timestampEnd)
+    {
+    
+        echo json_encode(['success' => false, 'message' => 'you messed up... ' . $start_time]);
+        exit;
+    }
+
     // Validation: Valid Service Type (Matches your ENUM)
     $valid_services = ['bottle_service', 'event_ticket', 'bar'];
     if (!in_array($service_type, $valid_services)) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Invalid service type selected: ' . $service_type]);
+       echo json_encode(['success' => false, 'message' => 'Invalid service type selected: ' . $service_type]);
+       
         exit;
     }
+
+    
 
     try {
         // --- CONFLICT CHECK ---

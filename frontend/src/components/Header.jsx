@@ -10,6 +10,7 @@ function Header() {
     if (isAuthenticated) {
       logout();
       localStorage.setItem('isAuthenticated',false)
+      localStorage.setItem('authToken', 'loggedOut')
       navigate('/login');
     } else {
       navigate('/login');

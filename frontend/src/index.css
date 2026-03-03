@@ -244,6 +244,14 @@ th, td {
   overflow-y: auto;
 }
 
+
+.grid
+{
+  display: grid;
+  grid-template-columns: 50% 50%;
+}
+
+
 .signup-dialog-panel input, .add-item-dialog-panel input{
   width: 100%;
   padding: 10px;
