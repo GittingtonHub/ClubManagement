@@ -1,4 +1,5 @@
 <?php
+session_start();
 header('Content-Type: application/json');
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
@@ -12,7 +13,9 @@ if ($method === 'OPTIONS') {
     exit;
 }
 
-// --- 1. VIEW LOGIC (GET) ---
+// =============================
+// 1. VIEW LOGIC (GET)
+// =============================
 if ($method === 'GET') {
     try {
         // Include resource info for scheduler mapping and display
@@ -34,19 +37,29 @@ if ($method === 'GET') {
         $stmt = $conn->prepare($sql);
         $stmt->execute();
         $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
         echo json_encode($data);
+
     } catch (PDOException $e) {
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Query failed: ' . $e->getMessage()]);
+        echo json_encode([
+            'success' => false, 
+            'message' => 'Unable to retrieve reservations.'
+        ]);
     }
     exit;
 }
 
-// --- 2. SUBMIT & VALIDATION LOGIC (POST) ---
+// =============================
+// 2. CREATE RESERVATION (POST)
+// =============================
 if ($method === 'POST') {
-    $input = json_decode(file_get_contents('php://input'), true);
 
-    $user_id = $input['user_id'] ?? null;
+    if (isset($_SESSION['user']) && $_SESSION['user']['role'] === 'admin') {
+        $user_id = $input['user_id'] ?? $_SESSION['user_id']; 
+    } else {
+        $user_id = $_SESSION['user_id'] ?? null; 
+    }
     $resource_id = $input['resource_id'] ?? null; // Added this
     $service_type = $input['service_type'] ?? null;
     $start_time = $input['start_time'] ?? null;
@@ -63,14 +76,13 @@ if ($method === 'POST') {
         http_response_code(400);
         echo json_encode([
             'success' => false, 
-            'message' => 'All fields are required (including resource_id).',
-            'debug_received' => $input // This helps you see exactly what reached the server
+            'message' => 'You must be logged in to make a reservation.'
         ]);
         exit;
     }
 
     // Ensure resource exists and service_type (if provided) matches resource name
-    $resourceStmt = $conn->prepare("SELECT name FROM resources WHERE id = :rid");
+    $resourceStmt = $conn->prepare("SELECT name, type, price FROM resources WHERE id = :rid");
     $resourceStmt->execute([':rid' => $resource_id]);
     $resource = $resourceStmt->fetch(PDO::FETCH_ASSOC);
     if (!$resource) {
@@ -105,23 +117,33 @@ if ($method === 'POST') {
         if ($checkStmt->rowCount() > 0) {
             $conn->rollBack();
             http_response_code(409);
-            echo json_encode(['success' => false, 'message' => 'This resource is already reserved during this time.']);
+            echo json_encode([
+                'success' => false,
+                'message' => 'This resource is already reserved during that time.'
+            ]);
             exit;
         }
 
-        // --- INSERT ---
         // Added resource_id to the insert query
-        $insertSql = "INSERT INTO reservations (user_id, resource_id, service_type, start_time, end_time) 
-                      VALUES (:uid, :rid, :service, :start, :end)";
-        $insertStmt = $conn->prepare($insertSql);
-        $insertStmt->execute([
-            ':uid' => $user_id,
-            ':rid' => $resource_id,
-            ':service' => $service_type,
-            ':start' => $start_time,
-            ':end' => $end_time
-        ]);
-
+        $resource_Type = $resource['type'];
+        if ($resource_Type === 'Bottle Service') {
+            
+            // Your existing required fields check
+            if (!$section_number || !$guest_count || !$minimum_spend) {
+                $conn->rollBack();
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Bottle service requires section_number, guest_count, and minimum_spend.']);
+                exit;
+            }
+            // minimum spend validation based on resource type price
+            $required_minimum = $resource['price'];
+            if ($minimum_spend < $required_minimum) {
+                $conn->rollBack();
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => "The minimum spend for $resource_name is $$required_minimum."]);
+                exit;
+            }
+        }
         $reservation_id = $conn->lastInsertId();
 
         $resource_name = $resource['name'];
@@ -162,15 +184,22 @@ if ($method === 'POST') {
         $conn->commit();
 
         http_response_code(201);
-        echo json_encode(['success' => true, 'message' => 'Reservation submitted successfully!']);
+        echo json_encode([
+            'success' => true,
+            'message' => 'Reservation submitted successfully.'
+        ]);
 
     } catch (PDOException $e) {
         if ($conn->inTransaction()) {
             $conn->rollBack();
         }
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Unable to save reservation.'
+        ]);
     }
+
     exit;
 }
 
@@ -179,7 +208,11 @@ if ($method === 'PUT') {
     $input = json_decode(file_get_contents('php://input'), true);
 
     $reservation_id = $input['reservation_id'] ?? null;
-    $user_id = $input['user_id'] ?? null;
+    if (isset($_SESSION['user']) && $_SESSION['user']['role'] === 'admin') {
+        $user_id = $input['user_id'] ?? $_SESSION['user_id']; 
+    } else {
+        $user_id = $_SESSION['user_id'] ?? null; 
+    }
     $resource_id = $input['resource_id'] ?? null;
     $service_type = $input['service_type'] ?? null;
     $status = $input['status'] ?? null;
@@ -272,28 +305,23 @@ if ($method === 'PUT') {
             ':reservation_id' => $reservation_id
         ]);
 
-        $resource_name = $resource['name'];
-        if ($resource_name === 'Bottle Service Silver' || $resource_name === 'Bottle Service Gold') {
+        $resource_Type = $resource['type'];
+        if ($resource_Type === 'Bottle Service') {
             if (!$section_number || !$guest_count || !$minimum_spend) {
                 $conn->rollBack();
                 http_response_code(400);
                 echo json_encode(['success' => false, 'message' => 'Bottle service requires section_number, guest_count, and minimum_spend.']);
                 exit;
             }
-            $childSql = "INSERT INTO bottle_service (reservation_id, section_number, guest_count, minimum_spend)
-                         VALUES (:rid, :section, :guests, :min_spend)
-                         ON DUPLICATE KEY UPDATE
-                            section_number = VALUES(section_number),
-                            guest_count = VALUES(guest_count),
-                            minimum_spend = VALUES(minimum_spend)";
-            $childStmt = $conn->prepare($childSql);
-            $childStmt->execute([
-                ':rid' => $reservation_id,
-                ':section' => $section_number,
-                ':guests' => $guest_count,
-                ':min_spend' => $minimum_spend
-            ]);
 
+            $required_minimum = $resource['price']; 
+            
+            if ($minimum_spend < $required_minimum) {
+                $conn->rollBack();
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => "The minimum spend for " . $resource['name'] . " is $" . $required_minimum . "."]);
+                exit;
+            }
             $conn->prepare("DELETE FROM ticket_reservations WHERE reservation_id = :rid")
                  ->execute([':rid' => $reservation_id]);
         } elseif ($resource_name === 'Event Ticket GA' || $resource_name === 'Event Ticket VIP') {
