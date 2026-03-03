@@ -1,7 +1,11 @@
 CREATE TABLE users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   email VARCHAR(255) NOT NULL UNIQUE,
+  username VARCHAR(100) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
+  privilege ENUM('user','admin') DEFAULT 'user',
+  profile_image VARCHAR(255) DEFAULT 'default.png',
+  bio TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -38,15 +42,16 @@ CREATE TABLE bottle_service (
   reservation_id INT PRIMARY KEY,
   section_number INT NOT NULL,
   guest_count INT NOT NULL,
-  minimum_spend DECIMAL(8,2) NOT NULL,
+  minimum_spend DECIMAL(8,2) NOT NULL CHECK (minimum_spend >= 0),
   FOREIGN KEY (reservation_id) REFERENCES reservations(reservation_id)
+  
 );
 
 CREATE TABLE ticket_reservations (
   reservation_id INT PRIMARY KEY,
   event_id INT NOT NULL,
   ticket_tier VARCHAR(50),
-  quantity INT NOT NULL,
+  quantity INT NOT NULL CHECK (quantity >= 0),
   FOREIGN KEY (reservation_id) REFERENCES reservations(reservation_id)
 );
 

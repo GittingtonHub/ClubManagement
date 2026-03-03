@@ -1,4 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
+// Add this near your other imports at the top!
+import ProtectedRoute from "./components/ProtectedRoute";
 
 import Header from "./components/Header"
 import Footer from "./components/Footer"
@@ -17,9 +19,21 @@ function App() {
       <Header />
 
         <Routes>
-          <Route path="/inventory" element={<Inventory />} />
+          <Route 
+          path="/inventory" element={
+          <ProtectedRoute requiredRole="admin">
+            <Inventory />
+          </ProtectedRoute>
+          } />
           <Route path="/reservations" element={<Reservations />} />
-          <Route path="/profile" element={<Profile />} />
+          <Route 
+              path="/profile" 
+              element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              } 
+          />
           <Route path="/login" element={<Login />} />
           <Route path="/users" element={<Users />} />
           <Route path="/*" element={<Home />} />

@@ -16,7 +16,7 @@
   }
 
   // Query for the specific user
-  $query = "SELECT id, email, password_hash FROM users WHERE email = :email";
+  $query = "SELECT id, email, role, password_hash FROM users WHERE email = :email";
   $stmt = $conn->prepare($query);
   $stmt->bindParam(':email', $email);
   $stmt->execute();
@@ -25,11 +25,17 @@
   if ($user && password_verify($password, $user['password_hash'])) {
       $_SESSION['user_id'] = $user['id'];
       $_SESSION['user'] = ['email' => $user['email'], 'id' => $user['id']];
+
+      $_SESSION['user'] = [
+          'email' => $user['email'], 
+          'id' => $user['id'], 
+          'role' => $user['role'] ?? 'user'
+      ];
       
       echo json_encode([
           'success' => true, 
           'token' => session_id(),
-          'user' => ['email' => $user['email'], 'id' => $user['id']]
+          'user' => $_SESSION['user']
       ]);
   } else {
       http_response_code(401);
