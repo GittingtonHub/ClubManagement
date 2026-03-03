@@ -1,10 +1,15 @@
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, NavLink } from 'react-router-dom';
 
-
 function Header() {
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated,user, logout } = useAuth();
   const navigate = useNavigate();
+
+  const username = user?.username || "";
+
+  const handleShowProfile = () => {
+    navigate('/profile');
+  };
 
   const handleAuthClick = () => {
     if (isAuthenticated) {
@@ -20,21 +25,23 @@ function Header() {
 
   return (
     <header>
-        <h1>Club Management</h1>
+      <h1>Club Management</h1>
 
-        <div className="topnav">
+      <div className="topnav">
         <NavLink 
           to="/" 
           className={({ isActive }) => isActive ? "active" : ""}
         >
           Home
         </NavLink>
+
         <NavLink 
           to="/inventory" 
           className={({ isActive }) => isActive ? "active" : ""}
         >
           Inventory
         </NavLink>
+
         <NavLink 
           to="/reservations" 
           className={({ isActive }) => isActive ? "active" : ""}
@@ -43,7 +50,13 @@ function Header() {
         </NavLink>
       </div>
 
-        <div className="login">
+      <div className="login">
+        {isAuthenticated && username && (
+          <span style={{ marginRight: "12px" }}>
+            Hey <strong>{username}</strong> 👋
+          </span>
+        )}
+
         <button onClick={handleAuthClick}>
           {isAuthenticated ? 'Logout' : 'Login'}
         </button>

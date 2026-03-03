@@ -14,7 +14,13 @@ try {
     $conn = new PDO("mysql:host=$host;dbname=$db_name;port=" . DB_PORT, $username, $password);
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch(PDOException $e) {
-    error_log("Connection failed: " . $e->getMessage());
-    die(json_encode(['success' => false, 'message' => 'Database connection failed']));
+    http_response_code(500);
+    // more helpful message
+    echo json_encode(['success' => false, 'message' => 'DB Error: ' . $e->getMessage()]);
+    exit;
 }
+// } catch(PDOException $e) {
+//     error_log("Connection failed: " . $e->getMessage());
+//     die(json_encode(['success' => false, 'message' => 'Database connection failed']));
+// }
 ?>

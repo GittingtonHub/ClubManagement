@@ -124,7 +124,6 @@ function ResourcesUI() {
         setItemPrice('');
         setItemDescription('');
         setIsAddItemOpen(false);
-        document.getElementById("table-div").style.display = "flex";
       }
     } catch (error) {
       console.error('Failed to add item:', error);
@@ -160,7 +159,6 @@ function ResourcesUI() {
         <div className="add-item-button">
             <button onClick={() => {
               setIsAddItemOpen(true);
-              document.getElementById("table-div").style.display = "none";
             }}>Add Item</button>
         </div>
 
@@ -203,7 +201,6 @@ function ResourcesUI() {
 
         <Dialog open={isAddItemOpen} onClose={() => {
           setIsAddItemOpen(false);
-          document.getElementById("table-div").style.display = "flex";
         }} className="add-item-dialog">
           <div className="add-item-dialog-backdrop" aria-hidden="true" />
           <div className="add-item-dialog-container">
@@ -291,7 +288,6 @@ function ResourcesUI() {
                   <button 
                     onClick={() => {
                       setIsAddItemOpen(false);
-                      document.getElementById("table-div").style.display = "block";
                     }}
                     className="inline"
                   >

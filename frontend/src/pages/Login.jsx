@@ -148,8 +148,14 @@ function Login() {
       
       if (response.ok) {
         localStorage.setItem('authToken', data.token);
-        login(data.user); // Update context state
+      
+        // ADD THESE TWO LINES
+        localStorage.setItem('userId', data.user.id);
+        localStorage.setItem('userEmail', data.user.email);
+      
+        login(data.user);
         navigate('/');
+      
       } else {
         setPasswordError(data.message || 'Login failed');
       }

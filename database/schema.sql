@@ -1,7 +1,11 @@
 CREATE TABLE users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   email VARCHAR(255) NOT NULL UNIQUE,
+  username VARCHAR(100) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
+  privilege ENUM('user','admin') DEFAULT 'user',
+  profile_image VARCHAR(255) DEFAULT 'default.png',
+  bio TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -24,27 +28,30 @@ CREATE TABLE resources (
 CREATE TABLE reservations (
   reservation_id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL,
-  service_type ENUM('bottle_service','event_ticket','bar') NOT NULL,
+  resource_id INT NOT NULL,
+  service_type VARCHAR(100) NOT NULL,
   status ENUM('pending','confirmed','cancelled') DEFAULT 'pending',
   start_time DATETIME NOT NULL,
   end_time DATETIME NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id)
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (resource_id) REFERENCES resources(id)
 );
 
 CREATE TABLE bottle_service (
   reservation_id INT PRIMARY KEY,
   section_number INT NOT NULL,
   guest_count INT NOT NULL,
-  minimum_spend DECIMAL(8,2) NOT NULL,
+  minimum_spend DECIMAL(8,2) NOT NULL CHECK (minimum_spend >= 0),
   FOREIGN KEY (reservation_id) REFERENCES reservations(reservation_id)
+  
 );
 
 CREATE TABLE ticket_reservations (
   reservation_id INT PRIMARY KEY,
   event_id INT NOT NULL,
   ticket_tier VARCHAR(50),
-  quantity INT NOT NULL,
+  quantity INT NOT NULL CHECK (quantity >= 0),
   FOREIGN KEY (reservation_id) REFERENCES reservations(reservation_id)
 );
 
