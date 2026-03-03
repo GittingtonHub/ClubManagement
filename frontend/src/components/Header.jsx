@@ -1,11 +1,10 @@
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, NavLink } from 'react-router-dom';
 
-function Header() {
-  const { isAuthenticated,user, logout } = useAuth();
-  const navigate = useNavigate();
 
-  const username = user?.username || "";
+function Header() {
+  const { isAuthenticated, logout } = useAuth();
+  const navigate = useNavigate();
 
   const handleShowProfile = () => {
     navigate('/profile');
@@ -24,42 +23,47 @@ function Header() {
 
   return (
     <header>
-      <h1>Club Management</h1>
+        <h1>Club Management</h1>
 
-      <div className="topnav">
-        <NavLink 
-          to="/" 
-          className={({ isActive }) => isActive ? "active" : ""}
-        >
-          Home
-        </NavLink>
+        <div className="topnav">
+          <NavLink 
+            to="/" 
+            className={({ isActive }) => isActive ? "active" : ""}
+          >
+            Home
+          </NavLink>
+          
+          <NavLink 
+            to="/inventory" 
+            className={({ isActive }) => isActive ? "active" : ""}
+          >
+            Inventory
+          </NavLink>
 
-        <NavLink 
-          to="/inventory" 
-          className={({ isActive }) => isActive ? "active" : ""}
-        >
-          Inventory
-        </NavLink>
+          <NavLink 
+            to="/reservations" 
+            className={({ isActive }) => isActive ? "active" : ""}
+          >
+            Reservations
+          </NavLink>
 
-        <NavLink 
-          to="/reservations" 
-          className={({ isActive }) => isActive ? "active" : ""}
-        >
-          Reservations
-        </NavLink>
-      </div>
+          <NavLink 
+            to="/users" 
+            className={({ isActive }) => isActive ? "active" : ""}
+          >
+            Users
+          </NavLink>
+        </div>
 
-      <div className="login">
-        {isAuthenticated && username && (
-          <span style={{ marginRight: "12px" }}>
-            Hey <strong>{username}</strong> 👋
-          </span>
-        )}
+        <div className="login">
+          <button onClick={handleShowProfile}>
+            Profile
+          </button>
 
-        <button onClick={handleAuthClick}>
-          {isAuthenticated ? 'Logout' : 'Login'}
-        </button>
-      </div>
+          <button onClick={handleAuthClick}>
+            {isAuthenticated ? 'Logout' : 'Login'}
+          </button>
+        </div>
         
     </header>
   );
