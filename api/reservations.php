@@ -80,23 +80,46 @@ if ($method === 'POST') {
         ]);
         exit;
     }
-
+  
     // Ensure resource exists and service_type (if provided) matches resource name
     $resourceStmt = $conn->prepare("SELECT name, type, price FROM resources WHERE id = :rid");
     $resourceStmt->execute([':rid' => $resource_id]);
     $resource = $resourceStmt->fetch(PDO::FETCH_ASSOC);
+
     if (!$resource) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Invalid resource_id.']);
-        exit;
+      http_response_code(400);
+      echo json_encode(['success' => false, 'message' => 'Invalid resource_id.']);
+      exit;
     }
-    if (!$service_type) {
-        $service_type = $resource['name'];
+
+    // service_type defaults to resource name; if provided must match
+    if (empty($service_type)) {
+      $service_type = $resource['name'];
     } elseif ($service_type !== $resource['name']) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'service_type must match resource name.']);
-        exit;
+      http_response_code(400);
+      echo json_encode(['success' => false, 'message' => 'service_type must match resource name.']);
+      exit;
     }
+
+    // Validate timestamps only if provided
+    if (!empty($start_time) || !empty($end_time)) {
+      $timestampStart = strtotime($start_time ?? '');
+      $timestampEnd   = strtotime($end_time ?? '');
+
+      if (!$timestampStart || !$timestampEnd) {
+          http_response_code(400);
+          echo json_encode(['success' => false, 'message' => 'If provided, start_time and end_time must both be valid.']);
+          exit;
+      }
+
+      if ($timestampStart >= $timestampEnd) {
+          http_response_code(400);
+          echo json_encode(['success' => false, 'message' => 'start_time must be before end_time.']);
+          exit;
+      }
+    }
+
+    
 
     try {
         $conn->beginTransaction();

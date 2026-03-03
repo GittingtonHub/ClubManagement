@@ -10,14 +10,23 @@ export const AuthProvider = ({ children }) => {
   // This is just a bandaid fix for now, should be replaced with a more secure form of persistence
      let isCurrently = false;
 
-    if (localStorage.getItem('authToken') != null)
+    //console.log(localStorage.getItem('authToken') == null)
+    if (localStorage.getItem('authToken') !== 'loggedOut')
     {
       isCurrently = true;
           //change
+     // console.log("Authtoken isnt null! proof: :" , localStorage.getItem('authToken'));
+      
+    }
+    else
+    {
+      //console.log("Authtoken is null!proof: :" , localStorage.getItem('authToken'))
     }
         
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(isCurrently);
+
+  const [token, setToken] = useState()
   
 
   const login = (userData) => {
