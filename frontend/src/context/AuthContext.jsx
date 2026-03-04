@@ -54,12 +54,13 @@ export const AuthProvider = ({ children }) => {
           const data = await response.json();
           setIsAuthenticated(true);
           setUser(data.user);
+        } else {
+          setIsAuthenticated(false);
+          setUser(null);
         }
       } catch (error) { 
-        //console.log(error)
-        setIsAuthenticated(true);
-        //console.log("no longer authenticated")
-        
+        setIsAuthenticated(false);
+        setUser(null);
 
       }
     };

@@ -13,13 +13,25 @@ if (!isset($_SESSION['user'])) {
     exit;
 }
 
-// Added 'privilege' to the query so the frontend can check user permissions
-$query = "SELECT id, email, role, created_at FROM users";
+try {
+    // Support both schemas: some environments use `role`, others use `privilege`.
+    $columnsStmt = $conn->query("SHOW COLUMNS FROM users");
+    $columns = $columnsStmt->fetchAll(PDO::FETCH_COLUMN, 0);
+    $roleExpression = in_array('role', $columns, true)
+        ? 'role'
+        : (in_array('privilege', $columns, true) ? 'privilege' : 'NULL');
 
-$stmt = $conn->prepare($query);
-$stmt->execute();
+    $query = "SELECT id, email, {$roleExpression} AS role, created_at FROM users";
+    $stmt = $conn->prepare($query);
+    $stmt->execute();
+    $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$data = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-echo json_encode($data);
+    echo json_encode($data);
+} catch (PDOException $e) {
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Unable to fetch users.'
+    ]);
+}
 ?>

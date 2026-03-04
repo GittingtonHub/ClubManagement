@@ -1,4 +1,11 @@
 <?php
+$authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+if ($authHeader && preg_match('/Bearer\s+(.+)/i', $authHeader, $matches)) {
+    $sessionToken = trim($matches[1]);
+    if ($sessionToken !== '') {
+        session_id($sessionToken);
+    }
+}
 session_start();
 header('Content-Type: application/json');
 header("Access-Control-Allow-Origin: *");
@@ -54,8 +61,13 @@ if ($method === 'GET') {
 // 2. CREATE RESERVATION (POST)
 // =============================
 if ($method === 'POST') {
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($input)) {
+        $input = [];
+    }
 
-    if (isset($_SESSION['user']) && $_SESSION['user']['role'] === 'admin') {
+    $sessionRole = $_SESSION['user']['role'] ?? ($_SESSION['user']['privilege'] ?? 'user');
+    if ($sessionRole === 'admin') {
         $user_id = $input['user_id'] ?? $_SESSION['user_id']; 
     } else {
         $user_id = $_SESSION['user_id'] ?? null; 
@@ -125,6 +137,7 @@ if ($method === 'POST') {
         }
 
         // Added resource_id to the insert query
+        $resource_name = $resource['name'];
         $resource_Type = $resource['type'];
         if ($resource_Type === 'Bottle Service') {
             
@@ -144,9 +157,19 @@ if ($method === 'POST') {
                 exit;
             }
         }
+        $insertSql = "INSERT INTO reservations (user_id, resource_id, service_type, status, start_time, end_time)
+                      VALUES (:uid, :rid, :service, 'pending', :start, :end)";
+        $insertStmt = $conn->prepare($insertSql);
+        $insertStmt->execute([
+            ':uid' => $user_id,
+            ':rid' => $resource_id,
+            ':service' => $service_type,
+            ':start' => $start_time,
+            ':end' => $end_time
+        ]);
+
         $reservation_id = $conn->lastInsertId();
 
-        $resource_name = $resource['name'];
         if ($resource_name === 'Bottle Service Silver' || $resource_name === 'Bottle Service Gold') {
             if (!$section_number || !$guest_count || !$minimum_spend) {
                 $conn->rollBack();
