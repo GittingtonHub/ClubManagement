@@ -70,11 +70,10 @@ function UsersUI() {
     const fetchUsers = async () => {
       try {
         const response = await fetch('/api/users.php', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-          }
+          credentials: 'include'
         });
-        const data = await response.json();
+        const text = await response.text();
+        const data = text ? JSON.parse(text) : [];
         setUsers(data);
       } catch (error) {
         console.error('Failed to fetch users:', error);
@@ -97,9 +96,9 @@ function UsersUI() {
       const response = await fetch('/api/users.php', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+          'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({
           email: email,
           password: password

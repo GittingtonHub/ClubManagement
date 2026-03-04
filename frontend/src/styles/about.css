@@ -13,18 +13,18 @@
 
 .about-section .row {
    display: flex;
-   justify-content: center;
-   align-items: stretch;
    flex-wrap: wrap;
-   gap: 20px;
+   justify-content: center;
+   gap: 16px;
 }
 
 .about-section .column {
-   float: none;   /* disable old float */
-   width: 300px;  /* fixed card width */
-   margin: 0;
+   float: none;
+   width: 100%;
+   flex: 0 1 280px;
+   margin-bottom: 16px;
+   padding: 0;
 }
-
 
 .about-section .card {
    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
