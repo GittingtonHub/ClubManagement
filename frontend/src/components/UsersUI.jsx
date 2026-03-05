@@ -152,9 +152,7 @@ function UsersUI() {
           ))}
         </table>
 
-        <Dialog open={isAddUserOpen} onClose={() => {
-          setIsAddUserOpen(false);
-        }} className="add-item-dialog">
+        <Dialog open={isAddUserOpen} onClose={() => {}} className="add-item-dialog">
           <div className="add-item-dialog-backdrop" aria-hidden="true" />
           <div className="add-item-dialog-container">
             <DialogPanel className="add-item-dialog-panel">

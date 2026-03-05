@@ -3,8 +3,9 @@ import { useNavigate, NavLink } from 'react-router-dom';
 
 
 function Header() {
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, logout, user } = useAuth();
   const navigate = useNavigate();
+  const currentUsername = user?.username || localStorage.getItem('userUsername') || 'Profile';
 
   const handleShowProfile = () => {
     navigate('/profile');
@@ -57,8 +58,8 @@ function Header() {
         </div>
 
         <div className="login">
-          <button onClick={handleShowProfile}>
-            Profile
+          <button onClick={handleShowProfile} className="profile-title-button" type="button">
+            <h2 className="profile-title-heading">Hi, {currentUsername}</h2>
           </button>
 
           <button onClick={handleAuthClick}>

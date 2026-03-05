@@ -1,11 +1,11 @@
 USE ClubManagementDB;
 
-INSERT INTO users (id, email, password_hash) VALUES
-(1, 'alex.rivera@example.com', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS'),
-(2, 'jamie.park@example.com', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS'),
-(3, 'taylor.lee@example.com', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS'),
-(4, 'morgan.kim@example.com', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS'),
-(5, 'casey.chen@example.com', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS');
+INSERT INTO users (id, email, username, password_hash) VALUES
+(1, 'alex.rivera@example.com', 'alex.rivera', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS'),
+(2, 'jamie.park@example.com', 'jamie.park', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS'),
+(3, 'taylor.lee@example.com', 'taylor.lee', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS'),
+(4, 'morgan.kim@example.com', 'morgan.kim', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS'),
+(5, 'casey.chen@example.com', 'casey.chen', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS');
 
 INSERT INTO staff (id, name, role, hourly_rate, employment_type) VALUES
 (1, 'Alex Rivera', 'Bartender', 25.00, 'full_time'),
@@ -26,11 +26,11 @@ INSERT INTO reservations (reservation_id, user_id, resource_id, service_type, st
 (2, 2, 3, 'Bottle Service Gold', 'pending', '2026-02-11 21:00:00', '2026-02-11 23:00:00'),
 (3, 3, 2, 'Bottle Service Silver', 'confirmed', '2026-02-12 19:00:00', '2026-02-12 21:30:00'),
 (4, 4, 3, 'Bottle Service Gold', 'cancelled', '2026-02-13 20:30:00', '2026-02-13 22:30:00'),
-(5, 5, 2, 'Bottle Service Silver', 'confirmed', '2026-02-14 21:00:00', '2026-02-14 23:30:00'),
+(5, 1, 2, 'Bottle Service Silver', 'confirmed', '2026-02-14 21:00:00', '2026-02-14 23:30:00'),
 (6, 1, 4, 'Event Ticket GA', 'confirmed', '2026-02-10 19:00:00', '2026-02-10 23:00:00'),
 (7, 2, 4, 'Event Ticket GA', 'pending', '2026-02-11 19:30:00', '2026-02-11 23:30:00'),
 (8, 3, 5, 'Event Ticket VIP', 'confirmed', '2026-02-12 20:00:00', '2026-02-12 23:59:00'),
-(9, 4, 4, 'Event Ticket GA', 'confirmed', '2026-02-13 19:00:00', '2026-02-13 23:00:00'),
+(9, 3, 4, 'Event Ticket GA', 'confirmed', '2026-02-13 19:00:00', '2026-02-13 23:00:00'),
 (10, 5, 5, 'Event Ticket VIP', 'cancelled', '2026-02-14 20:00:00', '2026-02-14 23:00:00'),
 (11, 1, 1, 'Open Bar Package', 'confirmed', '2026-02-10 18:00:00', '2026-02-10 20:00:00'),
 (12, 2, 1, 'Open Bar Package', 'pending', '2026-02-11 18:30:00', '2026-02-11 20:30:00'),

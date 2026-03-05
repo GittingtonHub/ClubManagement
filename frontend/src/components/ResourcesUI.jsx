@@ -199,9 +199,7 @@ function ResourcesUI() {
           </table>
         )}  
 
-        <Dialog open={isAddItemOpen} onClose={() => {
-          setIsAddItemOpen(false);
-        }} className="add-item-dialog">
+        <Dialog open={isAddItemOpen} onClose={() => {}} className="add-item-dialog">
           <div className="add-item-dialog-backdrop" aria-hidden="true" />
           <div className="add-item-dialog-container">
             <DialogPanel className="add-item-dialog-panel">
