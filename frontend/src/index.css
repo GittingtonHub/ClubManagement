@@ -2,19 +2,22 @@ header {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
+  
   position: static;
   padding: 0 16px;
+
   background: rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-radius: 12px;
   padding: 2rem;
-}
+};
 
 header h1 {
   color: black;
   margin: 0;
   font-size: 24px;
+
   justify-self: start;
 }
 
@@ -22,15 +25,16 @@ footer {
   text-align: center;
   margin-top: auto;
   padding: 16px;
-}
+};
 
-/* Navigation */
+/* Style the navigation bar */
 .topnav {
   display: flex;
   justify-content: center;
   grid-column: 2;
 }
 
+/* Style the links inside the navigation bar */
 .topnav a {
   color: black;
   text-align: center;
@@ -39,12 +43,14 @@ footer {
   font-size: 17px;
 }
 
+/* Change the color of links on hover */
 .topnav a:hover {
   background-color: black;
   color: white;
   border-radius: 12px;
 }
 
+/* style the active/current navigation item */
 .topnav a.active {
   background-color: blue;
   color: white;
@@ -84,24 +90,32 @@ body::before {
   content: "";
   position: fixed;
   inset: 0;
-  background-image: url("../public/background.jpg");
+
+  background-image: url("/background.jpg");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
   background-attachment: fixed;
+  
   filter: blur(5px);
-  transform: scale(1.05);
+  transform: scale(1.05); /* prevents blurry edges */
   z-index: -1;
 }
 
-.table-div {
+.table-div{
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+
   margin-left: auto;
   margin-right: auto;
   margin-top: 16px;
+
   background: rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-radius: 12px;
+
   padding: 2rem;
   width: 90%;
 }
@@ -114,6 +128,7 @@ table {
   width: 90%;
   margin-left: auto;
   margin-right: auto;
+  /* margin-top: 2rem; */
 }
 
 table th {
@@ -124,13 +139,51 @@ table th {
 }
 
 th, td {
-  border: 1px solid black;
+  border: 1px solid black; /* Adds a solid, 1px black border to all elements */
 }
 
-.add-item-button button {
+.reservation-actions-cell, .delete-item-button {
+  text-align: center;
+}
+
+.reservation-actions-buttons, .delete-item-button {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+.reservation-actions-buttons button, .delete-item-button button {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.edit-item-button {
+  background-color: #0a66c2;
+  color: white;
+}
+
+.edit-item-button:hover {
+  background-color: #084f97;
+}
+
+.delete-item-button {
+  background-color: #c62828;
+  color: white;
+}
+
+.delete-item-button:hover {
+  background-color: #9d1f1f;
+}
+
+.add-item-button button{
+
   background: rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+
   color: black;
   border: none;
   padding: 7px 8px;
@@ -138,11 +191,12 @@ th, td {
   font-style: italic;
   cursor: pointer;
   width: 90%;
+
   margin-left: auto;
   margin-right: auto;
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: center
 }
 
 .add-item-button button:hover {
@@ -152,6 +206,7 @@ th, td {
 
 .login-container {
   margin: 10px;
+  /* center the content in this container */
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -161,6 +216,7 @@ th, td {
 
 .input-container {
   margin: 10px;
+  /* center the content in this container */
   display: flex;
   justify-content: center;
   align-items: center;
@@ -173,36 +229,38 @@ th, td {
   border-radius: 8px;
   border: none;
   cursor: pointer;
+  background-color: blue;
+  color: white;
   margin-right: 5px;
+
 }
 
 .input-container input {
   padding: 10px;
+  /* margin-bottom: 10px; */
   border-radius: 8px;
   border: 1px solid rgba(0, 0, 0, 0.2);
   margin-right: 5px;
+
 }
 
-/* Dialog styling */
-.sign-up-dialog,
-.add-item-dialog {
+.sign-up-dialog, .add-item-dialog {
   position: fixed;
   inset: 0;
   z-index: 50;
   overflow-y: auto;
 }
 
-.signup-dialog-container,
-.add-item-dialog-container {
+.signup-dialog-container, .add-item-dialog-container {
   margin: 10px;
+  /* center the content in this container */
   display: flex;
   justify-content: center;
   align-items: center;
   min-height: 100%;
 }
 
-.inner-signup-container,
-.inner-add-item-container {
+.inner-signup-container, .inner-add-item-container {
   margin-top: 10px;
   display: flex;
   flex-direction: column;
@@ -210,17 +268,15 @@ th, td {
   align-items: center;
 }
 
-.signup-dialog-backdrop,
-.add-item-dialog-backdrop {
-  background: rgba(0, 0, 255, 0.35);
+.signup-dialog-backdrop, .add-item-dialog-backdrop {
+  background: rgba(0, 0, 255, 0.35); 
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   position: fixed;
   inset: 0;
 }
 
-.signup-dialog-panel,
-.add-item-dialog-panel {
+.signup-dialog-panel, .add-item-dialog-panel {
   background: rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -232,31 +288,15 @@ th, td {
   overflow-y: auto;
 }
 
-/* 🔥 Unified styling for inputs AND selects */
-.signup-dialog-panel input,
-.signup-dialog-panel select,
-.add-item-dialog-panel input,
-.add-item-dialog-panel select {
+.signup-dialog-panel input, .add-item-dialog-panel input{
   width: 100%;
   padding: 10px;
   margin-bottom: 10px;
   border-radius: 8px;
   border: 1px solid rgba(0, 0, 0, 0.2);
-  font-family: inherit;
-  font-size: 16px;
-  box-sizing: border-box;
 }
 
-/* Remove native dropdown styling */
-.signup-dialog-panel select,
-.add-item-dialog-panel select {
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-}
-
-.signup-dialog-panel button,
-.add-item-dialog-panel button {
+.signup-dialog-panel button, .add-item-dialog-panel button {
   padding: 10px;
   border-radius: 8px;
   border: none;
@@ -278,4 +318,172 @@ button.inline {
   border-radius: 8px;
   border: 1px solid rgba(0, 0, 0, 0.2);
   resize: vertical;
+}
+
+.login {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.login .profile-title-button {
+  background: transparent;
+  color: black;
+  border: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+.login .profile-title-button:hover {
+  background: transparent;
+  color: black;
+}
+
+.profile-title-heading {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.profile-container {
+  width: 90%;
+  margin: 16px auto 0;
+  padding: 2rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: grid;
+  grid-template-columns: minmax(200px, 280px) 1fr;
+  gap: 24px;
+}
+
+.profile-image-container {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.profile-image {
+  width: 220px;
+  height: 220px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.25);
+}
+
+.profile-details-container h2 {
+  margin-top: 0;
+  margin-bottom: 14px;
+}
+
+.profile-label {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.profile-value {
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+.profile-bio-input {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.profile-buttons-container {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.profile-buttons-container button {
+  background-color: blue;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.profile-buttons-container button:hover {
+  background-color: black;
+}
+
+.profile-reservations-container {
+  width: 90%;
+  margin: 16px auto 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.profile-reservations-past,
+.profile-reservations-today,
+.profile-reservations-future {
+  min-height: 170px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 1rem;
+}
+
+.profile-reservations-past h3,
+.profile-reservations-today h3,
+.profile-reservations-future h3 {
+  margin-top: 0;
+}
+
+.profile-reservation-placeholder {
+  line-height: 1.4;
+}
+
+.profile-reservations-table {
+  width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+}
+
+.profile-reservations-table th,
+.profile-reservations-table td {
+  border: 1px solid black;
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.profile-reservation-action-button {
+  background-color: #c62828;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.profile-reservation-action-button:hover {
+  background-color: #9d1f1f;
+}
+
+@media (max-width: 900px) {
+  .profile-container {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-image-container {
+    justify-content: flex-start;
+  }
+
+  .profile-reservations-container {
+    grid-template-columns: 1fr;
+  }
 }

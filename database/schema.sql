@@ -1,3 +1,15 @@
+-- Full clean reset
+DROP DATABASE IF EXISTS ClubManagementDB;
+CREATE DATABASE ClubManagementDB;
+USE ClubManagementDB;
+DROP TABLE IF EXISTS table_section;
+DROP TABLE IF EXISTS ticket_reservations;
+DROP TABLE IF EXISTS bottle_service;
+DROP TABLE IF EXISTS reservations;
+DROP TABLE IF EXISTS resources;
+DROP TABLE IF EXISTS staff;
+DROP TABLE IF EXISTS users;
+
 CREATE TABLE users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   email VARCHAR(255) NOT NULL UNIQUE,

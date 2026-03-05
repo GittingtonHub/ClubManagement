@@ -63,14 +63,13 @@ function StaffUI() {
     const fetchStaff = async () => {
       try {
         const response = await fetch('/api/staff.php', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-          }
+          credentials: 'include'
         });
         const data = await response.json();
-        setStaff(data);
+        setStaff(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error('Failed to fetch staff:', error);
+        setStaff([]);
       }
     };
     
@@ -90,9 +89,9 @@ function StaffUI() {
       const response = await fetch('/api/staff.php', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+          'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({
           name: staffName,
           role: staffRole,
@@ -103,11 +102,15 @@ function StaffUI() {
       const data = await response.json();
       
       if (response.ok) {
-        setStaff([...staff, data.staff]);
+        if (data?.staff) {
+          setStaff((previousStaff) => [...previousStaff, data.staff]);
+        }
         setStaffName('');
         setStaffRole('');
         setHourlyRate('');
         setIsAddStaffOpen(false);
+      } else {
+        console.error('Failed to add staff:', data?.message || 'Unknown error');
       }
     } catch (error) {
       console.error('Failed to add staff:', error);
@@ -121,7 +124,6 @@ function StaffUI() {
         <div className="add-item-button">
           <button onClick={() => {
             setIsAddStaffOpen(true);
-            document.getElementById("staff-table-div").style.display = "none";
           }}>
             Add Staff
           </button>
@@ -135,19 +137,17 @@ function StaffUI() {
             <th>Hourly Rate</th>
           </tr>
 
-          {staff.map((member, index) => (
-            <tr className="table-row" key={member.id}>
+          {staff.filter(Boolean).map((member, index) => (
+            <tr className="table-row" key={member.id ?? index}>
               <td className="table-cell-itemno">{index + 1}</td>
-              <td>{member.name}</td>
-              <td>{member.role}</td>
-              <td>${parseFloat(member.hourly_rate).toFixed(2)}</td>
+              <td>{member.name ?? 'N/A'}</td>
+              <td>{member.role ?? 'N/A'}</td>
+              <td>${Number.parseFloat(member.hourly_rate ?? 0).toFixed(2)}</td>
             </tr>
           ))}
         </table>
 
-        <Dialog open={isAddStaffOpen} onClose={() => {
-          setIsAddStaffOpen(false);
-        }} className="add-item-dialog">
+        <Dialog open={isAddStaffOpen} onClose={() => {}} className="add-item-dialog">
           <div className="add-item-dialog-backdrop" aria-hidden="true" />
           <div className="add-item-dialog-container">
             <DialogPanel className="add-item-dialog-panel">
@@ -218,7 +218,6 @@ function StaffUI() {
                   <button onClick={handleAddStaff}>Add Staff</button>
                   <button onClick={() => {
                     setIsAddStaffOpen(false);
-                    document.getElementById("staff-table-div").style.display = "flex";
                   }}>
                     Cancel
                   </button>

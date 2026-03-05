@@ -1,6 +1,7 @@
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { useState } from 'react';
 import { useEffect } from 'react';
+import { AuthProvider } from '../context/AuthContext';
 
 
 function ResourcesUI() {
@@ -97,6 +98,7 @@ function ResourcesUI() {
     if (!isNameValid || !isTypeValid || !isPriceValid || !isDescValid) {
       return;
     }
+ 
     
     try {
       const response = await fetch('/api/inventory.php', {
@@ -197,9 +199,7 @@ function ResourcesUI() {
           </table>
         )}  
 
-        <Dialog open={isAddItemOpen} onClose={() => {
-          setIsAddItemOpen(false);
-        }} className="add-item-dialog">
+        <Dialog open={isAddItemOpen} onClose={() => {}} className="add-item-dialog">
           <div className="add-item-dialog-backdrop" aria-hidden="true" />
           <div className="add-item-dialog-container">
             <DialogPanel className="add-item-dialog-panel">

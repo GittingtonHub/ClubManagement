@@ -134,7 +134,11 @@ const onTimeRangeSelected = async (args) => {
       try {
         const response = await fetch('/api/reservations.php', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('authToken') || ''}`
+          },
+          credentials: 'include',
           body: JSON.stringify(payload)
         });
 

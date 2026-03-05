@@ -4,14 +4,17 @@ import { useAuth } from '../context/AuthContext';
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 
 
+
 function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUpOpen, setIsSignUpOpen] = useState(false);
+  const [signupUsername, setSignupUsername] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [signupUsernameError, setSignupUsernameError] = useState('');
   const [signupEmailError, setSignupEmailError] = useState('');
   const [signupPasswordError, setSignupPasswordError] = useState('');
 
@@ -59,6 +62,24 @@ function Login() {
     return true;
   };
 
+  const validateSignupUsername = (username) => {
+    const trimmed = username.trim();
+    if (!trimmed) {
+      setSignupUsernameError('Username is required');
+      return false;
+    }
+    if (trimmed.length < 3 || trimmed.length > 30) {
+      setSignupUsernameError('Username must be 3-30 characters');
+      return false;
+    }
+    if (!/^[A-Za-z0-9_]+$/.test(trimmed)) {
+      setSignupUsernameError('Use letters, numbers, and underscores only');
+      return false;
+    }
+    setSignupUsernameError('');
+    return true;
+  };
+
   const validateSignupPassword = (password) => {
     if (!password) {
       setSignupPasswordError('Password is required');
@@ -72,22 +93,31 @@ function Login() {
       setSignupPasswordError('Password must contain uppercase, lowercase, and number');
       return false;
     }
+    if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]+/.test(password))
+    {
+      setSignupPasswordError("Password must contain atleast one special character");
+      return false
+    }
+    console.log("all good!")
     setSignupPasswordError('');
     return true;
   };
 
   const handleSignup = async () => {
     console.log('Starting signup validation...');
+    console.log('Username:', signupUsername);
     console.log('Email:', signupEmail);
     console.log('Password length:', signupPassword.length);
     
+    const usernameValid = validateSignupUsername(signupUsername);
     const emailValid = validateSignupEmail(signupEmail);
     const passwordValid = validateSignupPassword(signupPassword);
     
+    console.log('Username valid:', usernameValid);
     console.log('Email valid:', emailValid);
     console.log('Password valid:', passwordValid);
     
-    if (!emailValid || !passwordValid) {
+    if (!usernameValid || !emailValid || !passwordValid) {
       console.log('Validation failed, stopping');
       return;
     }
@@ -98,7 +128,11 @@ function Login() {
       const response = await fetch('/api/signup.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: signupEmail, password: signupPassword })
+        body: JSON.stringify({
+          username: signupUsername.trim(),
+          email: signupEmail,
+          password: signupPassword
+        })
       });
       
       console.log('Response status:', response.status);
@@ -107,10 +141,23 @@ function Login() {
       
       if (response.ok) {
         setIsSignUpOpen(false);
+        setSignupUsername('');
+        setSignupEmail('');
+        setSignupPassword('');
+        setSignupUsernameError('');
+        setSignupEmailError('');
+        setSignupPasswordError('');
         document.getElementById("input-container").style.display = "flex";
         // Optionally auto-login or show success message
       } else {
-        setSignupEmailError(data.message || 'Signup failed');
+        const message = data.message || 'Signup failed';
+        if (message.toLowerCase().includes('username')) {
+          setSignupUsernameError(message);
+          setSignupEmailError('');
+        } else {
+          setSignupEmailError(message);
+          setSignupUsernameError('');
+        }
       }
     } catch (error) {
       console.log('Error caught:', error);
@@ -142,9 +189,9 @@ function Login() {
       if (response.ok) {
         localStorage.setItem('authToken', data.token);
       
-        // ADD THESE TWO LINES
         localStorage.setItem('userId', data.user.id);
         localStorage.setItem('userEmail', data.user.email);
+        localStorage.setItem('userUsername', data.user.username ?? '');
       
         login(data.user);
         navigate('/');
@@ -205,10 +252,7 @@ function Login() {
         }}>Sign Up</button>
       </div>
 
-      <Dialog open={isSignUpOpen} onClose={() => {
-        setIsSignUpOpen(false);
-        document.getElementById("input-container").style.display = "flex";
-      }} className="sign-up-dialog">
+      <Dialog open={isSignUpOpen} onClose={() => {}} className="sign-up-dialog">
         
         <div className="signup-dialog-backdrop" aria-hidden="true" />
         
@@ -217,6 +261,21 @@ function Login() {
             <DialogTitle className="sign-up-header">Sign Up</DialogTitle>
             
             <div className="inner-signup-container">
+              <input
+                type="text"
+                placeholder="Username"
+                value={signupUsername}
+                onChange={(e) => {
+                  setSignupUsername(e.target.value);
+                  if (signupUsernameError) validateSignupUsername(e.target.value);
+                }}
+                onBlur={() => validateSignupUsername(signupUsername)}
+                className="signup-username-input"
+                style={{
+                  border: signupUsernameError ? '2px solid red' : '1px solid rgba(0, 0, 0, 0.2)'
+                }}
+              />
+              {signupUsernameError && <span style={{ color: 'red', fontSize: '14px' }}>{signupUsernameError}</span>}
 
               <input
                 type="email"
@@ -263,6 +322,9 @@ function Login() {
                 <button 
                   onClick={() => {
                     setIsSignUpOpen(false);
+                    setSignupUsernameError('');
+                    setSignupEmailError('');
+                    setSignupPasswordError('');
                     document.getElementById("input-container").style.display = "flex";
                   }}
                   className="inline"
