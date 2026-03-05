@@ -58,3 +58,31 @@ INSERT INTO table_section (reservation_id, seat_count, section_number) VALUES
 (13, 2, 203),
 (14, 8, 204),
 (15, 5, 205);
+
+-- ADMIN ACCOUNT
+INSERT INTO users (email, username, password_hash, privilege, bio)
+VALUES (
+  'admin@club.com',
+  'admin',
+  '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS',
+  'admin',
+  'System administrator'
+);
+
+-- TEST USER WITH RESERVATIONS
+INSERT INTO users (email, username, password_hash, privilege, bio)
+VALUES (
+  'testuser@club.com',
+  'testuser',
+  '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS',
+  'user',
+  'Test account with reservations'
+);
+
+-- TEST USER RESERVATIONS (PAST + TODAY + FUTURE)
+INSERT INTO reservations (user_id, resource_id, service_type, status, start_time, end_time) VALUES
+(7, 2, 'bottle_service', 'confirmed', '2026-02-05 20:00:00', '2026-02-05 22:00:00'),
+(7, 4, 'event_ticket', 'confirmed', '2026-02-12 19:00:00', '2026-02-12 23:00:00'),
+(7, 1, 'bar', 'confirmed', '2026-02-27 18:00:00', '2026-02-27 20:00:00'),
+(7, 3, 'bottle_service', 'pending', '2026-03-05 21:00:00', '2026-03-05 23:00:00'),
+(7, 5, 'event_ticket', 'confirmed', '2026-03-15 20:00:00', '2026-03-15 23:30:00');
