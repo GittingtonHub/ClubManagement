@@ -147,9 +147,7 @@ function StaffUI() {
           ))}
         </table>
 
-        <Dialog open={isAddStaffOpen} onClose={() => {
-          setIsAddStaffOpen(false);
-        }} className="add-item-dialog">
+        <Dialog open={isAddStaffOpen} onClose={() => {}} className="add-item-dialog">
           <div className="add-item-dialog-backdrop" aria-hidden="true" />
           <div className="add-item-dialog-container">
             <DialogPanel className="add-item-dialog-panel">
