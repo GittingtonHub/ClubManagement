@@ -327,6 +327,26 @@ button.inline {
   gap: 10px;
 }
 
+.login .profile-title-button {
+  background: transparent;
+  color: black;
+  border: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+.login .profile-title-button:hover {
+  background: transparent;
+  color: black;
+}
+
+.profile-title-heading {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
 .profile-container {
   width: 90%;
   margin: 16px auto 0;
@@ -425,6 +445,33 @@ button.inline {
 
 .profile-reservation-placeholder {
   line-height: 1.4;
+}
+
+.profile-reservations-table {
+  width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+}
+
+.profile-reservations-table th,
+.profile-reservations-table td {
+  border: 1px solid black;
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.profile-reservation-action-button {
+  background-color: #c62828;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.profile-reservation-action-button:hover {
+  background-color: #9d1f1f;
 }
 
 @media (max-width: 900px) {

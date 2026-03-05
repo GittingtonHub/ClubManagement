@@ -1,11 +1,11 @@
 USE ClubManagementDB;
 
-INSERT INTO users (id, email, password_hash) VALUES
-(1, 'alex.rivera@example.com', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS'),
-(2, 'jamie.park@example.com', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS'),
-(3, 'taylor.lee@example.com', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS'),
-(4, 'morgan.kim@example.com', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS'),
-(5, 'casey.chen@example.com', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS');
+INSERT INTO users (id, email, username, password_hash) VALUES
+(1, 'alex.rivera@example.com', 'alex.rivera', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS'),
+(2, 'jamie.park@example.com', 'jamie.park', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS'),
+(3, 'taylor.lee@example.com', 'taylor.lee', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS'),
+(4, 'morgan.kim@example.com', 'morgan.kim', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS'),
+(5, 'casey.chen@example.com', 'casey.chen', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS');
 
 INSERT INTO staff (id, name, role, hourly_rate, employment_type) VALUES
 (1, 'Alex Rivera', 'Bartender', 25.00, 'full_time'),
