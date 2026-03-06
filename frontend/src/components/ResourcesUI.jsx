@@ -1,7 +1,5 @@
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
-import { useState } from 'react';
-import { useEffect } from 'react';
-import { AuthProvider } from '../context/AuthContext';
+import { useEffect, useState } from 'react';
 
 
 function ResourcesUI() {
@@ -142,7 +140,22 @@ function ResourcesUI() {
         if (response.ok) {
           setInventory(inventory.filter(item => item.id !== itemId));
         }else{
-          console.error('Failed to delete item:', response.statusText);
+          const responseText = await response.text();
+          let data = {};
+          try {
+            data = responseText ? JSON.parse(responseText) : {};
+          } catch {
+            data = {};
+          }
+
+          if (response.status === 409) {
+            window.confirm(
+              data?.message || 'This resource is currently reserved and cannot be deleted.'
+            );
+            return;
+          }
+
+          console.error('Failed to delete item:', data?.message || response.statusText);
         }
       }catch(error){
         console.error('Failed to delete item:', error);
