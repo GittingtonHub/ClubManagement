@@ -204,8 +204,12 @@ function ResourcesUI() {
                 <td>{item.type}</td>
                 <td>${item.price ? parseFloat(item.price).toFixed(2): '0.00'}</td>
                 <td>{item.description}</td>
-                <td>
-                  <button className="delete-item-button" onClick={() => handleDeleteItem(item.id)}>Delete</button>
+                <td className="reservation-actions-cell">
+                  <div className="reservation-actions-buttons">
+                    <button className="delete-item-button" onClick={() => handleDeleteItem(item.id)}>
+                      Delete
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

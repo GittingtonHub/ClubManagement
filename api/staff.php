@@ -2,7 +2,7 @@
 // where to fetch the results http://167.99.165.60/api/staff.php
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+header("Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS");
 header("Content-Type: application/json; charset=UTF-8");
 
 include_once 'api.php';
@@ -75,6 +75,38 @@ if ($method === 'POST') {
             'success' => false,
             'message' => 'Unable to add staff.'
         ]);
+    }
+    exit;
+}
+
+if ($method === 'DELETE') {
+    $id = $_GET['id'] ?? null;
+    if (!$id) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'id is required.']);
+        exit;
+    }
+
+    try {
+        $delete = $conn->prepare("DELETE FROM staff WHERE id = :id");
+        $delete->execute([':id' => $id]);
+
+        if ($delete->rowCount() === 0) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Staff member not found.']);
+            exit;
+        }
+
+        echo json_encode(['success' => true, 'message' => 'Staff member deleted.']);
+    } catch (PDOException $e) {
+        $FOREIGN_KEY_VIOLATION = '23000';
+        if ($e->getCode() == $FOREIGN_KEY_VIOLATION) {
+            http_response_code(409);
+            echo json_encode(['success' => false, 'message' => 'Cannot delete this staff member because they are currently assigned.']);
+        } else {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Unable to delete staff.']);
+        }
     }
     exit;
 }
