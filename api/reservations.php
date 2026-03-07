@@ -20,6 +20,18 @@ if ($method === 'OPTIONS') {
     exit;
 }
 
+// =========================================================
+// 🔒 GLOBAL SECURITY CHECK: MUST BE LOGGED IN
+// =========================================================
+if (!isset($_SESSION['user']) || !isset($_SESSION['user_id'])) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'message' => 'Unauthorized. Please log in.']);
+    exit;
+}
+
+$current_user_id = $_SESSION['user_id'];
+$sessionRole = $_SESSION['user']['role'] ?? ($_SESSION['user']['privilege'] ?? 'user');
+
 // =============================
 // 1. VIEW LOGIC (GET)
 // =============================
@@ -39,9 +51,20 @@ if ($method === 'GET') {
                 FROM reservations r
                 JOIN resources res ON r.resource_id = res.id
                 LEFT JOIN bottle_service bs ON bs.reservation_id = r.reservation_id
-                LEFT JOIN ticket_reservations tr ON tr.reservation_id = r.reservation_id
-                ORDER BY r.start_time ASC";
+                LEFT JOIN ticket_reservations tr ON tr.reservation_id = r.reservation_id";
+                
+        // 🔒 SECURITY: Non-admins only see their own reservations
+        if ($sessionRole !== 'admin') {
+            $sql .= " WHERE r.user_id = :uid";
+        }
+
+        $sql .= " ORDER BY r.start_time ASC";
         $stmt = $conn->prepare($sql);
+        
+        if ($sessionRole !== 'admin') {
+            $stmt->bindParam(':uid', $current_user_id);
+        }
+
         $stmt->execute();
         $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -66,13 +89,13 @@ if ($method === 'POST') {
         $input = [];
     }
 
-    $sessionRole = $_SESSION['user']['role'] ?? ($_SESSION['user']['privilege'] ?? 'user');
     if ($sessionRole === 'admin') {
         $user_id = $input['user_id'] ?? $_SESSION['user_id']; 
     } else {
         $user_id = $_SESSION['user_id'] ?? null; 
     }
-    $resource_id = $input['resource_id'] ?? null; // Added this
+    
+    $resource_id = $input['resource_id'] ?? null; 
     $service_type = $input['service_type'] ?? null;
     $start_time = $input['start_time'] ?? null;
     $end_time = $input['end_time'] ?? null;
@@ -131,7 +154,6 @@ if ($method === 'POST') {
       }
     }
 
-    
 
     try {
         $conn->beginTransaction();
@@ -163,9 +185,8 @@ if ($method === 'POST') {
         // Added resource_id to the insert query
         $resource_name = $resource['name'];
         $resource_Type = $resource['type'];
+        
         if ($resource_Type === 'Bottle Service') {
-            
-            // Your existing required fields check
             if (!$section_number || !$guest_count || !$minimum_spend) {
                 $conn->rollBack();
                 http_response_code(400);
@@ -255,11 +276,13 @@ if ($method === 'PUT') {
     $input = json_decode(file_get_contents('php://input'), true);
 
     $reservation_id = $input['reservation_id'] ?? null;
-    if (isset($_SESSION['user']) && $_SESSION['user']['role'] === 'admin') {
+    
+    if ($sessionRole === 'admin') {
         $user_id = $input['user_id'] ?? $_SESSION['user_id']; 
     } else {
         $user_id = $_SESSION['user_id'] ?? null; 
     }
+    
     $resource_id = $input['resource_id'] ?? null;
     $service_type = $input['service_type'] ?? null;
     $status = $input['status'] ?? null;
@@ -284,18 +307,29 @@ if ($method === 'PUT') {
     try {
         $conn->beginTransaction();
 
-        $existsStmt = $conn->prepare("SELECT reservation_id FROM reservations WHERE reservation_id = :reservation_id");
+        $existsStmt = $conn->prepare("SELECT user_id, reservation_id FROM reservations WHERE reservation_id = :reservation_id");
         $existsStmt->execute([':reservation_id' => $reservation_id]);
-        if (!$existsStmt->fetch(PDO::FETCH_ASSOC)) {
+        $existingRes = $existsStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$existingRes) {
             $conn->rollBack();
             http_response_code(404);
             echo json_encode(['success' => false, 'message' => 'Reservation not found.']);
             exit;
         }
 
-        $resourceStmt = $conn->prepare("SELECT name FROM resources WHERE id = :rid");
+        // 🔒 SECURITY CHECK: Verify ownership
+        if ($sessionRole !== 'admin' && $existingRes['user_id'] !== $current_user_id) {
+            $conn->rollBack();
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Forbidden: You do not own this reservation.']);
+            exit;
+        }
+
+        $resourceStmt = $conn->prepare("SELECT name, type, price FROM resources WHERE id = :rid");
         $resourceStmt->execute([':rid' => $resource_id]);
         $resource = $resourceStmt->fetch(PDO::FETCH_ASSOC);
+        
         if (!$resource) {
             $conn->rollBack();
             http_response_code(400);
@@ -353,6 +387,8 @@ if ($method === 'PUT') {
         ]);
 
         $resource_Type = $resource['type'];
+        $resource_name = $resource['name'];
+        
         if ($resource_Type === 'Bottle Service') {
             if (!$section_number || !$guest_count || !$minimum_spend) {
                 $conn->rollBack();
@@ -369,8 +405,25 @@ if ($method === 'PUT') {
                 echo json_encode(['success' => false, 'message' => "The minimum spend for " . $resource['name'] . " is $" . $required_minimum . "."]);
                 exit;
             }
+            
+            // Handle updates or inserts for bottle service
+            $childSql = "INSERT INTO bottle_service (reservation_id, section_number, guest_count, minimum_spend)
+                         VALUES (:rid, :section, :guests, :min_spend)
+                         ON DUPLICATE KEY UPDATE
+                            section_number = VALUES(section_number),
+                            guest_count = VALUES(guest_count),
+                            minimum_spend = VALUES(minimum_spend)";
+            $childStmt = $conn->prepare($childSql);
+            $childStmt->execute([
+                ':rid' => $reservation_id,
+                ':section' => $section_number,
+                ':guests' => $guest_count,
+                ':min_spend' => $minimum_spend
+            ]);
+            
             $conn->prepare("DELETE FROM ticket_reservations WHERE reservation_id = :rid")
                  ->execute([':rid' => $reservation_id]);
+                 
         } elseif ($resource_name === 'Event Ticket GA' || $resource_name === 'Event Ticket VIP') {
             if (!$event_id || !$ticket_tier || !$quantity) {
                 $conn->rollBack();
@@ -421,6 +474,25 @@ if ($method === 'DELETE') {
 
     try {
         $conn->beginTransaction();
+
+        $existsStmt = $conn->prepare("SELECT user_id FROM reservations WHERE reservation_id = :reservation_id");
+        $existsStmt->execute([':reservation_id' => $reservation_id]);
+        $existingRes = $existsStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$existingRes) {
+            $conn->rollBack();
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Reservation not found.']);
+            exit;
+        }
+
+        // 🔒 SECURITY CHECK: Verify ownership
+        if ($sessionRole !== 'admin' && $existingRes['user_id'] !== $current_user_id) {
+            $conn->rollBack();
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Forbidden: You do not own this reservation.']);
+            exit;
+        }
 
         $conn->prepare("DELETE FROM bottle_service WHERE reservation_id = :rid")
               ->execute([':rid' => $reservation_id]);
