@@ -129,6 +129,9 @@ table {
   margin-left: auto;
   margin-right: auto;
   /* margin-top: 2rem; */
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  border: black solid 1px;
 }
 
 table th {
@@ -362,8 +365,28 @@ button.inline {
 
 .profile-image-container {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
+  gap: 10px;
+}
+
+.profile-image-button {
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  padding: 0;
+  line-height: 0;
+}
+
+.profile-image-button:focus-visible {
+  outline: 3px solid blue;
+  outline-offset: 4px;
+}
+
+.profile-image-button:hover .profile-image {
+  border-color: blue;
 }
 
 .profile-image {
@@ -372,6 +395,53 @@ button.inline {
   object-fit: cover;
   border-radius: 50%;
   border: 2px solid rgba(0, 0, 0, 0.25);
+}
+
+.profile-upload-hint {
+  margin: 0;
+  text-align: center;
+  font-size: 14px;
+}
+
+.profile-upload-modal-subtitle {
+  margin: 0 0 8px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.profile-upload-input {
+  margin-bottom: 12px;
+}
+
+.profile-upload-path {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.profile-upload-file {
+  margin: 0;
+  font-size: 14px;
+}
+
+.profile-upload-preview {
+  width: 170px;
+  height: 170px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+}
+
+.profile-upload-error {
+  margin: 0;
+  color: #a40000;
+  font-size: 14px;
+  text-align: center;
+}
+
+.profile-upload-success {
+  margin: 0;
+  color: #0b5e20;
+  font-size: 14px;
+  text-align: center;
 }
 
 .profile-details-container h2 {

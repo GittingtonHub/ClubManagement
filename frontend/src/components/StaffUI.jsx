@@ -117,6 +117,41 @@ function StaffUI() {
     }
   };
 
+  const handleDeleteStaff = async (staffId) => {
+    if (window.confirm('Are you sure you want to delete this staff member?')) {
+      try {
+        const response = await fetch(`/api/staff.php?id=${staffId}`, {
+          method: 'DELETE',
+          credentials: 'include'
+        });
+
+        if (response.ok) {
+          setStaff((previousStaff) =>
+            previousStaff.filter((member) => String(member.id) !== String(staffId))
+          );
+          return;
+        }
+
+        const responseText = await response.text();
+        let data = {};
+        try {
+          data = responseText ? JSON.parse(responseText) : {};
+        } catch {
+          data = {};
+        }
+
+        if (response.status === 409) {
+          window.confirm(data?.message || 'This staff member cannot be deleted right now.');
+          return;
+        }
+
+        console.error('Failed to delete staff:', data?.message || response.statusText);
+      } catch (error) {
+        console.error('Failed to delete staff:', error);
+      }
+    }
+  };
+
   return (
     <>
       <div className="table-div" id='staff-table-div'>
@@ -135,6 +170,7 @@ function StaffUI() {
             <th>Name</th>
             <th>Role</th>
             <th>Hourly Rate</th>
+            <th>Actions</th>
           </tr>
 
           {staff.filter(Boolean).map((member, index) => (
@@ -143,6 +179,13 @@ function StaffUI() {
               <td>{member.name ?? 'N/A'}</td>
               <td>{member.role ?? 'N/A'}</td>
               <td>${Number.parseFloat(member.hourly_rate ?? 0).toFixed(2)}</td>
+              <td className="reservation-actions-cell">
+                <div className="reservation-actions-buttons">
+                  <button className="delete-item-button" onClick={() => handleDeleteStaff(member.id)}>
+                    Delete
+                  </button>
+                </div>
+              </td>
             </tr>
           ))}
         </table>

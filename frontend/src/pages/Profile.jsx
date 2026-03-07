@@ -1,4 +1,4 @@
-
+import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 
@@ -16,11 +16,23 @@ function Profile() {
 
    const [reservations, setReservations] = useState([]);
    const [reservationMessage, setReservationMessage] = useState("");
+   const [profileImageSrc, setProfileImageSrc] = useState("/url_icon.png");
+   const [isUploadImageOpen, setIsUploadImageOpen] = useState(false);
+   const [selectedImageFile, setSelectedImageFile] = useState(null);
+   const [selectedImagePreview, setSelectedImagePreview] = useState("");
+   const [isUploadingImage, setIsUploadingImage] = useState(false);
+   const [imageUploadError, setImageUploadError] = useState("");
+   const [imageUploadMessage, setImageUploadMessage] = useState("");
+
    const hasChanges = bio !== savedBio;
    const username = user?.username || localStorage.getItem("userUsername") || "Unavailable";
    const email = user?.email || localStorage.getItem("userEmail") || "Unavailable";
    const userId = user?.id || localStorage.getItem("userId") || "Unavailable";
    const currentUserId = user?.id || localStorage.getItem("userId") || null;
+   const profileImageUploadPath = import.meta.env.VITE_PFP_UPLOAD_PATH || "";
+   const profileImageUploadEndpoint = import.meta.env.VITE_PROFILE_IMAGE_UPLOAD_ENDPOINT || "";
+   const displayUploadPath = profileImageUploadPath || "Server .env (DB_PFP_PATH)";
+
    const [dayBoundaries] = useState(() => {
       const now = new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -62,38 +74,20 @@ function Profile() {
       loadBio();
    }, []);
 
-   // --- NEW UPLOAD FUNCTION ---
-   const handleImageUpload = async (event) => {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      setIsUploading(true);
-      setUploadMessage("");
-
-      const formData = new FormData();
-      formData.append('avatar', file);
-
-      try {
-         const response = await fetch('/api/upload_avatar.php', {
-            method: 'POST',
-            credentials: 'include', // Crucial for session auth!
-            body: formData 
-         });
-
-         const data = await response.json();
-
-         if (data.success) {
-            setProfileImage(data.image_url);
-            setUploadMessage("Image updated!");
-         } else {
-            setUploadMessage(data.message || "Upload failed.");
-         }
-      } catch (error) {
-         setUploadMessage("Server error during upload.");
-      } finally {
-         setIsUploading(false);
+   useEffect(() => {
+      const userProfileImage = user?.profile_image_url || user?.profile_image || user?.avatar_url;
+      if (userProfileImage) {
+         setProfileImageSrc(userProfileImage);
       }
-   };
+   }, [user]);
+
+   useEffect(() => {
+      return () => {
+         if (selectedImagePreview && selectedImagePreview.startsWith("blob:")) {
+            URL.revokeObjectURL(selectedImagePreview);
+         }
+      };
+   }, [selectedImagePreview]);
 
    const fetchMyReservations = useCallback(async () => {
       if (!currentUserId) {
@@ -193,6 +187,111 @@ function Profile() {
       }
    };
 
+   const handleOpenUploadModal = () => {
+      setIsUploadImageOpen(true);
+      setImageUploadError("");
+      setImageUploadMessage("");
+   };
+
+   const handleCloseUploadModal = () => {
+      setIsUploadImageOpen(false);
+      setSelectedImageFile(null);
+      setSelectedImagePreview("");
+      setImageUploadError("");
+   };
+
+   const handleImageFileChange = (event) => {
+      const incomingFile = event.target.files?.[0];
+      setImageUploadError("");
+      setImageUploadMessage("");
+
+      if (!incomingFile) {
+         setSelectedImageFile(null);
+         setSelectedImagePreview("");
+         return;
+      }
+
+      if (!incomingFile.type.startsWith("image/")) {
+         setImageUploadError("Please choose a valid image file.");
+         setSelectedImageFile(null);
+         setSelectedImagePreview("");
+         return;
+      }
+
+      const maxFileSizeBytes = 5 * 1024 * 1024;
+      if (incomingFile.size > maxFileSizeBytes) {
+         setImageUploadError("Image must be 5MB or smaller.");
+         setSelectedImageFile(null);
+         setSelectedImagePreview("");
+         return;
+      }
+
+      setSelectedImageFile(incomingFile);
+      setSelectedImagePreview(URL.createObjectURL(incomingFile));
+   };
+
+   const handleUploadProfileImage = async () => {
+      if (!selectedImageFile) {
+         setImageUploadError("Select an image before uploading.");
+         return;
+      }
+
+      setIsUploadingImage(true);
+      setImageUploadError("");
+      setImageUploadMessage("");
+
+      if (!profileImageUploadEndpoint) {
+         setIsUploadingImage(false);
+         setImageUploadMessage("UI is ready. Connect the PHP upload endpoint to finish backend upload.");
+         setIsUploadImageOpen(false);
+         setSelectedImageFile(null);
+         setSelectedImagePreview("");
+         return;
+      }
+
+      try {
+         const formData = new FormData();
+         formData.append("profile_image", selectedImageFile);
+         if (profileImageUploadPath) {
+            formData.append("upload_path", profileImageUploadPath);
+         }
+
+         const response = await fetch(profileImageUploadEndpoint, {
+            method: "POST",
+            credentials: "include",
+            body: formData
+         });
+
+         const responseText = await response.text();
+         let data = {};
+         try {
+            data = responseText ? JSON.parse(responseText) : {};
+         } catch {
+            data = {};
+         }
+
+         if (!response.ok) {
+            setImageUploadError(data.message || "Could not upload profile image.");
+            return;
+         }
+
+         const incomingImageUrl =
+            data.profile_image_url || data.profileImageUrl || data.image_url || data.imageUrl || "";
+         if (incomingImageUrl) {
+            setProfileImageSrc(incomingImageUrl);
+         }
+
+         setImageUploadMessage("Profile image uploaded.");
+         setIsUploadImageOpen(false);
+         setSelectedImageFile(null);
+         setSelectedImagePreview("");
+      } catch {
+         setImageUploadError("Could not upload profile image.");
+      } finally {
+         setIsUploadingImage(false);
+      }
+   };
+
    const reservationGroups = useMemo(() => {
       const past = [];
       const today = [];
@@ -232,26 +331,17 @@ function Profile() {
    return (
       <>
          <div className="profile-container">
-            <div className="profile-image-container" style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "20px" }}>
-               <img
-                  src={profileImage}
-                  alt="User profile"
-                  className="profile-image"
-                  style={{ width: "100px", height: "100px", borderRadius: "50%", objectFit: "cover", marginBottom: "10px" }}
-               />
-               
-               {/* THE UPLOAD BUTTON */}
-               <label style={{ cursor: "pointer", color: "blue", textDecoration: "underline", fontSize: "14px" }}>
-                  <input 
-                     type="file" 
-                     accept="image/png, image/jpeg, image/webp" 
-                     onChange={handleImageUpload} 
-                     disabled={isUploading} 
-                     style={{ display: "none" }} 
+            <div className="profile-image-container">
+               <button type="button" className="profile-image-button" onClick={handleOpenUploadModal}>
+                  <img
+                     src={profileImageSrc}
+                     alt="User profile"
+                     className="profile-image"
                   />
-                  {isUploading ? "Uploading..." : "Change Picture"}
-               </label>
-               {uploadMessage && <p style={{ fontSize: "12px", marginTop: "5px" }}>{uploadMessage}</p>}
+               </button>
+               <p className="profile-upload-hint">Click profile photo to upload a new image.</p>
+               {imageUploadMessage ? <p className="profile-upload-success">{imageUploadMessage}</p> : null}
+               {imageUploadError ? <p className="profile-upload-error">{imageUploadError}</p> : null}
             </div>
 
             <div className="profile-details-container">
@@ -298,7 +388,58 @@ function Profile() {
             {bioMessage ? <p className="profile-value">{bioMessage}</p> : null}
          </div>
 
-         {/* --- RESERVATIONS SECTIONS BELOW REMAIN EXACTLY THE SAME --- */}
+         <Dialog open={isUploadImageOpen} onClose={handleCloseUploadModal} className="add-item-dialog">
+            <div className="add-item-dialog-backdrop" aria-hidden="true" />
+            <div className="add-item-dialog-container">
+               <DialogPanel className="add-item-dialog-panel">
+                  <DialogTitle className="add-item-header">Upload Profile Image</DialogTitle>
+                  <div className="inner-add-item-container">
+                     <p className="profile-upload-modal-subtitle">
+                        Select an image file (PNG, JPG, GIF, or WEBP). Maximum file size is 5MB.
+                     </p>
+                     <input
+                        id="profile-image-upload"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageFileChange}
+                        className="profile-upload-input"
+                     />
+                     <label className="profile-label" htmlFor="profile-image-upload-path">
+                        Upload Path
+                     </label>
+                     <input
+                        id="profile-image-upload-path"
+                        type="text"
+                        readOnly
+                        value={displayUploadPath}
+                        className="profile-upload-path"
+                     />
+                     {selectedImageFile ? (
+                        <p className="profile-upload-file">Selected: {selectedImageFile.name}</p>
+                     ) : null}
+                     {selectedImagePreview ? (
+                        <img
+                           src={selectedImagePreview}
+                           alt="Selected profile preview"
+                           className="profile-upload-preview"
+                        />
+                     ) : null}
+
+                     {imageUploadError ? <span className="profile-upload-error">{imageUploadError}</span> : null}
+
+                     <div className="button-group">
+                        <button type="button" onClick={handleUploadProfileImage} disabled={isUploadingImage}>
+                           {isUploadingImage ? "Uploading..." : "Upload Image"}
+                        </button>
+                        <button type="button" onClick={handleCloseUploadModal} disabled={isUploadingImage}>
+                           Cancel
+                        </button>
+                     </div>
+                  </div>
+               </DialogPanel>
+            </div>
+         </Dialog>
+
          <div className="profile-reservations-container">
             <div className="profile-reservations-past">
                <h3>Past Reservations</h3>

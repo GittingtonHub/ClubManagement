@@ -25,6 +25,25 @@ function Header() {
     }
   };
 
+
+  function RenderNavLink({destination, destText})
+  {
+    if (destText ==  "Home")
+    {
+       return <NavLink to= {destination} >{destText}</NavLink>
+    }
+    let auth = localStorage.getItem('isAuthenticated')
+    console.log("isauth" + auth)
+    if (auth == 'true')
+    {
+      return <NavLink to= {destination} >{destText}</NavLink>
+    }
+    else
+    {
+      return
+    }
+  };
+
   return (
     <header>
         <h1>Club Management</h1>
@@ -73,7 +92,7 @@ function Header() {
 
         </div>
 
-        <div className="login">
+          <div className="login">
           <button onClick={handleShowProfile} className="profile-title-button" type="button">
             <h2 className="profile-title-heading">Hi, {currentUsername}</h2>
           </button>
