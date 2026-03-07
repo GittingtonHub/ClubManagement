@@ -8,6 +8,12 @@ function Profile() {
    const [savedBio, setSavedBio] = useState("");
    const [isSaving, setIsSaving] = useState(false);
    const [bioMessage, setBioMessage] = useState("");
+   
+   // --- NEW IMAGE UPLOAD STATE ---
+   const [profileImage, setProfileImage] = useState("/url_icon.png");
+   const [isUploading, setIsUploading] = useState(false);
+   const [uploadMessage, setUploadMessage] = useState("");
+
    const [reservations, setReservations] = useState([]);
    const [reservationMessage, setReservationMessage] = useState("");
    const hasChanges = bio !== savedBio;
@@ -40,6 +46,11 @@ function Profile() {
                setBio(incomingBio);
                setSavedBio(incomingBio);
                setBioMessage("");
+               
+               // Grab the image from the database if it exists!
+               if (data.profile_image) {
+                  setProfileImage(data.profile_image);
+               }
             } else {
                setBioMessage(data.message || "Could not load bio");
             }
@@ -50,6 +61,39 @@ function Profile() {
 
       loadBio();
    }, []);
+
+   // --- NEW UPLOAD FUNCTION ---
+   const handleImageUpload = async (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      setIsUploading(true);
+      setUploadMessage("");
+
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      try {
+         const response = await fetch('/api/upload_avatar.php', {
+            method: 'POST',
+            credentials: 'include', // Crucial for session auth!
+            body: formData 
+         });
+
+         const data = await response.json();
+
+         if (data.success) {
+            setProfileImage(data.image_url);
+            setUploadMessage("Image updated!");
+         } else {
+            setUploadMessage(data.message || "Upload failed.");
+         }
+      } catch (error) {
+         setUploadMessage("Server error during upload.");
+      } finally {
+         setIsUploading(false);
+      }
+   };
 
    const fetchMyReservations = useCallback(async () => {
       if (!currentUserId) {
@@ -188,12 +232,26 @@ function Profile() {
    return (
       <>
          <div className="profile-container">
-            <div className="profile-image-container">
+            <div className="profile-image-container" style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "20px" }}>
                <img
-                  src="/url_icon.png"
+                  src={profileImage}
                   alt="User profile"
                   className="profile-image"
+                  style={{ width: "100px", height: "100px", borderRadius: "50%", objectFit: "cover", marginBottom: "10px" }}
                />
+               
+               {/* THE UPLOAD BUTTON */}
+               <label style={{ cursor: "pointer", color: "blue", textDecoration: "underline", fontSize: "14px" }}>
+                  <input 
+                     type="file" 
+                     accept="image/png, image/jpeg, image/webp" 
+                     onChange={handleImageUpload} 
+                     disabled={isUploading} 
+                     style={{ display: "none" }} 
+                  />
+                  {isUploading ? "Uploading..." : "Change Picture"}
+               </label>
+               {uploadMessage && <p style={{ fontSize: "12px", marginTop: "5px" }}>{uploadMessage}</p>}
             </div>
 
             <div className="profile-details-container">
@@ -240,6 +298,7 @@ function Profile() {
             {bioMessage ? <p className="profile-value">{bioMessage}</p> : null}
          </div>
 
+         {/* --- RESERVATIONS SECTIONS BELOW REMAIN EXACTLY THE SAME --- */}
          <div className="profile-reservations-container">
             <div className="profile-reservations-past">
                <h3>Past Reservations</h3>
