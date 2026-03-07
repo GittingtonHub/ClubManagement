@@ -13,6 +13,8 @@ header("Access-Control-Allow-Headers: Content-Type, Authorization");
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 include_once 'api.php'; 
 
+
+
 $method = $_SERVER['REQUEST_METHOD'];
 
 // Handle preflight OPTIONS request for CORS
@@ -40,11 +42,13 @@ if ($method === 'GET') {
                 JOIN resources res ON r.resource_id = res.id
                 LEFT JOIN bottle_service bs ON bs.reservation_id = r.reservation_id
                 LEFT JOIN ticket_reservations tr ON tr.reservation_id = r.reservation_id
+                Where res.user_id == 
                 ORDER BY r.start_time ASC";
         $stmt = $conn->prepare($sql);
         $stmt->execute();
         $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+        
         echo json_encode($data);
 
     } catch (PDOException $e) {

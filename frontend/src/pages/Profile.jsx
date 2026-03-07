@@ -69,6 +69,8 @@ function Profile() {
          const text = await response.text();
          const data = text ? JSON.parse(text) : [];
 
+         console.log()
+
          if (!response.ok) {
             setReservationMessage("Could not load reservations");
             setReservations([]);

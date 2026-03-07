@@ -15,7 +15,9 @@ function Header() {
     if (isAuthenticated) {
       logout();
       localStorage.setItem('isAuthenticated',false)
+      localStorage.clear
       localStorage.setItem('authToken', 'loggedOut')
+     
       navigate('/login');
     } else {
       navigate('/login');
@@ -39,6 +41,20 @@ function Header() {
     else
     {
       return
+    }
+  };
+
+
+
+  function HandleShowProfileMethod()
+  {
+       let auth = localStorage.getItem('isAuthenticated')
+    console.log("isauth" + auth)
+    if (auth == 'true')
+    {
+      return (<button onClick={handleShowProfile} className="profile-title-button" type="button">
+            <h2 className="profile-title-heading">Hi, {currentUsername}</h2>
+          </button>)
     }
   };
 
@@ -80,9 +96,8 @@ function Header() {
       </div>
 
           <div className="login">
-          <button onClick={handleShowProfile} className="profile-title-button" type="button">
-            <h2 className="profile-title-heading">Hi, {currentUsername}</h2>
-          </button>
+          <HandleShowProfileMethod></HandleShowProfileMethod>
+          
 
           <button onClick={handleAuthClick}>
             {isAuthenticated ? 'Logout' : 'Login'}

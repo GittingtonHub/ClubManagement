@@ -192,6 +192,8 @@ function Login() {
         localStorage.setItem('userId', data.user.id);
         localStorage.setItem('userEmail', data.user.email);
         localStorage.setItem('userUsername', data.user.username ?? '');
+        localStorage.setItem('permissionStatus', data.user.role);
+        console.log("userrole" + data.user.role)
       
         login(data.user);
         navigate('/');

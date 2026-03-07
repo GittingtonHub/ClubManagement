@@ -1,13 +1,63 @@
 import { useCallback, useEffect, useState } from 'react';
 import { DayPilot } from "@daypilot/daypilot-lite-react";
+import { useAuth } from "../context/AuthContext";
 
 function ReservationTableUI() {
+  const { user } = useAuth();
   const [reservations, setReservations] = useState([]);
   const [resources, setResources] = useState([]);
   const [sectionOptions, setSectionOptions] = useState([]);
   const [eventOptions, setEventOptions] = useState([]);
+  const userId = user?.id || localStorage.getItem("userId") || "Unavailable";
+  const currentUserId = user?.id || localStorage.getItem("userId") || null;
 
   const fetchReservations = useCallback(async () => {
+
+
+      if (localStorage.getItem('permissionStatus') == 'user')
+      {
+         if (!currentUserId) {
+         setReservations([]);
+         return;
+         }
+      console.log(localStorage.getItem("authToken"))
+
+      try {
+          console.log("i works")
+         const response = await fetch("/api/reservations.php", {
+            method: "GET",
+            credentials: "include",
+            headers: {
+               Authorization: `Bearer ${localStorage.getItem("authToken") || ""}`
+            }
+         });
+
+         const text = await response.text();
+         const data = text ? JSON.parse(text) : [];
+           console.log("here works")
+         if (!response.ok) {
+            //setReservationMessage("Could not load reservations");
+            console.log("could not load reservations")
+            setReservations([]);
+            return;
+         }
+  console.log("a works")  
+         const myReservations = (Array.isArray(data) ? data : []).filter(
+            (reservation) => String(reservation.user_id) === String(currentUserId)
+         );
+           console.log("uhoh works")
+         setReservations(myReservations);
+                 console.log("could not load reservations")
+         //setReservationMessage("");
+      } catch {
+         setReservations([]);
+                 console.log("could not load reservations")
+         //setReservationMessage("Could not load reservations"); 
+      }
+      return;
+      }
+      else
+      {
       try {
         const response = await fetch('/api/reservations.php', {
           headers: {
@@ -27,6 +77,7 @@ function ReservationTableUI() {
         console.error('Failed to fetch reservations:', error);
         setReservations([]);
       }
+    }
   }, []);
 
   const fetchFormOptions = useCallback(async () => {
