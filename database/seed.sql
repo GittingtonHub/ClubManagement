@@ -22,21 +22,23 @@ INSERT INTO resources (id, name, type, price, description) VALUES
 (5, 'Event Ticket VIP', 'event_ticket', 150.00, 'VIP admission ticket');
 
 INSERT INTO reservations (reservation_id, user_id, resource_id, service_type, status, start_time, end_time) VALUES
-(1, 1, 2, 'Bottle Service Silver', 'confirmed', '2026-02-10 20:00:00', '2026-02-10 22:00:00'),
-(2, 2, 3, 'Bottle Service Gold', 'pending', '2026-02-11 21:00:00', '2026-02-11 23:00:00'),
-(3, 3, 2, 'Bottle Service Silver', 'confirmed', '2026-02-12 19:00:00', '2026-02-12 21:30:00'),
-(4, 4, 3, 'Bottle Service Gold', 'cancelled', '2026-02-13 20:30:00', '2026-02-13 22:30:00'),
-(5, 1, 2, 'Bottle Service Silver', 'confirmed', '2026-02-14 21:00:00', '2026-02-14 23:30:00'),
-(6, 1, 4, 'Event Ticket GA', 'confirmed', '2026-02-10 19:00:00', '2026-02-10 23:00:00'),
-(7, 2, 4, 'Event Ticket GA', 'pending', '2026-02-11 19:30:00', '2026-02-11 23:30:00'),
-(8, 3, 5, 'Event Ticket VIP', 'confirmed', '2026-02-12 20:00:00', '2026-02-12 23:59:00'),
-(9, 3, 4, 'Event Ticket GA', 'confirmed', '2026-02-13 19:00:00', '2026-02-13 23:00:00'),
-(10, 5, 5, 'Event Ticket VIP', 'cancelled', '2026-02-14 20:00:00', '2026-02-14 23:00:00'),
-(11, 1, 1, 'Open Bar Package', 'confirmed', '2026-02-10 18:00:00', '2026-02-10 20:00:00'),
-(12, 2, 1, 'Open Bar Package', 'pending', '2026-02-11 18:30:00', '2026-02-11 20:30:00'),
-(13, 3, 1, 'Open Bar Package', 'confirmed', '2026-02-12 18:00:00', '2026-02-12 20:00:00'),
-(14, 4, 1, 'Open Bar Package', 'confirmed', '2026-02-13 18:30:00', '2026-02-13 20:30:00'),
-(15, 5, 1, 'Open Bar Package', 'cancelled', '2026-02-14 18:00:00', '2026-02-14 20:00:00');
+(1, 1, 2, 'bottle_service', 'confirmed', '2026-02-10 20:00:00', '2026-02-10 22:00:00'),
+(2, 2, 3, 'bottle_service', 'pending', '2026-02-11 21:00:00', '2026-02-11 23:00:00'),
+(3, 3, 2, 'bottle_service', 'confirmed', '2026-02-12 19:00:00', '2026-02-12 21:30:00'),
+(4, 4, 3, 'bottle_service', 'cancelled', '2026-02-13 20:30:00', '2026-02-13 22:30:00'),
+(5, 5, 2, 'bottle_service', 'confirmed', '2026-02-14 21:00:00', '2026-02-14 23:30:00'),
+
+(6, 1, 4, 'event_ticket', 'confirmed', '2026-02-10 19:00:00', '2026-02-10 23:00:00'),
+(7, 2, 4, 'event_ticket', 'pending', '2026-02-11 19:30:00', '2026-02-11 23:30:00'),
+(8, 3, 5, 'event_ticket', 'confirmed', '2026-02-12 20:00:00', '2026-02-12 23:59:00'),
+(9, 4, 4, 'event_ticket', 'confirmed', '2026-02-13 19:00:00', '2026-02-13 23:00:00'),
+(10, 5, 5, 'event_ticket', 'cancelled', '2026-02-14 20:00:00', '2026-02-14 23:00:00'),
+
+(11, 1, 1, 'bar', 'confirmed', '2026-02-10 18:00:00', '2026-02-10 20:00:00'),
+(12, 2, 1, 'bar', 'pending', '2026-02-11 18:30:00', '2026-02-11 20:30:00'),
+(13, 3, 1, 'bar', 'confirmed', '2026-02-12 18:00:00', '2026-02-12 20:00:00'),
+(14, 4, 1, 'bar', 'confirmed', '2026-02-13 18:30:00', '2026-02-13 20:30:00'),
+(15, 5, 1, 'bar', 'cancelled', '2026-02-14 18:00:00', '2026-02-14 20:00:00');
 
 INSERT INTO bottle_service (reservation_id, section_number, guest_count, minimum_spend) VALUES
 (1, 101, 6, 1200.00),
