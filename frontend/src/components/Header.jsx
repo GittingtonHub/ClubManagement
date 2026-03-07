@@ -1,11 +1,13 @@
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, NavLink } from 'react-router-dom';
 
-
 function Header() {
   const { isAuthenticated, logout, user } = useAuth();
   const navigate = useNavigate();
+  
   const currentUsername = user?.username || localStorage.getItem('userUsername') || 'Profile';
+  // Grab the role so we know what to show them!
+  const userRole = user?.role || localStorage.getItem('userRole');
 
   const handleShowProfile = () => {
     navigate('/profile');
@@ -14,13 +16,13 @@ function Header() {
   const handleAuthClick = () => {
     if (isAuthenticated) {
       logout();
-      localStorage.setItem('isAuthenticated',false)
-      localStorage.setItem('authToken', 'loggedOut')
+      localStorage.setItem('isAuthenticated', false);
+      localStorage.setItem('authToken', 'loggedOut');
+      localStorage.removeItem('userRole'); // Crucial: clear the role on logout!
       navigate('/login');
     } else {
       navigate('/login');
     }
-
   };
 
 
@@ -47,37 +49,48 @@ function Header() {
         <h1>Club Management</h1>
 
         <div className="topnav">
-        {/* <NavLink 
-          to="/" 
-          className={({ isActive }) => isActive ? "active" : ""}
-        >
-          Home
-        </NavLink>
-        <NavLink 
-          to="/inventory" 
-          className={({ isActive }) => isActive ? "active" : ""}
-        >
-          Inventory
-        </NavLink>
-        <NavLink 
-          to="/reservations" 
-          className={({ isActive }) => isActive ? "active" : ""}
-        >
-          Reservations
-        </NavLink> */}
-         <RenderNavLink destination ="/" destText={"Home"}>
+          {/* EVERYONE SEES THIS */}
+          <NavLink 
+            to="/" 
+            className={({ isActive }) => isActive ? "active" : ""}
+          >
+            Home
+          </NavLink>
 
-        </RenderNavLink>
-         <RenderNavLink destination ="/inventory" destText={"Inventory"}>
+          <NavLink 
+            to="/reservations" 
+            className={({ isActive }) => isActive ? "active" : ""}
+            >
+            Reservations
+          </NavLink>
+          
+          {/* ONLY ADMINS SEE THESE */}
+          {userRole === 'admin' && (
+            <>
+              <NavLink 
+                to="/inventory" 
+                className={({ isActive }) => isActive ? "active" : ""}
+              >
+                Inventory
+              </NavLink>
 
-        </RenderNavLink>
-        <RenderNavLink destination ="/reservations" destText={"Reservations"}>
+              <NavLink 
+                to="/reservations" 
+                className={({ isActive }) => isActive ? "active" : ""}
+              >
+                All Reservations
+              </NavLink>
 
-        </RenderNavLink>
-         <RenderNavLink destination ="/users" destText={"Users"}>
+              <NavLink 
+                to="/users" 
+                className={({ isActive }) => isActive ? "active" : ""}
+              >
+                Users
+              </NavLink>
+            </>
+          )}
 
-        </RenderNavLink>
-      </div>
+        </div>
 
           <div className="login">
           <button onClick={handleShowProfile} className="profile-title-button" type="button">
