@@ -135,6 +135,7 @@ if ($method === 'POST') {
 
     try {
         $conn->beginTransaction();
+        
         // --- CONFLICT CHECK ---
         // Checks if this specific resource (row) is already booked at this time
         $checkSql = "SELECT * FROM reservations 

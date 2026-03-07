@@ -8,6 +8,12 @@ function Profile() {
    const [savedBio, setSavedBio] = useState("");
    const [isSaving, setIsSaving] = useState(false);
    const [bioMessage, setBioMessage] = useState("");
+   
+   // --- NEW IMAGE UPLOAD STATE ---
+   const [profileImage, setProfileImage] = useState("/url_icon.png");
+   const [isUploading, setIsUploading] = useState(false);
+   const [uploadMessage, setUploadMessage] = useState("");
+
    const [reservations, setReservations] = useState([]);
    const [reservationMessage, setReservationMessage] = useState("");
    const [profileImageSrc, setProfileImageSrc] = useState("/url_icon.png");
@@ -52,6 +58,11 @@ function Profile() {
                setBio(incomingBio);
                setSavedBio(incomingBio);
                setBioMessage("");
+               
+               // Grab the image from the database if it exists!
+               if (data.profile_image) {
+                  setProfileImage(data.profile_image);
+               }
             } else {
                setBioMessage(data.message || "Could not load bio");
             }
