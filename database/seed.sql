@@ -1,11 +1,11 @@
 USE ClubManagementDB;
 
-INSERT INTO users (id, email, username, password_hash) VALUES
-(1, 'alex.rivera@example.com', 'alex.rivera', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS'),
-(2, 'jamie.park@example.com', 'jamie.park', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS'),
-(3, 'taylor.lee@example.com', 'taylor.lee', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS'),
-(4, 'morgan.kim@example.com', 'morgan.kim', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS'),
-(5, 'casey.chen@example.com', 'casey.chen', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS');
+INSERT INTO users (id, email, username, password_hash, profile_image, bio) VALUES
+(1, 'alex.rivera@example.com', 'alex.rivera', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS', 'alex.png', 'Frequent VIP guest'),
+(2, 'jamie.park@example.com', 'jamie.park', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS', 'jamie.png', 'Regular club visitor'),
+(3, 'taylor.lee@example.com', 'taylor.lee', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS', 'taylor.png', 'Event promoter'),
+(4, 'morgan.kim@example.com', 'morgan.kim', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS', 'morgan.png', 'VIP customer'),
+(5, 'casey.chen@example.com', 'casey.chen', '$2y$10$yH6mM7Hk1b0rW9Z0wQbOQeI2Yy8kYb8cV0U2wX4KQeJ3gV1Y9q2KS', 'casey.png', 'Birthday reservation guest');
 
 INSERT INTO staff (id, name, role, hourly_rate, employment_type) VALUES
 (1, 'Alex Rivera', 'Bartender', 25.00, 'full_time'),
@@ -15,11 +15,16 @@ INSERT INTO staff (id, name, role, hourly_rate, employment_type) VALUES
 (5, 'Jordan Blake', 'Host', 18.50, 'part_time');
 
 INSERT INTO resources (id, name, type, price, description) VALUES
-(1, 'Open Bar Package', 'bar', 2500.00, 'Unlimited drinks for event'),
-(2, 'Bottle Service Silver', 'bottle_service', 450.00, 'Standard bottle service package'),
-(3, 'Bottle Service Gold', 'bottle_service', 850.00, 'Premium bottle service package'),
-(4, 'Event Ticket GA', 'event_ticket', 50.00, 'General admission ticket'),
-(5, 'Event Ticket VIP', 'event_ticket', 150.00, 'VIP admission ticket');
+(1, 'VIP Section A Bottle Service', 'bottle_service', 1200.00, 'Premium VIP table near DJ booth with bottle service'),
+(2, 'VIP Section B Bottle Service', 'bottle_service', 900.00, 'VIP seating area with standard bottle service'),
+(3, 'Main Floor Table Service', 'bottle_service', 700.00, 'Reserved table on the main dance floor'),
+
+(4, 'Friday EDM Night Ticket', 'event_ticket', 60.00, 'General admission for Friday DJ event'),
+(5, 'Saturday VIP Event Ticket', 'event_ticket', 150.00, 'VIP admission with lounge access'),
+(6, 'Holiday Special Event Ticket', 'event_ticket', 200.00, 'Special holiday themed nightclub event'),
+
+(7, 'Open Bar Private Party Package', 'bar', 2500.00, 'Unlimited drinks for private event'),
+(8, 'Birthday VIP Package', 'bar', 1800.00, 'VIP table, bottle service, and birthday setup');
 
 INSERT INTO reservations (reservation_id, user_id, resource_id, service_type, status, start_time, end_time) VALUES
 (1, 1, 2, 'bottle_service', 'confirmed', '2026-02-10 20:00:00', '2026-02-10 22:00:00'),

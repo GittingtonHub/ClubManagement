@@ -38,16 +38,20 @@ SELECT
         WHEN r.end_time < NOW() THEN 'past'
         WHEN DATE(r.start_time) = CURDATE() THEN 'today'
         ELSE 'future'
-    END AS reservation_group
+    END AS reservation_group,
+
+    CASE
+        WHEN r.end_time < NOW() THEN 1
+        WHEN DATE(r.start_time) = CURDATE() THEN 2
+        ELSE 3
+    END AS group_order
 
 FROM reservations r
 JOIN resources res ON r.resource_id = res.id
 
 WHERE r.user_id = ?
 
-ORDER BY r.start_time DESC;
-
-
+ORDER BY group_order, r.start_time DESC;
 
 -- ============================================
 -- 3. PROFILE METRICS
