@@ -14,6 +14,8 @@ import App from './App.jsx'
 import NotFoundPage from './pages/NotFoundPage.jsx';
 import Home from './pages/Home.jsx';
 import Reservations from './pages/Reservations.jsx';
+import Profile from './pages/Profile.jsx'
+import Users from './pages/Users.jsx';
 
 const router = createBrowserRouter([
   {
@@ -28,10 +30,12 @@ const router = createBrowserRouter([
       </ProtectedRoute>
     ),
     children: [
-      { path: "/*", element: <Home /> },
+      { path: "/*", element: <Home />},
       { path: "/home", element: <Home /> },
       { path: "/inventory", element: <Inventory /> },
       { path: "/reservations", element: <Reservations /> },
+      { path: "/profile", element: <Profile />},
+      { path: "/users", element: <Users /> },
     ],
   },
 

@@ -1,7 +1,5 @@
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
-import { useState } from 'react';
-import { useEffect } from 'react';
-
+import { useState, useEffect } from 'react';
 
 function StaffUI() {
   const [staffName, setStaffName] = useState('');
@@ -13,6 +11,13 @@ function StaffUI() {
   const [hourlyRateError, setHourlyRateError] = useState('');
   const [staff, setStaff] = useState([]);
 
+  const roleOptions = [
+    "Manager",
+    "Bartender",
+    "Security",
+    "Host",
+    "DJ"
+  ];
 
   const validateStaffName = (name) => {
     if (!name || name.trim() === '') {
@@ -28,12 +33,8 @@ function StaffUI() {
   };
 
   const validateStaffRole = (role) => {
-    if (!role || role.trim() === '') {
-      setStaffRoleError('Role is required');
-      return false;
-    }
-    if (role.length > 50) {
-      setStaffRoleError('Role must be 50 characters or less');
+    if (!role) {
+      setStaffRoleError('Please select a role');
       return false;
     }
     setStaffRoleError('');
@@ -62,14 +63,13 @@ function StaffUI() {
     const fetchStaff = async () => {
       try {
         const response = await fetch('/api/staff.php', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-          }
+          credentials: 'include'
         });
         const data = await response.json();
-        setStaff(data);
+        setStaff(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error('Failed to fetch staff:', error);
+        setStaff([]);
       }
     };
     
@@ -77,7 +77,6 @@ function StaffUI() {
   }, []);
 
   const handleAddStaff = async () => {
-    // Validate all fields first
     const isNameValid = validateStaffName(staffName);
     const isRoleValid = validateStaffRole(staffRole);
     const isRateValid = validateHourlyRate(hourlyRate);
@@ -90,9 +89,9 @@ function StaffUI() {
       const response = await fetch('/api/staff.php', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+          'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({
           name: staffName,
           role: staffRole,
@@ -103,12 +102,15 @@ function StaffUI() {
       const data = await response.json();
       
       if (response.ok) {
-        setStaff([...staff, data.staff]); // Add new staff to list
+        if (data?.staff) {
+          setStaff((previousStaff) => [...previousStaff, data.staff]);
+        }
         setStaffName('');
         setStaffRole('');
         setHourlyRate('');
         setIsAddStaffOpen(false);
-        document.getElementById("staff-table-div").style.display = "flex";
+      } else {
+        console.error('Failed to add staff:', data?.message || 'Unknown error');
       }
     } catch (error) {
       console.error('Failed to add staff:', error);
@@ -120,10 +122,11 @@ function StaffUI() {
       <div className="table-div" id='staff-table-div'>
         
         <div className="add-item-button">
-            <button onClick={() => {
-              setIsAddStaffOpen(true);
-              document.getElementById("staff-table-div").style.display = "none";
-            }}>Add Staff</button>
+          <button onClick={() => {
+            setIsAddStaffOpen(true);
+          }}>
+            Add Staff
+          </button>
         </div>
 
         <table className='inventory-table' id='staff-table'>
@@ -134,24 +137,24 @@ function StaffUI() {
             <th>Hourly Rate</th>
           </tr>
 
-          {staff.map((member, index) => (
-            <tr className="table-row" key={member.id}>
+          {staff.filter(Boolean).map((member, index) => (
+            <tr className="table-row" key={member.id ?? index}>
               <td className="table-cell-itemno">{index + 1}</td>
-              <td className="table-cell-name">{member.name}</td>
-              <td>{member.role}</td>
-              <td>${parseFloat(member.hourly_rate).toFixed(2)}</td>
+              <td>{member.name ?? 'N/A'}</td>
+              <td>{member.role ?? 'N/A'}</td>
+              <td>${Number.parseFloat(member.hourly_rate ?? 0).toFixed(2)}</td>
             </tr>
           ))}
         </table>
 
-        <Dialog open={isAddStaffOpen} onClose={() => {
-          setIsAddStaffOpen(false);
-          document.getElementById("staff-table-div").style.display = "flex";
-        }} className="add-item-dialog">
+        <Dialog open={isAddStaffOpen} onClose={() => {}} className="add-item-dialog">
           <div className="add-item-dialog-backdrop" aria-hidden="true" />
           <div className="add-item-dialog-container">
             <DialogPanel className="add-item-dialog-panel">
-              <DialogTitle className="add-item-header">Add New Staff Member</DialogTitle>
+              <DialogTitle className="add-item-header">
+                Add New Staff Member
+              </DialogTitle>
+
               <div className="inner-add-item-container">
                 <input
                   type="text"
@@ -162,30 +165,36 @@ function StaffUI() {
                     if (staffNameError) validateStaffName(e.target.value);
                   }}
                   onBlur={() => validateStaffName(staffName)}
-                  className="add-item-name-input"
                   maxLength={100}
                   style={{
                     border: staffNameError ? '2px solid red' : '1px solid rgba(0, 0, 0, 0.2)'
                   }}
                 />
-                {staffNameError && <span style={{ color: 'red', fontSize: '14px' }}>{staffNameError}</span>}
+                {staffNameError && <span style={{ color: 'red' }}>{staffNameError}</span>}
 
-                <input
-                  type="text"
-                  placeholder="Role"
+                <select
                   value={staffRole}
                   onChange={(e) => {
                     setStaffRole(e.target.value);
                     if (staffRoleError) validateStaffRole(e.target.value);
                   }}
                   onBlur={() => validateStaffRole(staffRole)}
-                  className="add-item-type-input"
-                  maxLength={50}
+                  className="add-item-name-input"
                   style={{
-                    border: staffRoleError ? '2px solid red' : '1px solid rgba(0, 0, 0, 0.2)'
+                    width: "100%",
+                    padding: "15px",
+                    borderRadius: "12px",
+                    border: staffRoleError ? '2px solid red' : '1px solid rgba(0, 0, 0, 0.2)',
+                    fontSize: "16px",
+                    appearance: "none"
                   }}
-                />
-                {staffRoleError && <span style={{ color: 'red', fontSize: '14px' }}>{staffRoleError}</span>}
+                >
+                  <option value="">Select Role</option>
+                  {roleOptions.map((role, index) => (
+                    <option key={index} value={role}>{role}</option>
+                  ))}
+                </select>
+                {staffRoleError && <span style={{ color: 'red' }}>{staffRoleError}</span>}
 
                 <input
                   type="number"
@@ -196,7 +205,6 @@ function StaffUI() {
                     if (hourlyRateError) validateHourlyRate(e.target.value);
                   }}
                   onBlur={() => validateHourlyRate(hourlyRate)}
-                  className="add-item-price-input"
                   step="0.01"
                   min="0"
                   max="999.99"
@@ -204,32 +212,21 @@ function StaffUI() {
                     border: hourlyRateError ? '2px solid red' : '1px solid rgba(0, 0, 0, 0.2)'
                   }}
                 />
-                {hourlyRateError && <span style={{ color: 'red', fontSize: '14px' }}>{hourlyRateError}</span>}
+                {hourlyRateError && <span style={{ color: 'red' }}>{hourlyRateError}</span>}
 
                 <div className="button-group">
-                  <button 
-                    onClick={() => {
-                      handleAddStaff()
-                    }}
-                    className="inline"
-                  >
-                    Add Staff
-                  </button>
-                  <button 
-                    onClick={() => {
-                      setIsAddStaffOpen(false);
-                      document.getElementById("staff-table-div").style.display = "block";
-                    }}
-                    className="inline"
-                  >
+                  <button onClick={handleAddStaff}>Add Staff</button>
+                  <button onClick={() => {
+                    setIsAddStaffOpen(false);
+                  }}>
                     Cancel
                   </button>
                 </div>
               </div>
+
             </DialogPanel>
           </div>
         </Dialog>
-
       </div>
     </>
   );

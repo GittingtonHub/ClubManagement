@@ -3,16 +3,23 @@ import { useNavigate, NavLink } from 'react-router-dom';
 
 
 function Header() {
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, logout, user } = useAuth();
   const navigate = useNavigate();
+  const currentUsername = user?.username || localStorage.getItem('userUsername') || 'Profile';
+
+  const handleShowProfile = () => {
+    navigate('/profile');
+  };
 
   const handleAuthClick = () => {
     if (isAuthenticated) {
       logout();
+      localStorage.setItem('isAuthenticated',false)
       navigate('/login');
     } else {
       navigate('/login');
     }
+
   };
 
   return (
@@ -20,31 +27,44 @@ function Header() {
         <h1>Club Management</h1>
 
         <div className="topnav">
-        <NavLink 
-          to="/" 
-          className={({ isActive }) => isActive ? "active" : ""}
-        >
-          Home
-        </NavLink>
-        <NavLink 
-          to="/inventory" 
-          className={({ isActive }) => isActive ? "active" : ""}
-        >
-          Inventory
-        </NavLink>
-        <NavLink 
-          to="/reservations" 
-          className={({ isActive }) => isActive ? "active" : ""}
-        >
-          Reservations
-        </NavLink>
-      </div>
+          <NavLink 
+            to="/" 
+            className={({ isActive }) => isActive ? "active" : ""}
+          >
+            Home
+          </NavLink>
+          
+          <NavLink 
+            to="/inventory" 
+            className={({ isActive }) => isActive ? "active" : ""}
+          >
+            Inventory
+          </NavLink>
+
+          <NavLink 
+            to="/reservations" 
+            className={({ isActive }) => isActive ? "active" : ""}
+          >
+            Reservations
+          </NavLink>
+
+          <NavLink 
+            to="/users" 
+            className={({ isActive }) => isActive ? "active" : ""}
+          >
+            Users
+          </NavLink>
+        </div>
 
         <div className="login">
-        <button onClick={handleAuthClick}>
-          {isAuthenticated ? 'Logout' : 'Login'}
-        </button>
-      </div>
+          <button onClick={handleShowProfile} className="profile-title-button" type="button">
+            <h2 className="profile-title-heading">Hi, {currentUsername}</h2>
+          </button>
+
+          <button onClick={handleAuthClick}>
+            {isAuthenticated ? 'Logout' : 'Login'}
+          </button>
+        </div>
         
     </header>
   );

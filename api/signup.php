@@ -4,9 +4,10 @@ ini_set('display_errors', 1);
 header('Content-Type: application/json');
 
 include_once 'api.php';
+
 function isValidPassword($password) {
-    // At least 8 characters and at least 1 special character
-    return preg_match('/^(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/', $password);
+    // The (?=.*\d) adds the requirement for at least 1 number!
+    return preg_match('/^(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/', $password);
 }
 
 
@@ -14,47 +15,74 @@ function isValidPassword($password) {
 // Get JSON input instead of $_POST
 $input = json_decode(file_get_contents('php://input'), true);
 $email = $input["email"] ?? null;
+$username = $input["username"] ?? null;
 $password = $input["password"] ?? null;
-if (!isValidPassword($password)) {
+
+// 1. FIRST check if they are missing (Order of operations!)
+if (!$email || !$username || !$password) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'Username, email, and password are required']);
+    exit;
+}
+
+$username = trim($username);
+if (strlen($username) < 3 || strlen($username) > 30 || !preg_match('/^[A-Za-z0-9_]+$/', $username)) {
     http_response_code(400);
     echo json_encode([
         'success' => false,
-        'message' => 'Password must be at least 8 characters and include a 
-special character.'
+        'message' => 'Username must be 3-30 characters and contain only letters, numbers, and underscores.'
     ]);
     exit;
 }
 
-
-
-if (!$email || !$password) {
+// 2. THEN check if the password meets the rules
+if (!isValidPassword($password)) {
     http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'Email and password required']);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Password must be at least 8 characters and include a number and a special character.'
+    ]);
     exit;
-}
 
-// Fetch existing users to check for duplicates
-$query = "SELECT id, email FROM users WHERE email = :email";
+    }
+
+// Check if email is already taken
+$query = "SELECT id FROM users WHERE email = :email";
 $stmt = $conn->prepare($query);
 $stmt->bindParam(':email', $email);
 $stmt->execute();
-$existingUser = $stmt->fetch(PDO::FETCH_ASSOC);
+$existingEmail = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$existingUser)
-{
-    $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-    $query = "INSERT INTO users (email, password_hash) VALUES (:email, :password_hash)";
-    $stmt = $conn->prepare($query);
-    $stmt->bindParam(':email', $email);
-    $stmt->bindParam(':password_hash', $passwordHash);
-    $stmt->execute();
-    
-    echo json_encode(['success' => true]);
-}
-else
-{
+if ($existingEmail) {
     http_response_code(400);
     echo json_encode(['success' => false, 'message' => 'Email already exists!']);
+    exit;
 }
+
+// Check if username is already taken
+$query = "SELECT id FROM users WHERE username = :username";
+$stmt = $conn->prepare($query);
+$stmt->bindParam(':username', $username);
+$stmt->execute();
+$existingUsername = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if ($existingUsername) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'Username already exists!']);
+    exit;
+}
+
+$passwordHash = password_hash($password, PASSWORD_DEFAULT);
+
+$query = "INSERT INTO users (email, username, password_hash, privilege) 
+          VALUES (:email, :username, :password_hash, 'user')";
+
+$stmt = $conn->prepare($query);
+$stmt->bindParam(':email', $email);
+$stmt->bindParam(':username', $username);
+$stmt->bindParam(':password_hash', $passwordHash);
+$stmt->execute();
+
+echo json_encode(['success' => true]);
 
 ?>
