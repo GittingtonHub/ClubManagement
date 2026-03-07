@@ -7,9 +7,18 @@ header("Content-Type: application/json; charset=UTF-8");
 
 include_once 'api.php';
 
+// 1. MUST BE LOGGED IN
 if (!isset($_SESSION['user'])) {
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
+    exit;
+}
+
+// 2. MUST BE AN ADMIN (The Backend Lock)
+// Make sure your login.php is saving the role to $_SESSION['role']!
+if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Access Denied. Admins only.']);
     exit;
 }
 

@@ -39,21 +39,24 @@
   }
 
   if ($user && password_verify($password, $user['password_hash'])) {
-      $_SESSION['user_id'] = $user['id'];
-      $_SESSION['user'] = [
-          'email' => $user['email'], 
-          'username' => $user['username'] ?? null,
-          'id' => $user['id'], 
-          'role' => $user['role'] ?? 'user'
-      ];
-      
-      echo json_encode([
-          'success' => true, 
-          'token' => session_id(),
-          'user' => $_SESSION['user']
-      ]);
+        $_SESSION['user_id'] = $user['id'];
+
+        $_SESSION['role'] = $user['role'] ?? 'user';
+
+        $_SESSION['user'] = [
+            'email' => $user['email'], 
+            'username' => $user['username'] ?? null,
+            'id' => $user['id'], 
+            'role' => $user['role'] ?? 'user'
+        ];
+        
+        echo json_encode([
+            'success' => true, 
+            'token' => session_id(),
+            'user' => $_SESSION['user']
+        ]);
   } else {
-      http_response_code(401);
-      echo json_encode(['success' => false, 'message' => 'Incorrect email or password']);
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'Incorrect email or password']);
   }
 ?>
