@@ -11,7 +11,7 @@ lerna-debug.log*
 .env
 .env.*
 vite.config.js
-frontend/vite.config.js
+frontend\vite.config.js
 
 # Dependency directories
 node_modules
