@@ -188,7 +188,7 @@ function Login() {
       
       if (response.ok) {
         localStorage.setItem('authToken', data.token);
-      
+        localStorage.setItem('isAuthenticated',true)
         localStorage.setItem('userId', data.user.id);
         localStorage.setItem('userEmail', data.user.email);
         localStorage.setItem('userUsername', data.user.username ?? '');
