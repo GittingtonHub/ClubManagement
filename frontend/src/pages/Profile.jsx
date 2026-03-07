@@ -9,11 +9,6 @@ function Profile() {
    const [isSaving, setIsSaving] = useState(false);
    const [bioMessage, setBioMessage] = useState("");
    
-   // --- NEW IMAGE UPLOAD STATE ---
-   const [profileImage, setProfileImage] = useState("/url_icon.png");
-   const [isUploading, setIsUploading] = useState(false);
-   const [uploadMessage, setUploadMessage] = useState("");
-
    const [reservations, setReservations] = useState([]);
    const [reservationMessage, setReservationMessage] = useState("");
    const [profileImageSrc, setProfileImageSrc] = useState("/url_icon.png");
@@ -59,9 +54,9 @@ function Profile() {
                setSavedBio(incomingBio);
                setBioMessage("");
                
-               // Grab the image from the database if it exists!
+               // Grab the image from the database if it exists.
                if (data.profile_image) {
-                  setProfileImage(data.profile_image);
+                  setProfileImageSrc(data.profile_image);
                }
             } else {
                setBioMessage(data.message || "Could not load bio");
@@ -240,23 +235,15 @@ function Profile() {
       setImageUploadError("");
       setImageUploadMessage("");
 
-      if (!profileImageUploadEndpoint) {
-         setIsUploadingImage(false);
-         setImageUploadMessage("UI is ready. Connect the PHP upload endpoint to finish backend upload.");
-         setIsUploadImageOpen(false);
-         setSelectedImageFile(null);
-         setSelectedImagePreview("");
-         return;
-      }
-
       try {
+         const uploadEndpoint = profileImageUploadEndpoint || "/api/upload_avatar.php";
          const formData = new FormData();
-         formData.append("profile_image", selectedImageFile);
+         formData.append("avatar", selectedImageFile);
          if (profileImageUploadPath) {
             formData.append("upload_path", profileImageUploadPath);
          }
 
-         const response = await fetch(profileImageUploadEndpoint, {
+         const response = await fetch(uploadEndpoint, {
             method: "POST",
             credentials: "include",
             body: formData
@@ -271,7 +258,10 @@ function Profile() {
          }
 
          if (!response.ok) {
-            setImageUploadError(data.message || "Could not upload profile image.");
+            const fallbackMessage = responseText
+               ? responseText.slice(0, 240)
+               : `Upload failed (${response.status})`;
+            setImageUploadError(data.message || fallbackMessage || "Could not upload profile image.");
             return;
          }
 
@@ -281,7 +271,7 @@ function Profile() {
             setProfileImageSrc(incomingImageUrl);
          }
 
-         setImageUploadMessage("Profile image uploaded.");
+         setImageUploadMessage(data.message || "Profile image uploaded.");
          setIsUploadImageOpen(false);
          setSelectedImageFile(null);
          setSelectedImagePreview("");

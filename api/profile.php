@@ -15,14 +15,24 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 if ($method === 'GET') {
     try {
-        $stmt = $conn->prepare("SELECT bio FROM users WHERE id = :id LIMIT 1");
+        $columnsStmt = $conn->query("SHOW COLUMNS FROM users");
+        $columns = $columnsStmt->fetchAll(PDO::FETCH_COLUMN, 0);
+        $profileImageExpression = in_array('profile_image', $columns, true)
+            ? 'profile_image'
+            : (in_array('avatar_url', $columns, true) ? 'avatar_url' : "NULL");
+
+        $stmt = $conn->prepare("SELECT bio, {$profileImageExpression} AS profile_image FROM users WHERE id = :id LIMIT 1");
         $stmt->bindParam(':id', $userId);
         $stmt->execute();
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        $profileImageValue = (string)($user['profile_image'] ?? '');
+        $avatarVersion = $profileImageValue !== '' ? md5($profileImageValue) : 'default';
+        $profileImage = '/api/profile-avatar.php?v=' . $avatarVersion;
 
         echo json_encode([
             'success' => true,
-            'bio' => $user['bio'] ?? ''
+            'bio' => $user['bio'] ?? '',
+            'profile_image' => $profileImage
         ]);
     } catch (PDOException $e) {
         http_response_code(500);
