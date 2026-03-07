@@ -15,6 +15,7 @@ function Header() {
     if (isAuthenticated) {
       logout();
       localStorage.setItem('isAuthenticated',false)
+      localStorage.setItem('authToken', 'loggedOut')
       navigate('/login');
     } else {
       navigate('/login');
@@ -22,41 +23,63 @@ function Header() {
 
   };
 
+
+  function RenderNavLink({destination, destText})
+  {
+    if (destText ==  "Home")
+    {
+       return <NavLink to= {destination} >{destText}</NavLink>
+    }
+    let auth = localStorage.getItem('isAuthenticated')
+    console.log("isauth" + auth)
+    if (auth == 'true')
+    {
+      return <NavLink to= {destination} >{destText}</NavLink>
+    }
+    else
+    {
+      return
+    }
+  };
+
   return (
     <header>
         <h1>Club Management</h1>
 
         <div className="topnav">
-          <NavLink 
-            to="/" 
-            className={({ isActive }) => isActive ? "active" : ""}
-          >
-            Home
-          </NavLink>
-          
-          <NavLink 
-            to="/inventory" 
-            className={({ isActive }) => isActive ? "active" : ""}
-          >
-            Inventory
-          </NavLink>
+        {/* <NavLink 
+          to="/" 
+          className={({ isActive }) => isActive ? "active" : ""}
+        >
+          Home
+        </NavLink>
+        <NavLink 
+          to="/inventory" 
+          className={({ isActive }) => isActive ? "active" : ""}
+        >
+          Inventory
+        </NavLink>
+        <NavLink 
+          to="/reservations" 
+          className={({ isActive }) => isActive ? "active" : ""}
+        >
+          Reservations
+        </NavLink> */}
+         <RenderNavLink destination ="/" destText={"Home"}>
 
-          <NavLink 
-            to="/reservations" 
-            className={({ isActive }) => isActive ? "active" : ""}
-          >
-            Reservations
-          </NavLink>
+        </RenderNavLink>
+         <RenderNavLink destination ="/inventory" destText={"Inventory"}>
 
-          <NavLink 
-            to="/users" 
-            className={({ isActive }) => isActive ? "active" : ""}
-          >
-            Users
-          </NavLink>
-        </div>
+        </RenderNavLink>
+        <RenderNavLink destination ="/reservations" destText={"Reservations"}>
 
-        <div className="login">
+        </RenderNavLink>
+         <RenderNavLink destination ="/users" destText={"Users"}>
+
+        </RenderNavLink>
+      </div>
+
+          <div className="login">
           <button onClick={handleShowProfile} className="profile-title-button" type="button">
             <h2 className="profile-title-heading">Hi, {currentUsername}</h2>
           </button>
