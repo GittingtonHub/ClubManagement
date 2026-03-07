@@ -11,6 +11,7 @@ lerna-debug.log*
 .env
 .env.*
 vite.config.js
+frontend/vite.config.js
 frontend\vite.config.js
 
 # Dependency directories
@@ -32,3 +33,5 @@ composer.*
 *.sln
 *.sw?
 frontend/vite.config.js
+api/private_uploads/
+frontend/public/uploads/avatars/

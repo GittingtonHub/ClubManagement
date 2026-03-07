@@ -25,25 +25,6 @@ function Header() {
     }
   };
 
-
-  function RenderNavLink({destination, destText})
-  {
-    if (destText ==  "Home")
-    {
-       return <NavLink to= {destination} >{destText}</NavLink>
-    }
-    let auth = localStorage.getItem('isAuthenticated')
-    console.log("isauth" + auth)
-    if (auth == 'true')
-    {
-      return <NavLink to= {destination} >{destText}</NavLink>
-    }
-    else
-    {
-      return
-    }
-  };
-
   return (
     <header>
         <h1>Club Management</h1>
