@@ -73,16 +73,41 @@ if ($existingUsername) {
 }
 
 $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+$newRole = stripos($email, '@adminuser') !== false ? 'admin' : 'user';
 
-$query = "INSERT INTO users (email, username, password_hash, privilege) 
-          VALUES (:email, :username, :password_hash, 'user')";
+try {
+    $columnsStmt = $conn->query("SHOW COLUMNS FROM users");
+    $columns = $columnsStmt->fetchAll(PDO::FETCH_COLUMN, 0);
 
-$stmt = $conn->prepare($query);
-$stmt->bindParam(':email', $email);
-$stmt->bindParam(':username', $username);
-$stmt->bindParam(':password_hash', $passwordHash);
-$stmt->execute();
+    $insertColumns = ['email', 'username', 'password_hash'];
+    $insertValues = [':email', ':username', ':password_hash'];
+    $params = [
+        ':email' => $email,
+        ':username' => $username,
+        ':password_hash' => $passwordHash
+    ];
 
-echo json_encode(['success' => true]);
+    if (in_array('privilege', $columns, true)) {
+        $insertColumns[] = 'privilege';
+        $insertValues[] = ':new_role_privilege';
+        $params[':new_role_privilege'] = $newRole;
+    }
+    if (in_array('role', $columns, true)) {
+        $insertColumns[] = 'role';
+        $insertValues[] = ':new_role';
+        $params[':new_role'] = $newRole;
+    }
+
+    $query = "INSERT INTO users (" . implode(', ', $insertColumns) . ")
+              VALUES (" . implode(', ', $insertValues) . ")";
+
+    $stmt = $conn->prepare($query);
+    $stmt->execute($params);
+
+    echo json_encode(['success' => true, 'role' => $newRole]);
+} catch (PDOException $e) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Could not create account right now.']);
+}
 
 ?>

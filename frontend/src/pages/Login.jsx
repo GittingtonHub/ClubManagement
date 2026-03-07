@@ -293,6 +293,9 @@ function Login() {
                 }}
               />
               {signupEmailError && <span style={{ color: 'red', fontSize: '14px' }}>{signupEmailError}</span>}
+              <p style={{ fontSize: '12px', margin: '4px 0 8px 0' }}>
+                Emails containing <strong>@AdminUser</strong> are created as admin accounts.
+              </p>
 
               <input
                 type="password"

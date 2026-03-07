@@ -56,13 +56,6 @@ function Header() {
               </NavLink>
 
               <NavLink 
-                to="/reservations" 
-                className={({ isActive }) => isActive ? "active" : ""}
-              >
-                All Reservations
-              </NavLink>
-
-              <NavLink 
                 to="/users" 
                 className={({ isActive }) => isActive ? "active" : ""}
               >
