@@ -1,12 +1,8 @@
 import '../styles/about.css';
-import andresImage from '../assets/andres.jpeg';
+import andresImage from '../assets/andres.jpg';
 import ZainabImage from '../assets/zainab.jpg';
-// import WillImage from '../assets/will.jpeg';
-// import JaviImage from '../assets/javi.jpeg';
-
-// Placeholder images for Will and Javi until we get their actual photos
-import WillImage from '../assets/andres.jpeg';
-import JaviImage from '../assets/andres.jpeg';
+import WillImage from '../assets/will.jpg';
+import JaviImage from '../assets/javi.jpg';
 
 function Home() {
     return (
