@@ -50,14 +50,17 @@ function ReservationTableUI() {
         name: r.name,
         description: r.description
       })));
+
       setSectionOptions(sectionsData.map((s) => ({
         id: s.section_number,
         name: String(s.section_number)
       })));
+
       setEventOptions(eventsData.map((e) => ({
         id: e.event_id,
         name: String(e.event_id)
       })));
+      
     } catch (error) {
       console.error('Failed to fetch form options:', error);
       setResources([]);
