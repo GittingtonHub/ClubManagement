@@ -25,6 +25,33 @@ if ($method === 'GET') {
         $stmt->bindParam(':id', $userId);
         $stmt->execute();
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $staffProfile = null;
+        try {
+            $staffTableStmt = $conn->query("SHOW TABLES LIKE 'staff'");
+            $staffTableExists = (bool)$staffTableStmt->fetchColumn();
+
+            if ($staffTableExists) {
+                $staffColumnsStmt = $conn->query("SHOW COLUMNS FROM staff");
+                $staffColumns = $staffColumnsStmt->fetchAll(PDO::FETCH_COLUMN, 0);
+                $contractTypeExpression = in_array('employment_type', $staffColumns, true)
+                    ? 'employment_type'
+                    : (in_array('contract_type', $staffColumns, true) ? 'contract_type' : "NULL");
+
+                $staffStmt = $conn->prepare(
+                    "SELECT id AS employee_id, role, hourly_rate, {$contractTypeExpression} AS contract_type
+                     FROM staff
+                     WHERE id = :id
+                     LIMIT 1"
+                );
+                $staffStmt->bindParam(':id', $userId);
+                $staffStmt->execute();
+                $staffProfile = $staffStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+            }
+        } catch (PDOException $ignoredStaffLookupError) {
+            $staffProfile = null;
+        }
+
         $profileImageValue = (string)($user['profile_image'] ?? '');
         $avatarVersion = $profileImageValue !== '' ? md5($profileImageValue) : 'default';
         $profileImage = '/api/profile-avatar.php?v=' . $avatarVersion;
@@ -32,7 +59,8 @@ if ($method === 'GET') {
         echo json_encode([
             'success' => true,
             'bio' => $user['bio'] ?? '',
-            'profile_image' => $profileImage
+            'profile_image' => $profileImage,
+            'staff' => $staffProfile
         ]);
     } catch (PDOException $e) {
         http_response_code(500);

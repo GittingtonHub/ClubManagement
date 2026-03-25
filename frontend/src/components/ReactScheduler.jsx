@@ -6,6 +6,7 @@ const ReactScheduler = () => {
   const [scheduler, setScheduler] = useState(null);
   const [events, setEvents] = useState([]);
   const [resources, setResources] = useState([]);
+  const [schedulerResources, setSchedulerResources] = useState([]);
   const [sectionOptions, setSectionOptions] = useState([]);
   const [eventOptions, setEventOptions] = useState([]);
 
@@ -17,6 +18,27 @@ const ReactScheduler = () => {
     { name: "light", text: "Light" },
     { name: "dark", text: "Dark" }
   ];
+
+  const isTicketResource = (resource) =>
+    resource?.name === "Event Ticket GA" || resource?.name === "Event Ticket VIP";
+
+  const toTicketEventRowId = (resourceId, eventId) => `${resourceId}::event::${eventId}`;
+
+  const parseSchedulerResourceId = (value) => {
+    const parsed = String(value ?? "");
+    const match = parsed.match(/^(\d+)::event::(\d+)$/);
+    if (match) {
+      return {
+        resourceId: Number(match[1]),
+        eventId: Number(match[2])
+      };
+    }
+
+    return {
+      resourceId: Number(value),
+      eventId: null
+    };
+  };
 
   const buildReservationForm = (resource) => {
     const base = [
@@ -58,17 +80,38 @@ const ReactScheduler = () => {
   };
 
   const editEvent = async (e) => {
-    const resource = resources.find(r => String(r.id) === String(e.data.resource));
-    const modal = await DayPilot.Modal.form(buildReservationForm(resource), e.data);
+    const { resourceId, eventId } = parseSchedulerResourceId(e.data.resource);
+    const resource = resources.find(r => String(r.id) === String(resourceId));
+    const modalData = {
+      ...e.data,
+      resource: resourceId,
+      event_id: e.data.event_id ?? eventId ?? ""
+    };
+    const modal = await DayPilot.Modal.form(buildReservationForm(resource), modalData);
     if (modal.canceled) {
       return;
     }
 
-    scheduler.events.update(modal.result);
+    let updatedResourceId = modal.result.resource;
+    if (
+      resource &&
+      isTicketResource(resource) &&
+      modal.result.event_id !== undefined &&
+      modal.result.event_id !== null &&
+      modal.result.event_id !== ""
+    ) {
+      updatedResourceId = toTicketEventRowId(modal.result.resource, modal.result.event_id);
+    }
+
+    scheduler.events.update({
+      ...modal.result,
+      resource: updatedResourceId
+    });
   };
 
 const onTimeRangeSelected = async (args) => {
-    const selectedResource = resources.find(r => String(r.id) === String(args.resource));
+    const { resourceId, eventId } = parseSchedulerResourceId(args.resource);
+    const selectedResource = resources.find(r => String(r.id) === String(resourceId));
     const ticketTier = selectedResource?.name === "Event Ticket VIP" ? "VIP" : "GA";
     const minimumSpend = selectedResource?.name === "Bottle Service Gold" ? 1000 : 600;
 
@@ -91,9 +134,10 @@ const onTimeRangeSelected = async (args) => {
     let modalData = {
       start: args.start,
       end: args.end,
-      resource: args.resource,
+      resource: resourceId,
       text: "New Event",
       resource_description: selectedResource.description || "",
+      event_id: eventId ?? "",
       ticket_tier: ticketTier,
       minimum_spend: minimumSpend
     };
@@ -105,7 +149,7 @@ const onTimeRangeSelected = async (args) => {
 
       const payload = {
         user_id: localStorage.getItem('userId') || 1,
-        resource_id: args.resource,
+        resource_id: resourceId,
         service_type: selectedResource.name,
         start_time: toApiDateTime(modalData.start),
         end_time: toApiDateTime(modalData.end)
@@ -122,7 +166,7 @@ const onTimeRangeSelected = async (args) => {
       }
 
       if (selectedResource.name === "Event Ticket GA" || selectedResource.name === "Event Ticket VIP") {
-        payload.event_id = modalData.event_id;
+        payload.event_id = modalData.event_id || eventId;
         payload.ticket_tier = modalData.ticket_tier;
         payload.quantity = modalData.quantity;
         if (!payload.event_id || !payload.ticket_tier || !payload.quantity) {
@@ -197,24 +241,16 @@ const onTimeRangeSelected = async (args) => {
 
         const eventsJson = await eventsResponse.json();
         const eventsData = Array.isArray(eventsJson) ? eventsJson : [];
-        
-        // Mapping your DB fields to DayPilot fields
-        const formattedEvents = eventsData.map(e => ({
-          id: e.reservation_id,
-          text: e.resource_name || e.service_type, 
-          start: e.start_time,
-          end: e.end_time,
-          // CHANGE THIS: It must match the ID from your inventory table (e.g., 1, 2, or 3)
-          resource: e.resource_id, 
-          status: e.status
-        }));
-        setEvents(formattedEvents);
 
-        //load resources from the server
-        const resourcesResponse = await fetch('/api/inventory.php');
+        const [resourcesResponse, sectionsResponse, ticketEventsResponse] = await Promise.all([
+          fetch('/api/inventory.php'),
+          fetch('/api/sections.php'),
+          fetch('/api/events.php')
+        ]);
+
         const resourcesJson = await resourcesResponse.json();
         const resourcesData = Array.isArray(resourcesJson) ? resourcesJson : [];
-        
+
         const formattedResources = resourcesData.map(r => ({
           name: r.name,
           id: r.id,
@@ -223,7 +259,67 @@ const onTimeRangeSelected = async (args) => {
         }));
         setResources(formattedResources);
 
-        const sectionsResponse = await fetch('/api/sections.php');
+        const ticketEventsJson = await ticketEventsResponse.json();
+        const ticketEventsData = Array.isArray(ticketEventsJson) ? ticketEventsJson : [];
+        const mappedTicketEvents = ticketEventsData.map(e => ({
+          name: String(e.event_title || `Event ${e.event_id}`),
+          id: e.event_id
+        }));
+        setEventOptions(mappedTicketEvents);
+
+        const schedulerRows = formattedResources.map((resource) => {
+          if (!isTicketResource(resource)) {
+            return resource;
+          }
+
+          const children = mappedTicketEvents.map((eventRow) => ({
+            id: toTicketEventRowId(resource.id, eventRow.id),
+            name: eventRow.name
+          }));
+
+          if (children.length === 0) {
+            return resource;
+          }
+
+          return {
+            ...resource,
+            expanded: true,
+            children
+          };
+        });
+        setSchedulerResources(schedulerRows);
+
+        const ticketResourceIds = new Set(
+          formattedResources
+            .filter((resource) => isTicketResource(resource))
+            .map((resource) => String(resource.id))
+        );
+        const knownEventIds = new Set(mappedTicketEvents.map((eventRow) => String(eventRow.id)));
+
+        // Mapping your DB fields to DayPilot fields
+        const formattedEvents = eventsData.map(e => {
+          let schedulerResourceId = e.resource_id;
+          if (
+            ticketResourceIds.has(String(e.resource_id)) &&
+            e.event_id !== null &&
+            e.event_id !== undefined &&
+            knownEventIds.has(String(e.event_id))
+          ) {
+            schedulerResourceId = toTicketEventRowId(e.resource_id, e.event_id);
+          }
+
+          return {
+            id: e.reservation_id,
+            text: e.resource_name || e.service_type,
+            start: e.start_time,
+            end: e.end_time,
+            resource: schedulerResourceId,
+            status: e.status,
+            event_id: e.event_id
+          };
+        });
+        setEvents(formattedEvents);
+
         const sectionsJson = await sectionsResponse.json();
         const sectionsData = Array.isArray(sectionsJson) ? sectionsJson : [];
         setSectionOptions(sectionsData.map(s => ({
@@ -231,15 +327,17 @@ const onTimeRangeSelected = async (args) => {
           id: s.section_number
         })));
 
-        const ticketEventsResponse = await fetch('/api/events.php');
-        const ticketEventsJson = await ticketEventsResponse.json();
-        const eventsDataList = Array.isArray(ticketEventsJson) ? ticketEventsJson : [];
-        setEventOptions(eventsDataList.map(e => ({
-          name: String(e.event_id),
-          id: e.event_id
-        })));
-
-        const resourceIdSet = new Set(formattedResources.map((r) => String(r.id)));
+        const flattenResourceIds = (rows) => {
+          const ids = [];
+          rows.forEach((row) => {
+            ids.push(String(row.id));
+            if (Array.isArray(row.children)) {
+              row.children.forEach((child) => ids.push(String(child.id)));
+            }
+          });
+          return ids;
+        };
+        const resourceIdSet = new Set(flattenResourceIds(schedulerRows));
         const unmatchedEvents = formattedEvents.filter((e) => !resourceIdSet.has(String(e.resource)));
         if (unmatchedEvents.length > 0) {
           console.warn("Scheduler events without matching resource IDs:", unmatchedEvents);
@@ -274,10 +372,11 @@ const onTimeRangeSelected = async (args) => {
         ]}
         startDate={startDate}
         days={days}
+        rowHeaderWidth={240}
         cellWidth={60}
         eventHeight={40}
         events={events}
-        resources={resources}
+        resources={schedulerResources}
         onBeforeEventRender={onBeforeEventRender}
         onTimeRangeSelected={onTimeRangeSelected}
         controlRef={setScheduler}
