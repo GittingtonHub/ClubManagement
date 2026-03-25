@@ -102,6 +102,54 @@ function get_event_staff_column_map(PDO $conn): ?array {
     ];
 }
 
+function get_resources_column_map(PDO $conn): ?array {
+    if (!table_exists($conn, 'resources')) {
+        return null;
+    }
+
+    $columns = get_table_columns($conn, 'resources');
+
+    $map = [
+        'name' => pick_column($columns, ['name', 'resource_name', 'title']),
+        'price' => pick_column($columns, ['price', 'cost', 'amount'])
+    ];
+
+    if (!$map['name'] || !$map['price']) {
+        return null;
+    }
+
+    return $map;
+}
+
+function set_event_ticket_resource_prices(PDO $conn, float $gaTicketPrice, float $vipTicketPrice): void {
+    $resourcesMap = get_resources_column_map($conn);
+
+    if ($resourcesMap === null) {
+        return;
+    }
+
+    $resourceNameColumn = quote_identifier($resourcesMap['name']);
+    $resourcePriceColumn = quote_identifier($resourcesMap['price']);
+
+    $updateSql = sprintf(
+        'UPDATE resources SET %s = :price WHERE LOWER(%s) = LOWER(:resource_name)',
+        $resourcePriceColumn,
+        $resourceNameColumn
+    );
+
+    $updateStmt = $conn->prepare($updateSql);
+
+    $updateStmt->execute([
+        ':price' => $gaTicketPrice,
+        ':resource_name' => 'Event Ticket GA'
+    ]);
+
+    $updateStmt->execute([
+        ':price' => $vipTicketPrice,
+        ':resource_name' => 'Event Ticket VIP'
+    ]);
+}
+
 function fetch_events(PDO $conn): array {
     $eventMap = get_events_column_map($conn);
 
@@ -225,13 +273,28 @@ if ($method === 'POST') {
     $startTime = normalize_datetime($input['start_time'] ?? null);
     $endTime = normalize_datetime($input['end_time'] ?? null);
     $qtyTickets = $input['qty_tickets'] ?? null;
+    $vipTicketPrice = $input['vip_ticket_price'] ?? null;
+    $gaTicketPrice = $input['ga_ticket_price'] ?? null;
     $staffIds = is_array($input['staff_ids'] ?? null) ? $input['staff_ids'] : [];
 
-    if ($eventId === null || $eventTitle === '' || $description === '' || $performer === '' || !$startTime || !$endTime || $qtyTickets === null || $qtyTickets === '') {
+    if (
+        $eventId === null ||
+        $eventTitle === '' ||
+        $description === '' ||
+        $performer === '' ||
+        !$startTime ||
+        !$endTime ||
+        $qtyTickets === null ||
+        $qtyTickets === '' ||
+        $vipTicketPrice === null ||
+        $vipTicketPrice === '' ||
+        $gaTicketPrice === null ||
+        $gaTicketPrice === ''
+    ) {
         http_response_code(400);
         echo json_encode([
             'success' => false,
-            'message' => 'event_id, event_title, description, performer, start_time, end_time, and qty_tickets are required.'
+            'message' => 'event_id, event_title, description, performer, start_time, end_time, qty_tickets, vip_ticket_price, and ga_ticket_price are required.'
         ]);
         exit;
     }
@@ -253,6 +316,27 @@ if ($method === 'POST') {
         ]);
         exit;
     }
+
+    if (!is_numeric($vipTicketPrice) || (float)$vipTicketPrice < 0) {
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'message' => 'vip_ticket_price must be a non-negative number.'
+        ]);
+        exit;
+    }
+
+    if (!is_numeric($gaTicketPrice) || (float)$gaTicketPrice < 0) {
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'message' => 'ga_ticket_price must be a non-negative number.'
+        ]);
+        exit;
+    }
+
+    $normalizedVipTicketPrice = round((float)$vipTicketPrice, 2);
+    $normalizedGaTicketPrice = round((float)$gaTicketPrice, 2);
 
     if (strtotime($endTime) <= strtotime($startTime)) {
         http_response_code(400);
@@ -312,6 +396,8 @@ if ($method === 'POST') {
                 ]);
             }
         }
+
+        set_event_ticket_resource_prices($conn, $normalizedGaTicketPrice, $normalizedVipTicketPrice);
 
         $conn->commit();
 

@@ -334,35 +334,68 @@ function UserProfile() {
                {imageUploadError ? <p className="profile-upload-error">{imageUploadError}</p> : null}
             </div>
 
-            <div className="profile-details-container">
+            <div
+               className="profile-details-container"
+               style={{ background: "transparent", border: "none", backdropFilter: "none", WebkitBackdropFilter: "none" }}
+            >
                <h2>User Profile</h2>
+               <table
+                  className="profile-details-table"
+                  role="presentation"
+                  style={{
+                     background: "transparent",
+                     backgroundColor: "transparent",
+                     border: "none",
+                     boxShadow: "none",
+                     backdropFilter: "none",
+                     WebkitBackdropFilter: "none",
+                     margin: 0
+                  }}
+               >
+                  <tbody style={{ background: "transparent", border: "none", backdropFilter: "none", WebkitBackdropFilter: "none" }}>
+                     <tr style={{ background: "transparent", border: "none", backdropFilter: "none", WebkitBackdropFilter: "none" }}>
+                        <td className="profile-details-column" style={{ background: "transparent", border: "none", backdropFilter: "none", WebkitBackdropFilter: "none" }}>
+                           <p className="profile-label">Username</p>
+                           <p className="profile-value" id="profile-username">
+                              {username}
+                           </p>
 
-               <p className="profile-label">Username</p>
-               <p className="profile-value" id="profile-username">
-                  {username}
-               </p>
+                           <p className="profile-label">Email</p>
+                           <p className="profile-value" id="profile-email">
+                              {email}
+                           </p>
 
-               <p className="profile-label">Email</p>
-               <p className="profile-value" id="profile-email">
-                  {email}
-               </p>
+                           <p className="profile-label">User ID</p>
+                           <p className="profile-value" id="profile-id">
+                              {userId}
+                           </p>
 
-               <p className="profile-label">User ID</p>
-               <p className="profile-value" id="profile-id">
-                  {userId}
-               </p>
+                           <label className="profile-label" htmlFor="profile-bio">
+                              Biography
+                           </label>
+                           <textarea
+                              id="profile-bio"
+                              className="profile-bio-input"
+                              value={bio}
+                              onChange={(e) => setBio(e.target.value)}
+                              placeholder="Write a short biography here..."
+                              rows={4}
+                           />
+                        </td>
+                        <td className="profile-details-column" style={{ background: "transparent", border: "none", backdropFilter: "none", WebkitBackdropFilter: "none" }}>
+                           <p className="profile-label">Past Reservations</p>
+                           <p className="profile-value" id="profile-past-reservations">
+                              {reservationGroups.past.length}
+                           </p>
 
-               <label className="profile-label" htmlFor="profile-bio">
-                  Biography
-               </label>
-               <textarea
-                  id="profile-bio"
-                  className="profile-bio-input"
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value)}
-                  placeholder="Write a short biography here..."
-                  rows={4}
-               />
+                           <p className="profile-label">Future Reservations</p>
+                           <p className="profile-value" id="profile-future-reservations">
+                              {reservationGroups.future.length}
+                           </p>
+                        </td>
+                     </tr>
+                  </tbody>
+               </table>
             </div>
 
             {hasChanges ? (

@@ -8,6 +8,8 @@ const EMPTY_EVENT_FORM = {
   start_time: '',
   end_time: '',
   qty_tickets: '',
+  vip_ticket_price: '',
+  ga_ticket_price: '',
   performer: '',
   staff_ids: []
 };
@@ -46,10 +48,62 @@ const normalizeEventRow = (event) => {
     start_time: event.start_time ?? '',
     end_time: event.end_time ?? '',
     qty_tickets: event.qty_tickets ?? 0,
+    vip_ticket_price: event.vip_ticket_price ?? '',
+    ga_ticket_price: event.ga_ticket_price ?? '',
     performer: event.performer ?? '',
     assigned_staff_names: event.assigned_staff_names ?? '',
     assigned_staff_ids: assignedStaffIds
   };
+};
+
+const parseAvailableStaffIds = (payload) => {
+  const hasKnownShape =
+    Array.isArray(payload) ||
+    Array.isArray(payload?.available_staff) ||
+    Array.isArray(payload?.staff) ||
+    Array.isArray(payload?.data);
+
+  if (!hasKnownShape) {
+    return null;
+  }
+
+  const rows = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.available_staff)
+      ? payload.available_staff
+      : Array.isArray(payload?.staff)
+        ? payload.staff
+        : payload.data;
+
+  return rows
+    .map((row) => {
+      if (typeof row === 'number' || typeof row === 'string') {
+        const parsedId = Number.parseInt(row, 10);
+        return Number.isInteger(parsedId) ? parsedId : null;
+      }
+
+      if (!row || typeof row !== 'object') {
+        return null;
+      }
+
+      const rawIsAvailable = row.available ?? row.is_available ?? row.isAvailable ?? true;
+      const normalizedIsAvailable =
+        typeof rawIsAvailable === 'string' ? rawIsAvailable.toLowerCase() : rawIsAvailable;
+      if (
+        normalizedIsAvailable === false ||
+        normalizedIsAvailable === 0 ||
+        normalizedIsAvailable === '0' ||
+        normalizedIsAvailable === 'false' ||
+        normalizedIsAvailable === 'no'
+      ) {
+        return null;
+      }
+
+      const rawId = row.id ?? row.staff_id ?? row.staffId;
+      const parsedId = Number.parseInt(rawId, 10);
+      return Number.isInteger(parsedId) ? parsedId : null;
+    })
+    .filter(Number.isInteger);
 };
 
 function EventsUI() {
@@ -60,6 +114,8 @@ function EventsUI() {
   const [formErrors, setFormErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [eventsError, setEventsError] = useState('');
+  const [availableStaffIds, setAvailableStaffIds] = useState(null);
+  const [isAvailabilityLoading, setIsAvailabilityLoading] = useState(false);
   
   const staffById = useMemo(() => {
     const map = new Map();
@@ -71,9 +127,27 @@ function EventsUI() {
     return map;
   }, [staff]);
 
+  const availableStaffIdSet = useMemo(() => {
+    if (!Array.isArray(availableStaffIds)) {
+      return null;
+    }
+
+    return new Set(availableStaffIds.map((staffId) => String(staffId)));
+  }, [availableStaffIds]);
+
+  const visibleStaff = useMemo(() => {
+    if (!eventForm.start_time || !eventForm.end_time || availableStaffIdSet === null) {
+      return staff;
+    }
+
+    return staff.filter((member) => availableStaffIdSet.has(String(member.id)));
+  }, [staff, eventForm.start_time, eventForm.end_time, availableStaffIdSet]);
+
   const resetEventForm = () => {
     setEventForm(EMPTY_EVENT_FORM);
     setFormErrors({});
+    setAvailableStaffIds(null);
+    setIsAvailabilityLoading(false);
   };
 
   const loadEvents = async () => {
@@ -117,6 +191,92 @@ function EventsUI() {
     loadEvents();
     loadStaff();
   }, []);
+
+  useEffect(() => {
+    if (!isAddEventOpen) {
+      setAvailableStaffIds(null);
+      setIsAvailabilityLoading(false);
+      return;
+    }
+
+    if (!eventForm.start_time || !eventForm.end_time) {
+      setAvailableStaffIds(null);
+      return;
+    }
+
+    const start = new Date(eventForm.start_time);
+    const end = new Date(eventForm.end_time);
+
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+      setAvailableStaffIds(null);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const fetchAvailability = async () => {
+      setIsAvailabilityLoading(true);
+
+      try {
+        const query = new URLSearchParams({
+          start_time: eventForm.start_time,
+          end_time: eventForm.end_time
+        });
+
+        const response = await fetch(`/api/availability.php?${query.toString()}`, {
+          credentials: 'include',
+          signal: controller.signal
+        });
+
+        if (!response.ok) {
+          throw new Error(`Availability request failed with status ${response.status}`);
+        }
+
+        const payload = await response.json().catch(() => ({}));
+        const parsedAvailableIds = parseAvailableStaffIds(payload);
+
+        if (!Array.isArray(parsedAvailableIds)) {
+          throw new Error('Unexpected availability response format.');
+        }
+
+        setAvailableStaffIds(parsedAvailableIds);
+      } catch (error) {
+        if (error.name !== 'AbortError') {
+          console.error('Failed to fetch staff availability:', error);
+          setAvailableStaffIds(null);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsAvailabilityLoading(false);
+        }
+      }
+    };
+
+    fetchAvailability();
+
+    return () => {
+      controller.abort();
+    };
+  }, [isAddEventOpen, eventForm.start_time, eventForm.end_time]);
+
+  useEffect(() => {
+    if (!eventForm.start_time || !eventForm.end_time || availableStaffIdSet === null) {
+      return;
+    }
+
+    setEventForm((previous) => {
+      const filteredStaffIds = previous.staff_ids.filter((staffId) => availableStaffIdSet.has(String(staffId)));
+
+      if (filteredStaffIds.length === previous.staff_ids.length) {
+        return previous;
+      }
+
+      return {
+        ...previous,
+        staff_ids: filteredStaffIds
+      };
+    });
+  }, [eventForm.start_time, eventForm.end_time, availableStaffIdSet]);
 
   const validateEventForm = () => {
     const errors = {};
@@ -162,6 +322,18 @@ function EventsUI() {
       errors.qty_tickets = 'Ticket quantity is required.';
     } else if (!Number.isInteger(Number(eventForm.qty_tickets)) || Number(eventForm.qty_tickets) < 0) {
       errors.qty_tickets = 'Ticket quantity must be a non-negative whole number.';
+    }
+
+    if (eventForm.vip_ticket_price === '' || Number.isNaN(Number(eventForm.vip_ticket_price))) {
+      errors.vip_ticket_price = 'VIP ticket price is required.';
+    } else if (Number(eventForm.vip_ticket_price) < 0) {
+      errors.vip_ticket_price = 'VIP ticket price must be a non-negative number.';
+    }
+
+    if (eventForm.ga_ticket_price === '' || Number.isNaN(Number(eventForm.ga_ticket_price))) {
+      errors.ga_ticket_price = 'GA ticket price is required.';
+    } else if (Number(eventForm.ga_ticket_price) < 0) {
+      errors.ga_ticket_price = 'GA ticket price must be a non-negative number.';
     }
 
     setFormErrors(errors);
@@ -221,6 +393,8 @@ function EventsUI() {
           start_time: eventForm.start_time,
           end_time: eventForm.end_time,
           qty_tickets: Number(eventForm.qty_tickets),
+          vip_ticket_price: Number(eventForm.vip_ticket_price),
+          ga_ticket_price: Number(eventForm.ga_ticket_price),
           performer: eventForm.performer.trim(),
           staff_ids: eventForm.staff_ids
         })
@@ -430,6 +604,53 @@ function EventsUI() {
                 />
                 {formErrors.qty_tickets && <span style={{ color: 'red', fontSize: '14px' }}>{formErrors.qty_tickets}</span>}
 
+                <div
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    gap: '10px',
+                    alignItems: 'flex-start'
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <input
+                      type="number"
+                      placeholder="VIP Ticket Price"
+                      value={eventForm.vip_ticket_price}
+                      onChange={(e) => handleInputChange('vip_ticket_price', e.target.value)}
+                      onBlur={validateEventForm}
+                      min="0"
+                      step="0.01"
+                      style={{
+                        border: formErrors.vip_ticket_price ? '2px solid red' : '1px solid rgba(0, 0, 0, 0.2)',
+                        marginBottom: '4px'
+                      }}
+                    />
+                    {formErrors.vip_ticket_price && (
+                      <span style={{ color: 'red', fontSize: '14px' }}>{formErrors.vip_ticket_price}</span>
+                    )}
+                  </div>
+
+                  <div style={{ flex: 1 }}>
+                    <input
+                      type="number"
+                      placeholder="GA Ticket Price"
+                      value={eventForm.ga_ticket_price}
+                      onChange={(e) => handleInputChange('ga_ticket_price', e.target.value)}
+                      onBlur={validateEventForm}
+                      min="0"
+                      step="0.01"
+                      style={{
+                        border: formErrors.ga_ticket_price ? '2px solid red' : '1px solid rgba(0, 0, 0, 0.2)',
+                        marginBottom: '4px'
+                      }}
+                    />
+                    {formErrors.ga_ticket_price && (
+                      <span style={{ color: 'red', fontSize: '14px' }}>{formErrors.ga_ticket_price}</span>
+                    )}
+                  </div>
+                </div>
+
                 <textarea
                   placeholder="Description"
                   value={eventForm.description}
@@ -444,6 +665,9 @@ function EventsUI() {
 
                 <div style={{ width: '100%', marginBottom: '10px' }}>
                   <p style={{ margin: '0 0 8px 0', fontWeight: 600 }}>Assign Staff</p>
+                  {isAvailabilityLoading && eventForm.start_time && eventForm.end_time && (
+                    <p style={{ margin: '0 0 8px 0', fontSize: '13px' }}>Checking availability...</p>
+                  )}
                   <div
                     style={{
                       border: '1px solid rgba(0, 0, 0, 0.2)',
@@ -454,10 +678,12 @@ function EventsUI() {
                       background: 'rgba(255, 255, 255, 0.6)'
                     }}
                   >
-                    {staff.length === 0 ? (
-                      <p style={{ margin: 0 }}>No staff available yet.</p>
+                    {visibleStaff.length === 0 ? (
+                      <p style={{ margin: 0 }}>
+                        {staff.length === 0 ? 'No staff available yet.' : 'No staff available for selected time range.'}
+                      </p>
                     ) : (
-                      staff.map((member) => {
+                      visibleStaff.map((member) => {
                         const staffId = member.id;
                         const isChecked = eventForm.staff_ids.includes(staffId);
                         return (
