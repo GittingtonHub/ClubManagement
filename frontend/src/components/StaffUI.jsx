@@ -224,12 +224,7 @@ function StaffUI() {
                   onBlur={() => validateStaffRole(staffRole)}
                   className="add-item-name-input"
                   style={{
-                    width: "100%",
-                    padding: "15px",
-                    borderRadius: "12px",
-                    border: staffRoleError ? '2px solid red' : '1px solid rgba(0, 0, 0, 0.2)',
-                    fontSize: "16px",
-                    appearance: "none"
+                    border: staffRoleError ? '2px solid red' : '1px solid rgba(0, 0, 0, 0.2)'
                   }}
                 >
                   <option value="">Select Role</option>
