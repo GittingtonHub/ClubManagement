@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $sqlInsert = "INSERT INTO resources (name, type, price, description) VALUES (:name, :type, :price, :description)";
     $stmt = $conn->prepare($sqlInsert);
-    $stmt->bindParam(':name', $name);
+    $stmt->bindParam(':name', $name); 
     $stmt->bindParam(':type', $type);
     $stmt->bindParam(':price', $price);
     $stmt->bindParam(':description', $description);
