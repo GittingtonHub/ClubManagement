@@ -1,4 +1,6 @@
 <?php
+// TODO CHECK IF STAFF IS AVAILABLE FOR THIS Reserved TIME SLOT
+
 $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
 if ($authHeader && preg_match('/Bearer\s+(.+)/i', $authHeader, $matches)) {
     $sessionToken = trim($matches[1]);
@@ -152,6 +154,15 @@ if ($method === 'POST') {
           echo json_encode(['success' => false, 'message' => 'start_time must be before end_time.']);
           exit;
       }
+
+      // just in case someone tries to bypass frontend validation, we also prevent for past times here
+      if ($timestampStart < time()) {
+          http_response_code(400);
+          echo json_encode(['success' => false, 'message' => 'Reservations cannot be made in the past.']);
+          exit;
+      }
+
+
     }
 
 
@@ -202,6 +213,7 @@ if ($method === 'POST') {
                 exit;
             }
         }
+        
         $insertSql = "INSERT INTO reservations (user_id, resource_id, service_type, status, start_time, end_time)
                       VALUES (:uid, :rid, :service, 'pending', :start, :end)";
         $insertStmt = $conn->prepare($insertSql);
@@ -249,12 +261,73 @@ if ($method === 'POST') {
             ]);
         }
 
+        // AUTO-ASSIGN STAFF BASED ON RESERVATION TYPE
+        $required_roles = [];
+        
+        if ($resource_Type === 'Open Bar' || strpos($resource_name, 'Open Bar') !== false) {
+            $required_roles = ['Bartender', 'Bar Back'];
+        } elseif ($resource_Type === 'Bottle Service' || strpos($resource_name, 'Bottle Service') !== false) {
+            $required_roles = ['Bottle Service Promoter'];
+        } elseif ($resource_Type === 'Event' || strpos($resource_name, 'Event') !== false) {
+            $required_roles = ['Security', 'Bouncer'];
+        }
+
+        $assigned_staff_ids = [];
+
+        foreach ($required_roles as $role) {
+            // Find one staff member who fits the role and has NO overlapping reservations
+            $findStaffSql = "
+                SELECT s.id FROM staff s
+                WHERE s.role = :role 
+                AND s.id NOT IN (
+                    SELECT rs.staff_id FROM ReservationStaff rs
+                    JOIN reservations r ON rs.reservation_id = r.reservation_id
+                    WHERE (r.start_time < :end_time AND r.end_time > :start_time)
+                    AND r.status != 'cancelled'
+                )
+                LIMIT 1
+            ";
+            
+            $staffStmt = $conn->prepare($findStaffSql);
+            $staffStmt->execute([
+                ':role' => $role,
+                ':end_time' => $end_time,
+                ':start_time' => $start_time
+            ]);
+            
+            $available_staff = $staffStmt->fetch(PDO::FETCH_ASSOC);
+
+            // If we can't find a staff member for this role, abort the whole reservation
+            if (!$available_staff) {
+                $conn->rollBack();
+                http_response_code(409);
+                echo json_encode([
+                    'success' => false,
+                    'message' => "Conflict: No available staff for the required role: $role. Please try a different time."
+                ]);
+                exit;
+            }
+
+            $assigned_staff_ids[] = $available_staff['id'];
+        }
+
+        // If we found everyone we need, map them to the new reservation in ReservationStaff
+        foreach ($assigned_staff_ids as $staff_id) {
+            $assignSql = "INSERT INTO ReservationStaff (reservation_id, staff_id) VALUES (:res_id, :staff_id)";
+            $assignStmt = $conn->prepare($assignSql);
+            $assignStmt->execute([
+                ':res_id' => $reservation_id,
+                ':staff_id' => $staff_id
+            ]);
+        }
+
+
         $conn->commit();
 
         http_response_code(201);
         echo json_encode([
             'success' => true,
-            'message' => 'Reservation submitted successfully.'
+            'message' => 'Reservation submitted and staff automatically assigned successfully.'
         ]);
 
     } catch (PDOException $e) {
@@ -301,6 +374,21 @@ if ($method === 'PUT') {
             'success' => false,
             'message' => 'reservation_id, user_id, resource_id, status, start_time, and end_time are required.'
         ]);
+        exit;
+    }
+
+    // Prevent editing a reservation to push it into the past
+    $timestampStart = strtotime($start_time ?? '');
+    $timestampEnd   = strtotime($end_time ?? '');
+
+    if ($timestampStart && $timestampStart < time()) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Reservations cannot be rescheduled to the past.']);
+        exit;
+    }
+    if ($timestampStart && $timestampEnd && $timestampStart >= $timestampEnd) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'start_time must be before end_time.']);
         exit;
     }
 
@@ -385,6 +473,8 @@ if ($method === 'PUT') {
             ':end' => $end_time,
             ':reservation_id' => $reservation_id
         ]);
+    
+
 
         $resource_Type = $resource['type'];
         $resource_name = $resource['name'];
@@ -449,6 +539,88 @@ if ($method === 'PUT') {
                  ->execute([':rid' => $reservation_id]);
         }
 
+
+        $conn->prepare("DELETE FROM ReservationStaff WHERE reservation_id = :rid")
+             ->execute([':rid' => $reservation_id]);
+
+        $required_roles = [];
+        if ($resource_Type === 'Open Bar' || strpos($resource_name, 'Open Bar') !== false) {
+            $required_roles = ['Bartender', 'Bar Back'];
+        } elseif ($resource_Type === 'Bottle Service' || strpos($resource_name, 'Bottle Service') !== false) {
+            $required_roles = ['Bottle Service Promoter'];
+        } elseif ($resource_Type === 'Event' || strpos($resource_name, 'Event') !== false) {
+            $required_roles = ['Security', 'Bouncer'];
+        }
+
+        $assigned_staff_ids = [];
+
+        foreach ($required_roles as $role) {
+            // Find staff who are free during the NEW time slot
+            $findStaffSql = "
+                SELECT s.id 
+                FROM staff s
+                JOIN availability a ON s.id = a.staff_id
+                WHERE s.role = :role 
+                AND a.day_of_week = DAYNAME(:start_date)
+                AND a.start_time <= TIME(:start_time)
+                AND a.end_time >= TIME(:end_time)
+                AND s.id NOT IN (
+                    SELECT rs.staff_id FROM ReservationStaff rs
+                    JOIN reservations r ON rs.reservation_id = r.reservation_id
+                    WHERE (r.start_time < :end_time_check AND r.end_time > :start_time_check)
+                    AND r.status != 'cancelled'
+                )
+                LIMIT 1
+            ";
+            
+            $staffStmt = $conn->prepare($findStaffSql);
+            $staffStmt->execute([
+                ':role' => $role,
+                ':start_date' => $start_time,
+                ':start_time' => $start_time,
+                ':end_time' => $end_time,
+                ':start_time_check' => $start_time,
+                ':end_time_check' => $end_time
+            ]);
+            
+            $available_staff = $staffStmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$available_staff) {
+                $conn->rollBack();
+                http_response_code(409);
+                echo json_encode([
+                    'success' => false,
+                    'message' => "Conflict: No available staff for the required role: $role at this new time."
+                ]);
+                exit;
+            }
+            $assigned_staff_ids[] = $available_staff['id'];
+        }
+
+        foreach ($assigned_staff_ids as $staff_id) {
+            $assignSql = "INSERT INTO ReservationStaff (reservation_id, staff_id) VALUES (:res_id, :staff_id)";
+            $assignStmt = $conn->prepare($assignSql);
+            $assignStmt->execute([
+                ':res_id' => $reservation_id,
+                ':staff_id' => $staff_id
+            ]);
+
+            // Trigger Staff Notification for Updated Time
+            $userLookup = $conn->prepare("SELECT user_id FROM staff WHERE id = :sid");
+            $userLookup->execute([':sid' => $staff_id]);
+            $staffUser = $userLookup->fetch(PDO::FETCH_ASSOC);
+
+            if ($staffUser && $staffUser['user_id']) {
+                $notifSql = "INSERT INTO staff_notifications (staff_user_id, reservation_id, message) 
+                             VALUES (:suid, :rid, :msg)";
+                $conn->prepare($notifSql)->execute([
+                    ':suid' => $staffUser['user_id'],
+                    ':rid' => $reservation_id,
+                    ':msg' => "Your $resource_name reservation time has been updated."
+                ]);
+            }
+        }
+
         $conn->commit();
 
         echo json_encode(['success' => true, 'message' => 'Reservation updated successfully.']);
@@ -494,6 +666,10 @@ if ($method === 'DELETE') {
             exit;
         }
 
+        //  DELETE STAFF ASSIGNMENT FIRST TO PREVENT CRASH
+        $conn->prepare("DELETE FROM ReservationStaff WHERE reservation_id = :rid")
+              ->execute([':rid' => $reservation_id]);
+              
         $conn->prepare("DELETE FROM bottle_service WHERE reservation_id = :rid")
               ->execute([':rid' => $reservation_id]);
         $conn->prepare("DELETE FROM ticket_reservations WHERE reservation_id = :rid")
@@ -517,3 +693,6 @@ if ($method === 'DELETE') {
     }
     exit;
 }
+
+
+?>

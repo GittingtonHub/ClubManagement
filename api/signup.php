@@ -17,6 +17,7 @@ $input = json_decode(file_get_contents('php://input'), true);
 $email = $input["email"] ?? null;
 $username = $input["username"] ?? null;
 $password = $input["password"] ?? null;
+$roleInput = $input["role"] ?? null; // <-- Added to grab the role from the frontend
 
 // 1. FIRST check if they are missing (Order of operations!)
 if (!$email || !$username || !$password) {
@@ -43,8 +44,7 @@ if (!isValidPassword($password)) {
         'message' => 'Password must be at least 8 characters and include a number and a special character.'
     ]);
     exit;
-
-    }
+}
 
 // Check if email is already taken
 $query = "SELECT id FROM users WHERE email = :email";
@@ -73,7 +73,20 @@ if ($existingUsername) {
 }
 
 $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-$newRole = stripos($email, '@adminuser') !== false ? 'admin' : 'user';
+
+
+$allowedRoles = ['user', 'admin', 'staff']; 
+$newRole = 'user'; // Defult role
+
+
+if ($roleInput && in_array($roleInput, $allowedRoles)) {
+    $newRole = $roleInput;
+} 
+
+elseif (stripos($email, '@adminuser') !== false) {
+    $newRole = 'admin';
+}
+
 
 try {
     $columnsStmt = $conn->query("SHOW COLUMNS FROM users");
@@ -104,7 +117,9 @@ try {
     $stmt = $conn->prepare($query);
     $stmt->execute($params);
 
-    echo json_encode(['success' => true, 'role' => $newRole]);
+    $new_user_id = $conn->lastInsertId();
+
+    echo json_encode(['success' => true, 'message' => 'User created successfully.', 'id' => $new_user_id, 'username' => $username, 'email' => $email, 'role' => $newRole]);
 } catch (PDOException $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Could not create account right now.']);

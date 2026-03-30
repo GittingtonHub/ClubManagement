@@ -21,9 +21,10 @@ if ($method === 'GET') {
     }
 
     try {
-        $query = "SELECT s.id, s.name, s.role, es.role_placeholder 
+        // Fetch staff details for a specific event
+        $query = "SELECT s.id, s.name, s.role, s.hourly_rate 
                   FROM staff s 
-                  JOIN event_staff es ON s.id = es.staff_id 
+                  JOIN EventStaff es ON s.id = es.staff_id 
                   WHERE es.event_id = :event_id";
         $stmt = $conn->prepare($query);
         $stmt->execute([':event_id' => $event_id]);
@@ -32,7 +33,7 @@ if ($method === 'GET') {
         echo json_encode(['success' => true, 'data' => $data]);
     } catch (PDOException $e) {
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Unable to fetch event staff.']);
+        echo json_encode(['success' => false, 'message' => 'Unable to fetch event staff.', 'error' => $e->getMessage()]);
     }
     exit;
 }
@@ -41,19 +42,40 @@ if ($method === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true);
     
     try {
-        $insert = "INSERT INTO event_staff (event_id, staff_id, role_placeholder) VALUES (:event_id, :staff_id, :role)";
+        // Just link the IDs in the Many-to-Many table
+        $insert = "INSERT INTO EventStaff (event_id, staff_id) VALUES (:event_id, :staff_id)";
         $stmt = $conn->prepare($insert);
         $stmt->execute([
             ':event_id' => $input['event_id'] ?? null,
-            ':staff_id' => $input['staff_id'] ?? null,
-            ':role' => $input['role'] ?? ''
+            ':staff_id' => $input['staff_id'] ?? null
         ]);
 
         http_response_code(201);
         echo json_encode(['success' => true, 'message' => 'Staff assigned to event successfully.']);
+
+        $userLookup = $conn->prepare("SELECT user_id FROM staff WHERE id = :sid");
+        $userLookup->execute([':sid' => $input['staff_id']]);
+        $staffUser = $userLookup->fetch(PDO::FETCH_ASSOC);
+
+        if ($staffUser && $staffUser['user_id']) {
+            $notifSql = "INSERT INTO staff_notifications (staff_user_id, event_id, message) 
+                        VALUES (:suid, :eid, :msg)";
+            $conn->prepare($notifSql)->execute([
+                ':suid' => $staffUser['user_id'],
+                ':eid' => $input['event_id'],
+                ':msg' => "You have been manually assigned to work an upcoming Event."
+            ]);
+        }
+
     } catch (PDOException $e) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Unable to assign staff.']);
+        // Catch duplicate assignment errors gracefully
+        if ($e->getCode() == 23000) {
+            http_response_code(409);
+            echo json_encode(['success' => false, 'message' => 'Staff member is already assigned to this event.']);
+        } else {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Unable to assign staff.', 'error' => $e->getMessage()]);
+        }
     }
     exit;
 }
@@ -70,7 +92,7 @@ if ($method === 'DELETE') {
     }
 
     try {
-        $delete = $conn->prepare("DELETE FROM event_staff WHERE event_id = :event_id AND staff_id = :staff_id");
+        $delete = $conn->prepare("DELETE FROM EventStaff WHERE event_id = :event_id AND staff_id = :staff_id");
         $delete->execute([
             ':event_id' => $event_id,
             ':staff_id' => $staff_id
@@ -78,7 +100,7 @@ if ($method === 'DELETE') {
         echo json_encode(['success' => true, 'message' => 'Staff assignment removed.']);
     } catch (PDOException $e) {
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Unable to remove staff assignment.']);
+        echo json_encode(['success' => false, 'message' => 'Unable to remove staff assignment.', 'error' => $e->getMessage()]);
     }
     exit;
 }
