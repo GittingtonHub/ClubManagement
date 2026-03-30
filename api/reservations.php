@@ -227,6 +227,38 @@ if ($method === 'POST') {
 
         $reservation_id = $conn->lastInsertId();
 
+                // --- FLOW 1: USER 10-MIN WARNING (DB RECORD) ---
+        $notify_at = date('Y-m-d H:i:s', strtotime($start_time . ' -10 minutes'));
+
+        $userNotifSql = "INSERT INTO user_notifications (user_id, reservation_id, notify_at) 
+                        VALUES (:uid, :rid, :nat)";
+        $conn->prepare($userNotifSql)->execute([
+            ':uid' => $user_id,
+            ':rid' => $reservation_id,
+            ':nat' => $notify_at
+        ]);
+
+        // --- FLOW 3: STAFF IN-APP NOTIFICATION ---
+        foreach ($assigned_staff_ids as $staff_id) {
+            // 1. Get the actual user_id of the staff member
+            $getStaffUser = $conn->prepare("SELECT user_id FROM staff WHERE id = :sid");
+            $getStaffUser->execute([':sid' => $staff_id]);
+            $staffUser = $getStaffUser->fetch(PDO::FETCH_ASSOC);
+
+            if ($staffUser) {
+                $staffNotifSql = "INSERT INTO staff_notifications (staff_user_id, reservation_id, message) 
+                                VALUES (:suid, :rid, :msg)";
+                $conn->prepare($staffNotifSql)->execute([
+                    ':suid' => $staffUser['user_id'],
+                    ':rid' => $reservation_id,
+                    ':msg' => "New Assignment: You have been assigned to a $service_type shift."
+                ]);
+                
+                // 2. Trigger the Email Proof of Concept
+                sendStaffNotificationEmail($staffUser['user_id'], $reservation_id, 'new');
+            }
+        }
+
         if ($resource_name === 'Bottle Service Silver' || $resource_name === 'Bottle Service Gold') {
             if (!$section_number || !$guest_count || !$minimum_spend) {
                 $conn->rollBack();
