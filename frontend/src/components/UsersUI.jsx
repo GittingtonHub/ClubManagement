@@ -1,6 +1,5 @@
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
-import { useState } from 'react';
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 
 function UsersUI() {
@@ -10,7 +9,10 @@ function UsersUI() {
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [users, setUsers] = useState([]);
+  const [reservations, setReservations] = useState([]);
+  const [referenceNowMs] = useState(() => Date.now());
   const safeUsers = Array.isArray(users) ? users : [];
+  const safeReservations = Array.isArray(reservations) ? reservations : [];
 
   const formatMetric = (value) => {
     if (value === null || value === undefined || value === '') {
@@ -30,10 +32,45 @@ function UsersUI() {
     }
 
     const millisecondsPerDay = 1000 * 60 * 60 * 24;
-    const dayDiff = Math.floor((Date.now() - createdDate.getTime()) / millisecondsPerDay);
+    const dayDiff = Math.floor((referenceNowMs - createdDate.getTime()) / millisecondsPerDay);
     return Math.max(dayDiff, 0);
   };
 
+  const reservationMetricsByUser = useMemo(() => {
+    const metricsMap = new Map();
+
+    safeReservations.forEach((reservation) => {
+      const userId = reservation?.user_id;
+      if (userId === null || userId === undefined || userId === '') {
+        return;
+      }
+
+      const status = String(reservation?.status ?? '').trim().toLowerCase();
+      if (status === 'cancelled') {
+        return;
+      }
+
+      const key = String(userId);
+      const existing = metricsMap.get(key) ?? {
+        total: 0,
+        past: 0,
+        upcoming: 0
+      };
+
+      existing.total += 1;
+
+      const startMs = new Date(reservation?.start_time ?? '').getTime();
+      if (!Number.isNaN(startMs) && startMs < referenceNowMs) {
+        existing.past += 1;
+      } else {
+        existing.upcoming += 1;
+      }
+
+      metricsMap.set(key, existing);
+    });
+
+    return metricsMap;
+  }, [safeReservations, referenceNowMs]);
 
   const validateEmail = (email) => {
     if (!email || email.trim() === '') {
@@ -67,20 +104,36 @@ function UsersUI() {
   };
 
   useEffect(() => {
-    const fetchUsers = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch('/api/users.php', {
-          credentials: 'include'
-        });
-        const text = await response.text();
-        const data = text ? JSON.parse(text) : [];
-        setUsers(data);
+        const [usersResponse, reservationsResponse] = await Promise.allSettled([
+          fetch('/api/users.php', { credentials: 'include' }),
+          fetch('/api/reservations.php', { credentials: 'include' })
+        ]);
+
+        if (usersResponse.status === 'fulfilled') {
+          const usersText = await usersResponse.value.text();
+          const usersPayload = usersText ? JSON.parse(usersText) : [];
+          setUsers(Array.isArray(usersPayload) ? usersPayload : []);
+        } else {
+          setUsers([]);
+        }
+
+        if (reservationsResponse.status === 'fulfilled') {
+          const reservationsText = await reservationsResponse.value.text();
+          const reservationsPayload = reservationsText ? JSON.parse(reservationsText) : [];
+          setReservations(Array.isArray(reservationsPayload) ? reservationsPayload : []);
+        } else {
+          setReservations([]);
+        }
       } catch (error) {
-        console.error('Failed to fetch users:', error);
+        console.error('Failed to fetch users or reservations:', error);
+        setUsers([]);
+        setReservations([]);
       }
     };
     
-    fetchUsers();
+    fetchData();
   }, []);
 
   const handleAddUser = async () => {
@@ -140,16 +193,24 @@ function UsersUI() {
             <th>Upcoming Reservations</th>
           </tr>
 
-          {safeUsers.map((user, index) => (
-            <tr className="table-row" key={user.id ?? index}>
-              <td className="table-cell-itemno">{formatMetric(user.id)}</td>
-              <td className="table-cell-name">{formatMetric(user.email)}</td>
-              <td>{getRegisteredDays(user.created_at)}</td>
-              <td>{formatMetric(user.total_reservations)}</td>
-              <td>{formatMetric(user.past_reservations)}</td>
-              <td>{formatMetric(user.upcoming_reservations)}</td>
-            </tr>
-          ))}
+          {safeUsers.map((user, index) => {
+            const userMetrics = reservationMetricsByUser.get(String(user.id)) ?? {
+              total: 0,
+              past: 0,
+              upcoming: 0
+            };
+
+            return (
+              <tr className="table-row" key={user.id ?? index}>
+                <td className="table-cell-itemno">{formatMetric(user.id)}</td>
+                <td className="table-cell-name">{formatMetric(user.email)}</td>
+                <td>{getRegisteredDays(user.created_at)}</td>
+                <td>{userMetrics.total}</td>
+                <td>{userMetrics.past}</td>
+                <td>{userMetrics.upcoming}</td>
+              </tr>
+            );
+          })}
         </table>
 
         <Dialog open={isAddUserOpen} onClose={() => {}} className="add-item-dialog">

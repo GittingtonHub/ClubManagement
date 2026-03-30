@@ -34,14 +34,6 @@ function App() {
                 </ProtectedRoute>
               } 
           />
-          <Route 
-            path="/staff-profile" 
-            element={
-              <ProtectedRoute requiredRole="staff">
-                <StaffProfile />
-              </ProtectedRoute>
-            } 
-          />
           <Route path="/login" element={<Login />} />
           <Route path="/users" element={<Users />} />
           <Route path="/*" element={<Home />} />

@@ -121,6 +121,86 @@ function get_resources_column_map(PDO $conn): ?array {
     return $map;
 }
 
+function get_tickets_column_map(PDO $conn): ?array {
+    if (!table_exists($conn, 'tickets')) {
+        return null;
+    }
+
+    $columns = get_table_columns($conn, 'tickets');
+
+    $map = [
+        'event_id' => pick_column($columns, ['event_id']),
+        'price' => pick_column($columns, ['price', 'cost', 'amount']),
+        'tier' => pick_column($columns, ['tier', 'ticket_tier', 'ticket_type', 'type', 'name'])
+    ];
+
+    if (!$map['event_id'] || !$map['price']) {
+        return null;
+    }
+
+    return $map;
+}
+
+function replace_event_ticket_rows(PDO $conn, int $eventId, float $gaTicketPrice, float $vipTicketPrice): void {
+    $ticketsMap = get_tickets_column_map($conn);
+    if ($ticketsMap === null) {
+        return;
+    }
+
+    $ticketEventIdColumn = quote_identifier($ticketsMap['event_id']);
+    $ticketPriceColumn = quote_identifier($ticketsMap['price']);
+    $ticketTierColumn = $ticketsMap['tier'] ? quote_identifier($ticketsMap['tier']) : null;
+
+    $deleteSql = sprintf('DELETE FROM tickets WHERE %s = :event_id', $ticketEventIdColumn);
+    $deleteStmt = $conn->prepare($deleteSql);
+    $deleteStmt->execute([':event_id' => $eventId]);
+
+    if ($ticketTierColumn !== null) {
+        $insertSql = sprintf(
+            'INSERT INTO tickets (%s, %s, %s) VALUES (:event_id, :tier, :price)',
+            $ticketEventIdColumn,
+            $ticketTierColumn,
+            $ticketPriceColumn
+        );
+
+        $insertStmt = $conn->prepare($insertSql);
+        $insertStmt->execute([
+            ':event_id' => $eventId,
+            ':tier' => 'GA',
+            ':price' => $gaTicketPrice
+        ]);
+        $insertStmt->execute([
+            ':event_id' => $eventId,
+            ':tier' => 'VIP',
+            ':price' => $vipTicketPrice
+        ]);
+        return;
+    }
+
+    $insertSql = sprintf(
+        'INSERT INTO tickets (%s, %s) VALUES (:event_id, :price)',
+        $ticketEventIdColumn,
+        $ticketPriceColumn
+    );
+    $insertStmt = $conn->prepare($insertSql);
+    $insertStmt->execute([
+        ':event_id' => $eventId,
+        ':price' => $gaTicketPrice
+    ]);
+}
+
+function delete_event_ticket_rows(PDO $conn, int $eventId): void {
+    $ticketsMap = get_tickets_column_map($conn);
+    if ($ticketsMap === null) {
+        return;
+    }
+
+    $ticketEventIdColumn = quote_identifier($ticketsMap['event_id']);
+    $deleteSql = sprintf('DELETE FROM tickets WHERE %s = :event_id', $ticketEventIdColumn);
+    $deleteStmt = $conn->prepare($deleteSql);
+    $deleteStmt->execute([':event_id' => $eventId]);
+}
+
 function set_event_ticket_resource_prices(PDO $conn, float $gaTicketPrice, float $vipTicketPrice): void {
     $resourcesMap = get_resources_column_map($conn);
 
@@ -152,10 +232,36 @@ function set_event_ticket_resource_prices(PDO $conn, float $gaTicketPrice, float
 
 function fetch_events(PDO $conn): array {
     $eventMap = get_events_column_map($conn);
+    $ticketsMap = get_tickets_column_map($conn);
 
     if ($eventMap === null) {
         if (!table_exists($conn, 'ticket_reservations')) {
             return [];
+        }
+
+        $ticketJoin = '';
+        $ticketPriceSelect = "NULL AS price, NULL AS ga_ticket_price, NULL AS vip_ticket_price";
+
+        if ($ticketsMap !== null) {
+            $ticketEventId = quote_identifier($ticketsMap['event_id']);
+            $ticketPriceColumn = quote_identifier($ticketsMap['price']);
+            $ticketTierColumn = $ticketsMap['tier'] ? quote_identifier($ticketsMap['tier']) : null;
+
+            $ticketJoin = "LEFT JOIN tickets t ON t.{$ticketEventId} = tr.event_id";
+
+            if ($ticketTierColumn !== null) {
+                $ticketPriceSelect = "
+                    MIN(t.{$ticketPriceColumn}) AS price,
+                    MAX(CASE WHEN LOWER(TRIM(t.{$ticketTierColumn})) IN ('ga', 'general admission', 'general') THEN t.{$ticketPriceColumn} END) AS ga_ticket_price,
+                    MAX(CASE WHEN LOWER(TRIM(t.{$ticketTierColumn})) IN ('vip', 'v.i.p.') THEN t.{$ticketPriceColumn} END) AS vip_ticket_price
+                ";
+            } else {
+                $ticketPriceSelect = "
+                    MIN(t.{$ticketPriceColumn}) AS price,
+                    NULL AS ga_ticket_price,
+                    NULL AS vip_ticket_price
+                ";
+            }
         }
 
         $query = "
@@ -167,10 +273,12 @@ function fetch_events(PDO $conn): array {
                 MAX(r.end_time) AS end_time,
                 SUM(COALESCE(tr.quantity, 0)) AS qty_tickets,
                 'TBD' AS performer,
+                {$ticketPriceSelect},
                 '' AS assigned_staff_names,
                 '' AS assigned_staff_ids
             FROM ticket_reservations tr
             LEFT JOIN reservations r ON r.reservation_id = tr.reservation_id
+            {$ticketJoin}
             GROUP BY tr.event_id
             ORDER BY MIN(r.start_time) ASC, tr.event_id ASC
         ";
@@ -190,6 +298,31 @@ function fetch_events(PDO $conn): array {
     $qtyTickets = quote_identifier($eventMap['qty_tickets']);
     $performer = quote_identifier($eventMap['performer']);
 
+    $ticketJoin = '';
+    $ticketPriceSelect = "NULL AS price, NULL AS ga_ticket_price, NULL AS vip_ticket_price";
+
+    if ($ticketsMap !== null) {
+        $ticketEventId = quote_identifier($ticketsMap['event_id']);
+        $ticketPriceColumn = quote_identifier($ticketsMap['price']);
+        $ticketTierColumn = $ticketsMap['tier'] ? quote_identifier($ticketsMap['tier']) : null;
+
+        $ticketJoin = "LEFT JOIN tickets t ON t.{$ticketEventId} = e.{$eventId}";
+
+        if ($ticketTierColumn !== null) {
+            $ticketPriceSelect = "
+                MIN(t.{$ticketPriceColumn}) AS price,
+                MAX(CASE WHEN LOWER(TRIM(t.{$ticketTierColumn})) IN ('ga', 'general admission', 'general') THEN t.{$ticketPriceColumn} END) AS ga_ticket_price,
+                MAX(CASE WHEN LOWER(TRIM(t.{$ticketTierColumn})) IN ('vip', 'v.i.p.') THEN t.{$ticketPriceColumn} END) AS vip_ticket_price
+            ";
+        } else {
+            $ticketPriceSelect = "
+                MIN(t.{$ticketPriceColumn}) AS price,
+                NULL AS ga_ticket_price,
+                NULL AS vip_ticket_price
+            ";
+        }
+    }
+
     if ($eventStaffMap !== null) {
         $eventStaffEventId = quote_identifier($eventStaffMap['event_id']);
         $eventStaffStaffId = quote_identifier($eventStaffMap['staff_id']);
@@ -205,11 +338,13 @@ function fetch_events(PDO $conn): array {
                 e.{$endTime} AS end_time,
                 e.{$qtyTickets} AS qty_tickets,
                 e.{$performer} AS performer,
+                {$ticketPriceSelect},
                 COALESCE(GROUP_CONCAT(DISTINCT s.{$staffName} ORDER BY s.{$staffName} SEPARATOR ', '), '') AS assigned_staff_names,
                 COALESCE(GROUP_CONCAT(DISTINCT s.{$staffPk} ORDER BY s.{$staffPk} SEPARATOR ','), '') AS assigned_staff_ids
             FROM events e
             LEFT JOIN event_staff es ON es.{$eventStaffEventId} = e.{$eventId}
             LEFT JOIN staff s ON s.{$staffPk} = es.{$eventStaffStaffId}
+            {$ticketJoin}
             GROUP BY e.{$eventId}, e.{$eventTitle}, e.{$description}, e.{$startTime}, e.{$endTime}, e.{$qtyTickets}, e.{$performer}
             ORDER BY e.{$startTime} ASC, e.{$eventId} ASC
         ";
@@ -228,9 +363,12 @@ function fetch_events(PDO $conn): array {
             e.{$endTime} AS end_time,
             e.{$qtyTickets} AS qty_tickets,
             e.{$performer} AS performer,
+            {$ticketPriceSelect},
             '' AS assigned_staff_names,
             '' AS assigned_staff_ids
         FROM events e
+        {$ticketJoin}
+        GROUP BY e.{$eventId}, e.{$eventTitle}, e.{$description}, e.{$startTime}, e.{$endTime}, e.{$qtyTickets}, e.{$performer}
         ORDER BY e.{$startTime} ASC, e.{$eventId} ASC
     ";
 
@@ -372,6 +510,8 @@ if ($method === 'POST') {
             ':performer' => $performer
         ]);
 
+        replace_event_ticket_rows($conn, (int)$eventId, $normalizedGaTicketPrice, $normalizedVipTicketPrice);
+
         $eventStaffMap = get_event_staff_column_map($conn);
         if ($eventStaffMap !== null && !empty($staffIds)) {
             $eventStaffEventId = quote_identifier($eventStaffMap['event_id']);
@@ -462,6 +602,8 @@ if ($method === 'DELETE') {
 
     try {
         $conn->beginTransaction();
+
+        delete_event_ticket_rows($conn, (int)$eventId);
 
         $eventStaffMap = get_event_staff_column_map($conn);
         if ($eventStaffMap !== null) {
