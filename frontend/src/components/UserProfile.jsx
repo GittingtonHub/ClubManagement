@@ -84,6 +84,10 @@ function UserProfile() {
       };
    }, [selectedImagePreview]);
 
+   const handleEdit = (id) => {
+      window.location.href = `/reservations?edit=${id}`;
+   };
+
    const fetchMyReservations = useCallback(async () => {
       if (!currentUserId) {
          setReservations([]);
@@ -516,13 +520,8 @@ function UserProfile() {
                                  <td>{formatDateTime(reservation.start_time)}</td>
                                  <td>{formatDateTime(reservation.end_time)}</td>
                                  <td>
-                                    <button
-                                       type="button"
-                                       className="profile-reservation-action-button"
-                                       onClick={() => handleCancelReservation(id)}
-                                    >
-                                       Cancel
-                                    </button>
+                                    <button onClick={() => handleEdit(id)}>Edit</button>
+                                    <button onClick={() => handleCancelReservation(id)}>Cancel</button>
                                  </td>
                               </tr>
                            );
