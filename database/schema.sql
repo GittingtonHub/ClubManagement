@@ -179,3 +179,19 @@ CREATE TABLE user_notifications (
   FOREIGN KEY (user_id) REFERENCES users(id),
   FOREIGN KEY (reservation_id) REFERENCES reservations(reservation_id)
 );
+
+-- =========================
+-- AVAILABILITY
+-- =========================
+
+CREATE TABLE availability (
+  availability_id INT AUTO_INCREMENT PRIMARY KEY,
+  staff_id INT,
+  resource_id INT,
+  start_time DATETIME NOT NULL,
+  end_time DATETIME NOT NULL,
+  is_available BOOLEAN DEFAULT TRUE,
+
+  FOREIGN KEY (staff_id) REFERENCES staff(id),
+  FOREIGN KEY (resource_id) REFERENCES resources(id)
+);
