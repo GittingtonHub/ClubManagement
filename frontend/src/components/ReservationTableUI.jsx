@@ -48,6 +48,7 @@ function ReservationTableUI() {
       setResources(resourcesData.map((r) => ({
         id: r.id,
         name: r.name,
+        type: r.type,
         description: r.description
       })));
 
@@ -99,7 +100,7 @@ function ReservationTableUI() {
       return base;
     }
 
-    if (resource.name === "Bottle Service Silver" || resource.name === "Bottle Service Gold") {
+    if (resource.type === "bottle_service") {
       return [
         base[0],
         base[1],
@@ -112,7 +113,7 @@ function ReservationTableUI() {
       ];
     }
 
-    if (resource.name === "Event Ticket GA" || resource.name === "Event Ticket VIP") {
+    if (resource.type === "event_ticket") { 
       return [
         base[0],
         base[1],
@@ -130,28 +131,159 @@ function ReservationTableUI() {
 
   const toApiDateTime = (value) => (value && typeof value.toString === "function" ? value.toString() : value);
 
+  const normalizeAvailabilityRows = (payload) => {
+    if (Array.isArray(payload?.data)) {
+      return payload.data;
+    }
+    if (Array.isArray(payload)) {
+      return payload;
+    }
+    return [];
+  };
+
+  const isAvailabilityFlagTruthy = (value) => {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+    if (typeof value === 'number') {
+      return value !== 0;
+    }
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      return !['0', 'false', 'no', 'n', 'off', ''].includes(normalized);
+    }
+    return Boolean(value);
+  };
+
+  const getWeekdayName = (dateValue) =>
+    dateValue.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+
+  const parseTimeToMinutes = (timeValue) => {
+    if (typeof timeValue !== 'string' || timeValue.trim() === '') {
+      return null;
+    }
+
+    const match = timeValue.trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+    if (!match) {
+      return null;
+    }
+
+    const hours = Number(match[1]);
+    const minutes = Number(match[2]);
+
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+      return null;
+    }
+
+    return (hours * 60) + minutes;
+  };
+
+  const isEntryCoveringWindow = (entry, startDate, endDate) => {
+    const availabilityFlag = entry?.is_available ?? entry?.available ?? entry?.isAvailable ?? 1;
+    if (!isAvailabilityFlagTruthy(availabilityFlag)) {
+      return false;
+    }
+
+    const dayOfWeek = String(entry?.day_of_week ?? '').trim().toLowerCase();
+    if (dayOfWeek) {
+      const selectedDay = getWeekdayName(startDate);
+      if (dayOfWeek !== selectedDay) {
+        return false;
+      }
+
+      const entryStartMinutes = parseTimeToMinutes(String(entry?.start_time ?? ''));
+      const entryEndMinutes = parseTimeToMinutes(String(entry?.end_time ?? ''));
+      if (entryStartMinutes === null || entryEndMinutes === null) {
+        return false;
+      }
+
+      const selectedStartMinutes = (startDate.getHours() * 60) + startDate.getMinutes();
+      const selectedEndMinutes = (endDate.getHours() * 60) + endDate.getMinutes();
+
+      return selectedStartMinutes >= entryStartMinutes && selectedEndMinutes <= entryEndMinutes;
+    }
+
+    const entryStartDate = new Date(entry?.start_time ?? '');
+    const entryEndDate = new Date(entry?.end_time ?? '');
+    if (Number.isNaN(entryStartDate.getTime()) || Number.isNaN(entryEndDate.getTime())) {
+      return false;
+    }
+
+    return startDate >= entryStartDate && endDate <= entryEndDate;
+  };
+
   const handleDeleteReservation = async (reservationId) => {
-    if (window.confirm('Are you sure you want to delete this reservation?')) {
+    if (window.confirm('Are you sure you want to cancel this reservation?')) {
       try {
-        const response = await fetch(`/api/reservations.php?id=${reservationId}` , {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-          }
+        const response = await fetch('/api/reservations.php', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            reservation_id: reservationId,
+            status: 'cancelled'
+          })
         });
 
         if (response.ok) {
-          setReservations((prevReservations) => prevReservations.filter((reservation) => {
-            const id = reservation.reservation_id ?? reservation.id;
-            return id !== reservationId;
-          }));
+          await fetchReservations();
           window.dispatchEvent(new Event('reservations:changed'));
         } else {
-          console.error('Failed to delete reservation:', response.statusText);
+          console.error('Failed to cancel reservation:', response.statusText);
         }
       } catch (error) {
-        console.error('Failed to delete reservation:', error);
+        console.error('Failed to cancel reservation:', error);
       }
+    }
+  };
+
+  const checkStaffAvailability = async (start, end) => {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || endDate <= startDate) {
+      return {
+        level: 'warning',
+        message: 'The selected time range looks invalid. The server will reject invalid ranges.'
+      };
+    }
+
+    try {
+      const response = await fetch('/api/availability.php', {
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        return {
+          level: 'info',
+          message: 'Could not pre-check staff availability right now. Save will still run full server-side validation.'
+        };
+      }
+
+      const payload = await response.json().catch(() => ({}));
+      const rows = normalizeAvailabilityRows(payload).filter(Boolean);
+
+      if (rows.length === 0) {
+        return {
+          level: 'info',
+          message: 'No availability schedule rows were returned. Save will rely on server-side staff assignment checks.'
+        };
+      }
+
+      const hasAnyCoverage = rows.some((entry) => isEntryCoveringWindow(entry, startDate, endDate));
+      if (!hasAnyCoverage) {
+        return {
+          level: 'warning',
+          message: 'Heads up: no availability row matches this time window. You can still continue, and the server will make the final decision.'
+        };
+      }
+
+      return { level: 'ok', message: '' };
+    } catch (error) {
+      console.error('Failed to pre-check staff availability:', error);
+      return {
+        level: 'info',
+        message: 'Could not pre-check staff availability due to a network issue. Save will still run server-side validation.'
+      };
     }
   };
 
@@ -185,6 +317,18 @@ function ReservationTableUI() {
       }
       modalData = { ...modalData, ...modal.result };
 
+      const availabilityFeedback = await checkStaffAvailability(modalData.start, modalData.end);
+      if (availabilityFeedback.level === 'warning') {
+        const continueWithServerValidation = window.confirm(
+          `${availabilityFeedback.message}\n\nSelect "OK" to continue and let the server validate, or "Cancel" to adjust the time.`
+        );
+        if (!continueWithServerValidation) {
+          continue;
+        }
+      } else if (availabilityFeedback.level === 'info') {
+        alert(availabilityFeedback.message);
+      }
+
       const payload = {
         reservation_id: reservationId,
         user_id: reservation.user_id,
@@ -195,7 +339,7 @@ function ReservationTableUI() {
         end_time: toApiDateTime(modalData.end)
       };
 
-      if (resource.name === "Bottle Service Silver" || resource.name === "Bottle Service Gold") {
+       if (resource.type === "bottle_service") {
         payload.section_number = modalData.section_number;
         payload.guest_count = modalData.guest_count;
         payload.minimum_spend = modalData.minimum_spend;
@@ -205,7 +349,7 @@ function ReservationTableUI() {
         }
       }
 
-      if (resource.name === "Event Ticket GA" || resource.name === "Event Ticket VIP") {
+       if (resource.type === "event_ticket") {
         payload.event_id = modalData.event_id;
         payload.ticket_tier = modalData.ticket_tier;
         payload.quantity = modalData.quantity;

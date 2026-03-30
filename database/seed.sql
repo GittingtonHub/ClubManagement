@@ -22,19 +22,33 @@ INSERT INTO staff (id, name, role, hourly_rate, employment_type, user_id) VALUES
 -- RESOURCES
 -- =========================
 INSERT INTO resources (id, name, type, price, description) VALUES
-(1, 'VIP Section A Bottle Service', 'bottle_service', 1200.00, 'Premium VIP'),
-(2, 'VIP Section B Bottle Service', 'bottle_service', 900.00, 'Standard VIP'),
-(3, 'Main Floor Table', 'bottle_service', 700.00, 'Dancefloor table'),
-(4, 'Friday Event Ticket', 'event_ticket', 60.00, 'Friday event'),
-(5, 'Saturday VIP Ticket', 'event_ticket', 150.00, 'VIP ticket');
+(1, 'Open Bar Package', 'open_bar', 500.00, 'Unlimited drinks package'),
+(2, 'Bottle Service', 'bottle_service', 1200.00, 'Premium bottle service');
 
 -- =========================
 -- EVENTS (NEW)
 -- =========================
-INSERT INTO events (event_id, title, description, start, end, qty_tickets, performer) VALUES
-(1, 'Friday DJ Night', 'EDM night', '2026-02-10 21:00:00', '2026-02-11 02:00:00', 100, 'DJ Nova'),
-(2, 'Saturday Headliner', 'Main event', '2026-02-11 22:00:00', '2026-02-12 03:00:00', 150, 'DJ Blaze');
-
+INSERT INTO events (title, description, start, end, qty_tickets, performer) VALUES
+('Week 1 Friday Night', 'EDM Night', '2026-03-27 21:00:00', '2026-03-28 02:00:00', 100, 'DJ Nova'),
+('Week 1 Saturday Night', 'Hip Hop Night', '2026-03-28 22:00:00', '2026-03-29 03:00:00', 120, 'DJ Blaze'),
+('Week 2 Friday Night', 'EDM Night', '2026-04-03 21:00:00', '2026-04-04 02:00:00', 100, 'DJ Nova'),
+('Week 2 Saturday Night', 'Latin Night', '2026-04-04 22:00:00', '2026-04-05 03:00:00', 120, 'DJ Rico'),
+('Week 3 Friday Night', 'EDM Night', '2026-04-10 21:00:00', '2026-04-11 02:00:00', 100, 'DJ Nova'),
+('Week 3 Saturday Night', 'Hip Hop Night', '2026-04-11 22:00:00', '2026-04-12 03:00:00', 120, 'DJ Blaze'),
+('Week 4 Friday Night', 'EDM Night', '2026-04-17 21:00:00', '2026-04-18 02:00:00', 100, 'DJ Nova'),
+('Week 4 Saturday Night', 'Latin Night', '2026-04-18 22:00:00', '2026-04-19 03:00:00', 120, 'DJ Rico'),
+('Week 5 Friday Night', 'EDM Night', '2026-04-24 21:00:00', '2026-04-25 02:00:00', 100, 'DJ Nova'),
+('Week 5 Saturday Night', 'Hip Hop Night', '2026-04-25 22:00:00', '2026-04-26 03:00:00', 120, 'DJ Blaze'),
+('Week 6 Friday Night', 'EDM Night', '2026-05-01 21:00:00', '2026-05-02 02:00:00', 100, 'DJ Nova'),
+('Week 6 Saturday Night', 'Latin Night', '2026-05-02 22:00:00', '2026-05-03 03:00:00', 120, 'DJ Rico'),
+('Week 7 Friday Night', 'EDM Night', '2026-05-08 21:00:00', '2026-05-09 02:00:00', 100, 'DJ Nova'),
+('Week 7 Saturday Night', 'Hip Hop Night', '2026-05-09 22:00:00', '2026-05-10 03:00:00', 120, 'DJ Blaze'),
+('Week 8 Friday Night', 'EDM Night', '2026-05-15 21:00:00', '2026-05-16 02:00:00', 100, 'DJ Nova'),
+('Week 8 Saturday Night', 'Latin Night', '2026-05-16 22:00:00', '2026-05-17 03:00:00', 120, 'DJ Rico'),
+('Week 9 Friday Night', 'EDM Night', '2026-05-22 21:00:00', '2026-05-23 02:00:00', 100, 'DJ Nova'),
+('Week 9 Saturday Night', 'Hip Hop Night', '2026-05-23 22:00:00', '2026-05-24 03:00:00', 120, 'DJ Blaze'),
+('Week 10 Friday Night', 'EDM Night', '2026-05-29 21:00:00', '2026-05-30 02:00:00', 100, 'DJ Nova'),
+('Week 10 Saturday Night', 'Latin Night', '2026-05-30 22:00:00', '2026-05-31 03:00:00', 120, 'DJ Rico');
 -- =========================
 -- TICKETS (NEW)
 -- =========================
