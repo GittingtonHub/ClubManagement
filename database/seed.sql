@@ -62,10 +62,11 @@ INSERT INTO tickets (tier, price, event_id) VALUES
 -- RESERVATIONS
 -- =========================
 INSERT INTO reservations (reservation_id, user_id, resource_id, service_type, status, start_time, end_time) VALUES
-(1, 1, 2, 'Bottle Service Gold', 'confirmed', '2026-02-10 20:00:00', '2026-02-10 22:00:00'),
-(2, 2, 1, 'Bottle Service Silver', 'pending', '2026-02-11 21:00:00', '2026-02-11 23:00:00'),
-(6, 1, 3, 'Event Ticket GA', 'confirmed', '2026-02-10 19:00:00', '2026-02-10 23:00:00'),
-(7, 2, 4, 'Event Ticket VIP', 'pending', '2026-02-11 19:30:00', '2026-02-11 23:30:00');
+(1, 1, 2, 'bottle_service', 'confirmed', '2026-02-10 20:00:00', '2026-02-10 22:00:00'),
+(2, 2, 3, 'bottle_service', 'pending', '2026-02-11 21:00:00', '2026-02-11 23:00:00'),
+(6, 1, 4, 'event_ticket', 'confirmed', '2026-02-10 19:00:00', '2026-02-10 23:00:00'),
+(7, 2, 4, 'event_ticket', 'pending', '2026-02-11 19:30:00', '2026-02-11 23:30:00');
+
 -- =========================
 -- SUBTABLES
 -- =========================
