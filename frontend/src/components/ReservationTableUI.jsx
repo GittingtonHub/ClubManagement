@@ -48,6 +48,7 @@ function ReservationTableUI() {
       setResources(resourcesData.map((r) => ({
         id: r.id,
         name: r.name,
+        type: r.type,
         description: r.description
       })));
 
@@ -99,7 +100,7 @@ function ReservationTableUI() {
       return base;
     }
 
-    if (resource.name === "Bottle Service Silver" || resource.name === "Bottle Service Gold") {
+    if (resource.type === "bottle_service") {
       return [
         base[0],
         base[1],
@@ -112,7 +113,7 @@ function ReservationTableUI() {
       ];
     }
 
-    if (resource.name === "Event Ticket GA" || resource.name === "Event Ticket VIP") {
+    if (resource.type === "event_ticket") { 
       return [
         base[0],
         base[1],
@@ -212,26 +213,25 @@ function ReservationTableUI() {
   };
 
   const handleDeleteReservation = async (reservationId) => {
-    if (window.confirm('Are you sure you want to delete this reservation?')) {
+    if (window.confirm('Are you sure you want to cancel this reservation?')) {
       try {
-        const response = await fetch(`/api/reservations.php?id=${reservationId}` , {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-          }
+        const response = await fetch('/api/reservations.php', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            reservation_id: reservationId,
+            status: 'cancelled'
+          })
         });
 
         if (response.ok) {
-          setReservations((prevReservations) => prevReservations.filter((reservation) => {
-            const id = reservation.reservation_id ?? reservation.id;
-            return id !== reservationId;
-          }));
+          await fetchReservations();
           window.dispatchEvent(new Event('reservations:changed'));
         } else {
-          console.error('Failed to delete reservation:', response.statusText);
+          console.error('Failed to cancel reservation:', response.statusText);
         }
       } catch (error) {
-        console.error('Failed to delete reservation:', error);
+        console.error('Failed to cancel reservation:', error);
       }
     }
   };
@@ -339,7 +339,7 @@ function ReservationTableUI() {
         end_time: toApiDateTime(modalData.end)
       };
 
-      if (resource.name === "Bottle Service Silver" || resource.name === "Bottle Service Gold") {
+       if (resource.type === "bottle_service") {
         payload.section_number = modalData.section_number;
         payload.guest_count = modalData.guest_count;
         payload.minimum_spend = modalData.minimum_spend;
@@ -349,7 +349,7 @@ function ReservationTableUI() {
         }
       }
 
-      if (resource.name === "Event Ticket GA" || resource.name === "Event Ticket VIP") {
+       if (resource.type === "event_ticket") {
         payload.event_id = modalData.event_id;
         payload.ticket_tier = modalData.ticket_tier;
         payload.quantity = modalData.quantity;
