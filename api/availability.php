@@ -43,4 +43,28 @@ if ($method === 'GET') {
     }
     exit;
 }
+
+if ($method === 'POST') {
+    $input = json_decode(file_get_contents("php://input"), true);
+
+    try {
+        $sql = "INSERT INTO availability (staff_id, resource_id, start_time, end_time, is_available)
+                VALUES (:staff_id, :resource_id, :start_time, :end_time, :is_available)";
+
+        $stmt = $conn->prepare($sql);
+        $stmt->execute([
+            ":staff_id" => $input["staff_id"],
+            ":resource_id" => $input["resource_id"] ?? null,
+            ":start_time" => $input["start_time"],
+            ":end_time" => $input["end_time"],
+            ":is_available" => $input["is_available"] ?? 1
+        ]);
+
+        echo json_encode(["success" => true]);
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(["error" => $e->getMessage()]);
+    }
+    exit;
+}
 ?>
