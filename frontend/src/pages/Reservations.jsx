@@ -52,7 +52,7 @@ function Reservations() {
   return (
     <>
       <div className="events-search-section">
-        <h2>Events</h2>
+        <h2>Search Events</h2>
 
         <EventSearchBar
           events={events}
@@ -69,9 +69,9 @@ function Reservations() {
           <ul className="events-search-results">
             {filteredEvents.map((event) => (
               <li key={event.event_id}>
-                <strong>{event.event_title || `Event ${event.event_id}`}</strong>
-                <span>{event.performer || 'Unknown performer'}</span>
-                <span>{formatStartTime(event.start_time)}</span>
+                <strong className="event-result-title">{event.event_title || `Event ${event.event_id}`}</strong>
+                <span className="event-result-performer">{event.performer || 'Unknown performer'}</span>
+                <span className="event-result-datetime">{formatStartTime(event.start_time)}</span>
               </li>
             ))}
           </ul>
