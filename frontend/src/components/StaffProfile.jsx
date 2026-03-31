@@ -583,10 +583,10 @@ function StaffProfile() {
 
          {/* Availability UI */}
          <AvailabilityUI />
-         
+
          <div
             className="profile-reservations-container"
-            style={{
+            style={{ 
                width: "90%",
                margin: "16px auto 0",
                display: "grid",
