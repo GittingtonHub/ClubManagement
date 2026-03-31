@@ -41,22 +41,25 @@ if ($method === 'GET') {
     try {
         // Include resource info for scheduler mapping and display
         $sql = "SELECT r.*, 
-                       res.name AS resource_name, 
-                       res.type AS resource_type, 
-                       res.description AS resource_description,
-                       bs.section_number,
-                       bs.guest_count,
-                       bs.minimum_spend,
-                       tr.event_id,
-                       tr.ticket_tier,
-                       tr.quantity
-                FROM reservations r
-                JOIN resources res ON r.resource_id = res.id
-                LEFT JOIN bottle_service bs ON bs.reservation_id = r.reservation_id
-                LEFT JOIN ticket_reservations tr ON tr.reservation_id = r.reservation_id";
-                
-        // 🔒 SECURITY: Non-admins only see their own reservations
-        if ($sessionRole !== 'admin') {
+               res.name AS resource_name, 
+               res.type AS resource_type, 
+               res.description AS resource_description,
+               bs.section_number,
+               bs.guest_count,
+               bs.minimum_spend,
+               tr.event_id,
+               tr.ticket_tier,
+               tr.quantity,
+               rs.staff_id
+        FROM reservations r
+        JOIN resources res ON r.resource_id = res.id
+        LEFT JOIN bottle_service bs ON bs.reservation_id = r.reservation_id
+        LEFT JOIN ticket_reservations tr ON tr.reservation_id = r.reservation_id
+        LEFT JOIN ReservationStaff rs ON r.reservation_id = rs.reservation_id";
+        
+        if ($sessionRole === 'staff') {
+            $sql .= " WHERE rs.staff_id = :uid";
+        } elseif ($sessionRole !== 'admin') {
             $sql .= " WHERE r.user_id = :uid";
         }
 
