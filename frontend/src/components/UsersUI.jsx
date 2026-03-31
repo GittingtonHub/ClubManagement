@@ -1,6 +1,9 @@
-import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
+import { Dialog, DialogPanel, DialogTitle, Select } from '@headlessui/react';
 import { useState } from 'react';
 import { useEffect } from 'react';
+import { Form } from 'react-router-dom';
+
+
 
 
 function UsersUI() {
@@ -11,6 +14,11 @@ function UsersUI() {
   const [passwordError, setPasswordError] = useState('');
   const [users, setUsers] = useState([]);
   const safeUsers = Array.isArray(users) ? users : [];
+  const [selectedRole,setSelectedRole] = useState([]);
+
+ 
+
+  
 
   const formatMetric = (value) => {
     if (value === null || value === undefined || value === '') {
@@ -75,13 +83,18 @@ function UsersUI() {
         const text = await response.text();
         const data = text ? JSON.parse(text) : [];
         setUsers(data);
+        setSelectedRole(data);
+        //console.log(selectedRole);
       } catch (error) {
         console.error('Failed to fetch users:', error);
       }
     };
     
     fetchUsers();
+    console.log(users);
   }, []);
+
+
 
   const handleAddUser = async () => {
     // Validate all fields first
@@ -120,6 +133,36 @@ function UsersUI() {
     }
   };
 
+ const isDisabled = (value) => {
+    if ((value!="staff" && value!="user")) {
+
+      return true;
+    }
+    else
+    {
+      return false;
+    }
+  };
+  
+    function handleRoleSubmit(e) {
+   
+    //const form = e.target;
+    //console.log(e);
+    //const formData = new FormData(form);
+    // You can pass formData as a fetch body directly:
+   // fetch('/some-api', { method: form.method, body: formData });
+    // You can generate a URL out of it, as the browser does by default:
+    //console.log(new URLSearchParams(formData).toString());
+    // You can work with it as a plain object.
+    //const formJson = Object.fromEntries(formData.entries());
+    //console.log(formJson); // (!) This doesn't include multiple select values
+    // Or you can get an array of name-value pairs.
+    //console.log([...formData.entries()]);
+  };
+ 
+
+  
+
   return (
     <>
       <div className="table-div" id='users-table-div'>
@@ -130,6 +173,7 @@ function UsersUI() {
             }}>Add User</button>
         </div>
 
+        <form method="post" onSubmit={handleRoleSubmit}>
         <table className='inventory-table' id='users-table'>
           <tr className="table-header">
             <th>User ID</th>
@@ -138,9 +182,13 @@ function UsersUI() {
             <th>Total Reservations</th>
             <th>Past Reservations</th>
             <th>Upcoming Reservations</th>
+            <th>User Role</th>
+            {/* <th>Set User Role</th> */}
           </tr>
 
+         
           {safeUsers.map((user, index) => (
+
             <tr className="table-row" key={user.id ?? index}>
               <td className="table-cell-itemno">{formatMetric(user.id)}</td>
               <td className="table-cell-name">{formatMetric(user.email)}</td>
@@ -148,9 +196,26 @@ function UsersUI() {
               <td>{formatMetric(user.total_reservations)}</td>
               <td>{formatMetric(user.past_reservations)}</td>
               <td>{formatMetric(user.upcoming_reservations)}</td>
+              <td>{formatMetric(user.role)}</td>
+              {/* <td>{
+                  <select
+      value={selectedRole[index]} // ...force the select's value to match the state variable...
+      onChange={e => setSelectedRole(e.target.value[index])}
+      disabled={isDisabled(user.role)}
+       // ... and update the state variable on any change!
+    >
+      <option value="User">User</option>
+      <option value="Staff">Staff</option>
+      <option value="Admin">Admin</option>
+    </select>}</td> */}
             </tr>
+          
           ))}
+          
         </table>
+        {/* <button type="reset">Reset</button>
+      <button type="submit">Submit</button> */}
+          </form>
 
         <Dialog open={isAddUserOpen} onClose={() => {}} className="add-item-dialog">
           <div className="add-item-dialog-backdrop" aria-hidden="true" />
@@ -216,6 +281,7 @@ function UsersUI() {
 
       </div>
     </>
+    
   );
 }
 
