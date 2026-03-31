@@ -24,6 +24,7 @@ function EventSearchBar({ events, setFilteredEvents }) {
 
   const getComparablePrice = (event) => {
     const possiblePrices = [event?.price, event?.ga_ticket_price, event?.vip_ticket_price]
+      .filter((value) => value !== null && value !== undefined && String(value).trim() !== '')
       .map((value) => Number(value))
       .filter((value) => Number.isFinite(value));
 
@@ -45,6 +46,10 @@ function EventSearchBar({ events, setFilteredEvents }) {
 
     if (minPrice !== '') {
       const minPriceValue = Number(minPrice);
+      if (!Number.isFinite(minPriceValue)) {
+        setFilteredEvents(filtered);
+        return;
+      }
       filtered = filtered.filter((event) => {
         const eventPrice = getComparablePrice(event);
         return eventPrice !== null && eventPrice >= minPriceValue;
@@ -53,6 +58,10 @@ function EventSearchBar({ events, setFilteredEvents }) {
 
     if (maxPrice !== '') {
       const maxPriceValue = Number(maxPrice);
+      if (!Number.isFinite(maxPriceValue)) {
+        setFilteredEvents(filtered);
+        return;
+      }
       filtered = filtered.filter((event) => {
         const eventPrice = getComparablePrice(event);
         return eventPrice !== null && eventPrice <= maxPriceValue;
@@ -76,8 +85,6 @@ function EventSearchBar({ events, setFilteredEvents }) {
 
   return (
     <div className="event-search-bar">
-      <p className="event-search-label">Search Events</p>
-
       <div className="event-search-controls">
         <input
           className="event-search-input"

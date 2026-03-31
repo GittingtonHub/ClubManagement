@@ -52,7 +52,7 @@ function Reservations() {
   return (
     <>
       <div className="events-search-section">
-        <h2>Events</h2>
+        <h2>Search Events</h2>
 
         <EventSearchBar
           events={events}
@@ -66,12 +66,12 @@ function Reservations() {
         ) : filteredEvents.length === 0 ? (
           <p>No matching events found.</p>
         ) : (
-          <ul>
-            {filteredEvents.map((e) => (
-              <li key={e.event_id}>
-                <strong>{e.title || e.event_title}</strong> -{" "}
-                {e.performer || "Unknown"} -{" "}
-                {formatStartTime(e.start || e.start_time)}
+          <ul className="events-search-results">
+            {filteredEvents.map((event) => (
+              <li key={event.event_id}>
+                <strong className="event-result-title">{event.event_title || `Event ${event.event_id}`}</strong>
+                <span className="event-result-performer">{event.performer || 'Unknown performer'}</span>
+                <span className="event-result-datetime">{formatStartTime(event.start_time)}</span>
               </li>
             ))}
           </ul>
