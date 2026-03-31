@@ -188,6 +188,8 @@ function UsersUI() {
     fetchData();
   }, []);
 
+
+
   const handleAddUser = async () => {
     // Validate all fields first
     const isEmailValid = validateEmail(email);
@@ -291,6 +293,7 @@ function UsersUI() {
             }}>Add User</button>
         </div>
 
+        <form method="post" onSubmit={handleRoleSubmit}>
         <table className='inventory-table' id='users-table'>
           <tr className="table-header">
             <th>User ID</th>
@@ -300,6 +303,8 @@ function UsersUI() {
             <th>Total Reservations</th>
             <th>Past Reservations</th>
             <th>Upcoming Reservations</th>
+            <th>User Role</th>
+            {/* <th>Set User Role</th> */}
           </tr>
 
           {safeUsers.map((user, index) => {
@@ -335,6 +340,9 @@ function UsersUI() {
             );
           })}
         </table>
+        {/* <button type="reset">Reset</button>
+      <button type="submit">Submit</button> */}
+          </form>
 
         <Dialog open={isAddUserOpen} onClose={() => {}} className="add-item-dialog">
           <div className="add-item-dialog-backdrop" aria-hidden="true" />
@@ -400,6 +408,7 @@ function UsersUI() {
 
       </div>
     </>
+    
   );
 }
 
