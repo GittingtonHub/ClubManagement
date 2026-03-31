@@ -1,28 +1,39 @@
 import { Navigate, useInRouterContext, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-function ProtectedRoute({ children }) {
+function ProtectedRoute({children, requiredRole}) {
   const { isAuthenticated } = useAuth();
 
   const token = localStorage.getItem("authToken");
   const userId = localStorage.getItem("userId");
 
-  const loggedIn = isAuthenticated || (token != 'loggedOut' && userId);
-  console.log("checking:")
-  console.log(loggedIn)
-  console.log("isauthent")
-  console.log(isAuthenticated)
-  console.log(token)
-  console.log(userId)
-  console.log(children.ProtectedRoute)
-  console.log(location.pathname)
-  //now remove reservations,inv,etc from header when not logged in
+  let canProceed = isAuthenticated || (token != 'loggedOut' && userId);
+
+  console.log("role", requiredRole);
+  console.log(children);
+  console.log(localStorage.getItem("userRole"));
+
+
+  if (requiredRole == "staff" && localStorage.getItem("userRole") != "staff")
+  {
+    canProceed = false;
+  }
+
+  if (localStorage.getItem("userRole") == "admin")
+  {
+    console.log("erm");
+    canProceed = true;
+  }
+
+
+
   if (location.pathname == "/")
   {
     return children;
   }
+  console.log("log= ",children)
 
-  return loggedIn ? children : <Navigate to="/login" replace />;
+  return canProceed ? children : <Navigate to="/login" replace />;
 }
 
 export default ProtectedRoute;
