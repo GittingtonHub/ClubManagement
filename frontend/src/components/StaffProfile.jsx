@@ -1,3 +1,4 @@
+import AvailabilityUI from "./AvailabilityUI";
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext";
@@ -579,6 +580,10 @@ function StaffProfile() {
             </div>
          </Dialog>
 
+
+         {/* Availability UI */}
+         <AvailabilityUI />
+         
          <div
             className="profile-reservations-container"
             style={{
