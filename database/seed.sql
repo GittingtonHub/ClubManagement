@@ -185,11 +185,39 @@ INSERT INTO availability (staff_id, day_of_week, start_time, end_time, is_availa
 (18,'Saturday','20:00:00','04:00:00',1),
 (18,'Sunday','17:00:00','00:00:00',1);
 -- =========================
+-- AVAILABILITY
+-- =========================
+INSERT INTO availability (staff_id, day_of_week, start_time, end_time, is_available) VALUES
+(1, 'Monday', '00:00:00', '23:59:00', 1),
+(1, 'Tuesday', '00:00:00', '23:59:00', 1),
+(1, 'Wednesday', '00:00:00', '23:59:00', 1),
+(1, 'Thursday', '00:00:00', '23:59:00', 1),
+(1, 'Friday', '00:00:00', '23:59:00', 1),
+(1, 'Saturday', '00:00:00', '23:59:00', 1),
+(1, 'Sunday', '00:00:00', '23:59:00', 1),
+(2, 'Monday', '00:00:00', '23:59:00', 1),
+(2, 'Tuesday', '00:00:00', '23:59:00', 1),
+(2, 'Wednesday', '00:00:00', '23:59:00', 1),
+(2, 'Thursday', '00:00:00', '23:59:00', 1),
+(2, 'Friday', '00:00:00', '23:59:00', 1),
+(2, 'Saturday', '00:00:00', '23:59:00', 1),
+(2, 'Sunday', '00:00:00', '23:59:00', 1),
+(3, 'Monday', '00:00:00', '23:59:00', 1),
+(3, 'Tuesday', '00:00:00', '23:59:00', 1),
+(3, 'Wednesday', '00:00:00', '23:59:00', 1),
+(3, 'Thursday', '00:00:00', '23:59:00', 1),
+(3, 'Friday', '00:00:00', '23:59:00', 1),
+(3, 'Saturday', '00:00:00', '23:59:00', 1),
+(3, 'Sunday', '00:00:00', '23:59:00', 1);
+
+-- =========================
 -- RESOURCES
 -- =========================
 INSERT INTO resources (id, name, type, price, description) VALUES
 (1, 'Open Bar Package', 'open_bar', 500.00, 'Unlimited drinks package'),
-(2, 'Bottle Service', 'bottle_service', 1200.00, 'Premium bottle service');
+(2, 'Bottle Service Silver', 'bottle_service', 1200.00, 'Premium bottle service (silver tier)'),
+(3, 'Bottle Service Gold', 'bottle_service', 1500.00, 'Premium bottle service (gold tier)'),
+(4, 'Event Ticket GA', 'event_ticket', 60.00, 'General admission event ticket');
 
 -- =========================
 -- EVENTS (UNCHANGED - GOOD)
@@ -223,7 +251,43 @@ INSERT INTO tickets (tier, price, event_id) VALUES
 ('GA', 60.00, 1),
 ('VIP', 120.00, 1),
 ('GA', 70.00, 2),
-('VIP', 150.00, 2);
+('VIP', 150.00, 2),
+('GA', 60.00, 3),
+('VIP', 120.00, 3),
+('GA', 70.00, 4),
+('VIP', 150.00, 4),
+('GA', 60.00, 5),
+('VIP', 120.00, 5),
+('GA', 70.00, 6),
+('VIP', 150.00, 6),
+('GA', 60.00, 7),
+('VIP', 120.00, 7),
+('GA', 70.00, 8),
+('VIP', 150.00, 8),
+('GA', 60.00, 9),
+('VIP', 120.00, 9),
+('GA', 70.00, 10),
+('VIP', 150.00, 10),
+('GA', 60.00, 11),
+('VIP', 120.00, 11),
+('GA', 70.00, 12),
+('VIP', 150.00, 12),
+('GA', 60.00, 13),
+('VIP', 120.00, 13),
+('GA', 70.00, 14),
+('VIP', 150.00, 14),
+('GA', 60.00, 15),
+('VIP', 120.00, 15),
+('GA', 70.00, 16),
+('VIP', 150.00, 16),
+('GA', 60.00, 17),
+('VIP', 120.00, 17),
+('GA', 70.00, 18),
+('VIP', 150.00, 18),
+('GA', 60.00, 19),
+('VIP', 120.00, 19),
+('GA', 70.00, 20),
+('VIP', 150.00, 20);
 
 -- =========================
 -- RESERVATIONS (FIXED IDS)
