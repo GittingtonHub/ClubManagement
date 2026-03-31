@@ -18,7 +18,6 @@ DROP TABLE IF EXISTS ticket_reservations;
 DROP TABLE IF EXISTS bottle_service;
 DROP TABLE IF EXISTS reservations;
 DROP TABLE IF EXISTS resources;
-DROP TABLE IF EXISTS availability;
 DROP TABLE IF EXISTS staff;
 DROP TABLE IF EXISTS users;
 
@@ -33,7 +32,12 @@ CREATE TABLE users (
   privilege ENUM('user','admin','staff') DEFAULT 'user',
   profile_image VARCHAR(255) DEFAULT 'default.png',
   bio TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  removed BOOLEAN DEFAULT FALSE,
+  removed_by_user_id INT,
+
+  FOREIGN KEY (removed_by_user_id) REFERENCES users(id)
 );
 
 -- =========================
@@ -46,7 +50,12 @@ CREATE TABLE staff (
   hourly_rate DECIMAL(5,2),
   employment_type ENUM('full_time','part_time','contract') NOT NULL,
   user_id INT,
-  FOREIGN KEY (user_id) REFERENCES users(id)
+
+  removed BOOLEAN DEFAULT FALSE,
+  removed_by_user_id INT,
+
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (removed_by_user_id) REFERENCES users(id)
 );
 
 -- =========================
@@ -57,7 +66,12 @@ CREATE TABLE resources (
   name VARCHAR(100) NOT NULL,
   type VARCHAR(50) NOT NULL,
   price DECIMAL(6,2),
-  description TEXT
+  description TEXT,
+
+  removed BOOLEAN DEFAULT FALSE,
+  removed_by_user_id INT,
+
+  FOREIGN KEY (removed_by_user_id) REFERENCES users(id)
 );
 
 -- =========================
@@ -70,7 +84,17 @@ CREATE TABLE events (
   start DATETIME NOT NULL,
   end DATETIME NOT NULL,
   qty_tickets INT NOT NULL,
-  performer VARCHAR(255)
+  performer VARCHAR(255),
+
+  status ENUM('pending','confirmed','cancelled') DEFAULT 'pending',
+  cancellation_reason TEXT,
+  cancelled_by_user_id INT,
+
+  removed BOOLEAN DEFAULT FALSE,
+  removed_by_user_id INT,
+
+  FOREIGN KEY (cancelled_by_user_id) REFERENCES users(id),
+  FOREIGN KEY (removed_by_user_id) REFERENCES users(id)
 );
 
 -- =========================
@@ -96,8 +120,13 @@ CREATE TABLE reservations (
   start_time DATETIME NOT NULL,
   end_time DATETIME NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  cancellation_reason TEXT,
+  cancelled_by_user_id INT,
+
   FOREIGN KEY (user_id) REFERENCES users(id),
-  FOREIGN KEY (resource_id) REFERENCES resources(id)
+  FOREIGN KEY (resource_id) REFERENCES resources(id),
+  FOREIGN KEY (cancelled_by_user_id) REFERENCES users(id)
 );
 
 -- =========================
@@ -184,16 +213,14 @@ CREATE TABLE user_notifications (
 -- =========================
 -- AVAILABILITY
 -- =========================
-
 CREATE TABLE availability (
   availability_id INT AUTO_INCREMENT PRIMARY KEY,
-  staff_id INT NOT NULL,
-  day_of_week ENUM('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday') NOT NULL,
-  start_time TIME NOT NULL,
-  end_time TIME NOT NULL,
-  is_available TINYINT(1) NOT NULL DEFAULT 1,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE KEY uniq_staff_day_window (staff_id, day_of_week, start_time, end_time),
-  FOREIGN KEY (staff_id) REFERENCES staff(id) ON DELETE CASCADE,
-  CHECK (start_time < end_time)
+  staff_id INT,
+  resource_id INT,
+  start_time DATETIME NOT NULL,
+  end_time DATETIME NOT NULL,
+  is_available BOOLEAN DEFAULT TRUE,
+
+  FOREIGN KEY (staff_id) REFERENCES staff(id),
+  FOREIGN KEY (resource_id) REFERENCES resources(id)
 );

@@ -168,7 +168,9 @@ function StaffProfile() {
             return;
          }
 
-         const myReservations = Array.isArray(data) ? data : [];
+         const myReservations = (Array.isArray(data) ? data : []).filter(
+            (reservation) => String(reservation.user_id) === String(currentUserId)
+         );
          setReservations(myReservations);
          setReservationMessage("");
       } catch {
@@ -216,17 +218,12 @@ function StaffProfile() {
       }
 
       try {
-         const response = await fetch(`/api/reservations.php`, {
-            method: "PUT",
+         const response = await fetch(`/api/reservations.php?id=${reservationId}`, {
+            method: "DELETE",
             credentials: "include",
             headers: {
-               "Content-Type": "application/json",
                Authorization: `Bearer ${localStorage.getItem("authToken") || ""}`
-            },
-            body: JSON.stringify({
-               reservation_id: reservationId,
-               status: "cancelled"
-            })
+            }
          });
 
          if (!response.ok) {
@@ -585,11 +582,11 @@ function StaffProfile() {
 
 
          {/* Availability UI */}
-         <AvailabilityUI staffId={staffDetails.employeeId} />
-         
+         <AvailabilityUI />
+
          <div
             className="profile-reservations-container"
-            style={{
+            style={{ 
                width: "90%",
                margin: "16px auto 0",
                display: "grid",
@@ -600,7 +597,7 @@ function StaffProfile() {
 
             <div className="profile-reservations-past">
                <h3>Today&apos;s Reservations</h3>
-               {reservationGroups.today.length === 0 ? (
+               {reservationGroups.past.length === 0 ? (
                   <p className="profile-reservation-placeholder">No past reservations.</p>
                ) : (
                   <table className="profile-reservations-table">
@@ -613,7 +610,7 @@ function StaffProfile() {
                         </tr>
                      </thead>
                      <tbody>
-                        {reservationGroups.today.map((reservation) => {
+                        {reservationGroups.past.map((reservation) => {
                            const id = reservation.reservation_id ?? reservation.id;
                            return (
                               <tr className="table-row" key={id}>
