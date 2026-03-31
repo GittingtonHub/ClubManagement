@@ -711,3 +711,11 @@ button.inline {
     gap: 4px;
   }
 }
+
+.scheduler-cell-available {
+  cursor: pointer;
+}
+
+.scheduler-cell-unavailable {
+  cursor: not-allowed !important;
+}

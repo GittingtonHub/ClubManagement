@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "@daypilot/daypilot-lite-react": "^5.3.1"
+    "@daypilot/daypilot-lite-react": "^5.3.1",
+    "@emailjs/browser": "^4.4.1"
   }
 }

@@ -5,6 +5,7 @@ header('Access-Control-Allow-Headers: Content-Type, Authorization');
 header('Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS');
 
 include_once 'api.php';
+include_once 'email_notifications.php';
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
@@ -16,6 +17,15 @@ function table_exists(PDO $conn, string $tableName): bool {
     $stmt = $conn->prepare('SHOW TABLES LIKE :table_name');
     $stmt->execute([':table_name' => $tableName]);
     return (bool)$stmt->fetchColumn();
+}
+
+function get_existing_table_name(PDO $conn, array $candidates): ?string {
+    foreach ($candidates as $candidate) {
+        if (table_exists($conn, $candidate)) {
+            return $candidate;
+        }
+    }
+    return null;
 }
 
 function get_table_columns(PDO $conn, string $tableName): array {
@@ -51,6 +61,14 @@ function normalize_datetime(?string $value): ?string {
     return date('Y-m-d H:i:s', $timestamp);
 }
 
+function format_time_window(?string $startTime, ?string $endTime): string {
+    if (!$startTime && !$endTime) {
+        return '';
+    }
+
+    return trim(($startTime ?? '') . ' - ' . ($endTime ?? ''));
+}
+
 function get_events_column_map(PDO $conn): ?array {
     if (!table_exists($conn, 'events')) {
         return null;
@@ -78,11 +96,12 @@ function get_events_column_map(PDO $conn): ?array {
 }
 
 function get_event_staff_column_map(PDO $conn): ?array {
-    if (!table_exists($conn, 'event_staff') || !table_exists($conn, 'staff')) {
+    $eventStaffTable = get_existing_table_name($conn, ['event_staff', 'EventStaff']);
+    if ($eventStaffTable === null || !table_exists($conn, 'staff')) {
         return null;
     }
 
-    $eventStaffColumns = get_table_columns($conn, 'event_staff');
+    $eventStaffColumns = get_table_columns($conn, $eventStaffTable);
     $staffColumns = get_table_columns($conn, 'staff');
 
     $eventIdColumn = pick_column($eventStaffColumns, ['event_id']);
@@ -95,11 +114,84 @@ function get_event_staff_column_map(PDO $conn): ?array {
     }
 
     return [
+        'table_name' => $eventStaffTable,
         'event_id' => $eventIdColumn,
         'staff_id' => $staffIdColumn,
         'staff_pk' => $staffPkColumn,
         'staff_name' => $staffNameColumn
     ];
+}
+
+function fetch_available_staff_ids_for_window(
+    PDO $conn,
+    array $staffIds,
+    string $startTime,
+    string $endTime,
+    array $eventMap,
+    array $eventStaffMap
+): array {
+    if (empty($staffIds)) {
+        return [];
+    }
+
+    $filteredIds = array_values(array_filter(array_unique(array_map(static fn($id) => (int)$id, $staffIds)), static fn($id) => $id > 0));
+    if (empty($filteredIds)) {
+        return [];
+    }
+
+    $staffIdPlaceholders = implode(',', array_fill(0, count($filteredIds), '?'));
+    $params = $filteredIds;
+    $availabilityParams = [$startTime, $startTime, $endTime];
+    $reservationParams = [];
+    $eventParams = [$endTime, $startTime];
+
+    $reservationStaffTable = get_existing_table_name($conn, ['ReservationStaff', 'reservation_staff']);
+    $reservationConflictClause = '';
+    if ($reservationStaffTable !== null && table_exists($conn, 'reservations')) {
+        $reservationConflictClause = "
+            AND s.id NOT IN (
+                SELECT rs.staff_id
+                FROM " . quote_identifier($reservationStaffTable) . " rs
+                JOIN reservations r ON rs.reservation_id = r.reservation_id
+                WHERE r.status != 'cancelled'
+                  AND (r.start_time < ? AND r.end_time > ?)
+            )
+        ";
+        $reservationParams = [$endTime, $startTime];
+    }
+
+    $eventStaffTable = quote_identifier($eventStaffMap['table_name']);
+    $eventStaffEventId = quote_identifier($eventStaffMap['event_id']);
+    $eventStaffStaffId = quote_identifier($eventStaffMap['staff_id']);
+    $eventIdColumn = quote_identifier($eventMap['event_id']);
+    $eventStartColumn = quote_identifier($eventMap['start_time']);
+    $eventEndColumn = quote_identifier($eventMap['end_time']);
+
+    $sql = "
+        SELECT DISTINCT s.id
+        FROM staff s
+        JOIN availability a ON a.staff_id = s.id
+        WHERE s.id IN ({$staffIdPlaceholders})
+          AND a.is_available = 1
+          AND a.day_of_week = DAYNAME(?)
+          AND a.start_time <= TIME(?)
+          AND a.end_time >= TIME(?)
+          {$reservationConflictClause}
+          AND s.id NOT IN (
+              SELECT es.{$eventStaffStaffId}
+              FROM {$eventStaffTable} es
+              JOIN events e ON es.{$eventStaffEventId} = e.{$eventIdColumn}
+              WHERE e.{$eventStartColumn} < ?
+                AND e.{$eventEndColumn} > ?
+          )
+    ";
+    $params = array_merge($params, $availabilityParams, $reservationParams, $eventParams);
+
+    $stmt = $conn->prepare($sql);
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
+
+    return array_values(array_unique(array_map(static fn($id) => (int)$id, $rows)));
 }
 
 function get_resources_column_map(PDO $conn): ?array {
@@ -324,6 +416,7 @@ function fetch_events(PDO $conn): array {
     }
 
     if ($eventStaffMap !== null) {
+        $eventStaffTableName = quote_identifier($eventStaffMap['table_name']);
         $eventStaffEventId = quote_identifier($eventStaffMap['event_id']);
         $eventStaffStaffId = quote_identifier($eventStaffMap['staff_id']);
         $staffPk = quote_identifier($eventStaffMap['staff_pk']);
@@ -342,7 +435,7 @@ function fetch_events(PDO $conn): array {
                 COALESCE(GROUP_CONCAT(DISTINCT s.{$staffName} ORDER BY s.{$staffName} SEPARATOR ', '), '') AS assigned_staff_names,
                 COALESCE(GROUP_CONCAT(DISTINCT s.{$staffPk} ORDER BY s.{$staffPk} SEPARATOR ','), '') AS assigned_staff_ids
             FROM events e
-            LEFT JOIN event_staff es ON es.{$eventStaffEventId} = e.{$eventId}
+            LEFT JOIN {$eventStaffTableName} es ON es.{$eventStaffEventId} = e.{$eventId}
             LEFT JOIN staff s ON s.{$staffPk} = es.{$eventStaffStaffId}
             {$ticketJoin}
             GROUP BY e.{$eventId}, e.{$eventTitle}, e.{$description}, e.{$startTime}, e.{$endTime}, e.{$qtyTickets}, e.{$performer}
@@ -485,6 +578,41 @@ if ($method === 'POST') {
         exit;
     }
 
+    $eventStaffMap = get_event_staff_column_map($conn);
+    $uniqueStaffIds = array_values(array_unique(array_map(static fn($value) => (int)$value, $staffIds)));
+    $validStaffIds = array_values(array_filter($uniqueStaffIds, static fn($value) => $value > 0));
+
+    if (!empty($validStaffIds) && $eventStaffMap === null) {
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Staff assignment is unavailable because event staffing tables are not configured.'
+        ]);
+        exit;
+    }
+
+    if (!empty($validStaffIds) && $eventStaffMap !== null) {
+        $availableStaffIds = fetch_available_staff_ids_for_window(
+            $conn,
+            $validStaffIds,
+            $startTime,
+            $endTime,
+            $eventMap,
+            $eventStaffMap
+        );
+        $unavailableStaffIds = array_values(array_diff($validStaffIds, $availableStaffIds));
+
+        if (!empty($unavailableStaffIds)) {
+            http_response_code(409);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Some selected staff are unavailable for this event time.',
+                'unavailable_staff_ids' => $unavailableStaffIds
+            ]);
+            exit;
+        }
+    }
+
     $insertSql = sprintf(
         'INSERT INTO events (%s, %s, %s, %s, %s, %s, %s) VALUES (:event_id, :event_title, :description, :start_time, :end_time, :qty_tickets, :performer)',
         quote_identifier($eventMap['event_id']),
@@ -512,24 +640,20 @@ if ($method === 'POST') {
 
         replace_event_ticket_rows($conn, (int)$eventId, $normalizedGaTicketPrice, $normalizedVipTicketPrice);
 
-        $eventStaffMap = get_event_staff_column_map($conn);
-        if ($eventStaffMap !== null && !empty($staffIds)) {
+        if ($eventStaffMap !== null && !empty($validStaffIds)) {
             $eventStaffEventId = quote_identifier($eventStaffMap['event_id']);
             $eventStaffStaffId = quote_identifier($eventStaffMap['staff_id']);
+            $eventStaffTableName = quote_identifier($eventStaffMap['table_name']);
 
             $assignSql = sprintf(
-                'INSERT INTO event_staff (%s, %s) VALUES (:event_id, :staff_id)',
+                'INSERT INTO %s (%s, %s) VALUES (:event_id, :staff_id)',
+                $eventStaffTableName,
                 $eventStaffEventId,
                 $eventStaffStaffId
             );
             $assignStmt = $conn->prepare($assignSql);
 
-            $uniqueStaffIds = array_values(array_unique(array_map(static fn($value) => (int)$value, $staffIds)));
-            foreach ($uniqueStaffIds as $staffId) {
-                if ($staffId <= 0) {
-                    continue;
-                }
-
+            foreach ($validStaffIds as $staffId) {
                 $assignStmt->execute([
                     ':event_id' => (int)$eventId,
                     ':staff_id' => $staffId
@@ -540,6 +664,24 @@ if ($method === 'POST') {
         set_event_ticket_resource_prices($conn, $normalizedGaTicketPrice, $normalizedVipTicketPrice);
 
         $conn->commit();
+
+        if (!empty($validStaffIds)) {
+            $placeholders = implode(',', array_fill(0, count($validStaffIds), '?'));
+            $staffQuery = "SELECT id, name FROM staff WHERE id IN ({$placeholders})";
+            $staffStmt = $conn->prepare($staffQuery);
+            $staffStmt->execute($validStaffIds);
+            $assignedStaffRows = $staffStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            foreach ($assignedStaffRows as $staffRow) {
+                send_staff_assignment_email(
+                    'SR-BA',
+                    "New Event Assignment: {$eventTitle}",
+                    (string)($staffRow['name'] ?? 'Staff Member'),
+                    format_time_window($startTime, $endTime),
+                    "You have been assigned to event \"{$eventTitle}\"" . ($performer !== '' ? " with performer {$performer}." : '.')
+                );
+            }
+        }
 
         $createdEvent = null;
         $events = fetch_events($conn);
@@ -607,8 +749,10 @@ if ($method === 'DELETE') {
 
         $eventStaffMap = get_event_staff_column_map($conn);
         if ($eventStaffMap !== null) {
+            $eventStaffTableName = quote_identifier($eventStaffMap['table_name']);
             $deleteAssignmentsSql = sprintf(
-                'DELETE FROM event_staff WHERE %s = :event_id',
+                'DELETE FROM %s WHERE %s = :event_id',
+                $eventStaffTableName,
                 quote_identifier($eventStaffMap['event_id'])
             );
 

@@ -19,6 +19,40 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
+function table_exists(PDO $conn, string $tableName): bool {
+    $stmt = $conn->prepare('SHOW TABLES LIKE :table_name');
+    $stmt->execute([':table_name' => $tableName]);
+    return (bool)$stmt->fetchColumn();
+}
+
+function get_existing_table_name(PDO $conn, array $candidates): ?string {
+    foreach ($candidates as $candidate) {
+        if (table_exists($conn, $candidate)) {
+            return $candidate;
+        }
+    }
+    return null;
+}
+
+function get_table_columns(PDO $conn, string $tableName): array {
+    $stmt = $conn->query("DESCRIBE `{$tableName}`");
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    return array_map(static fn($row) => $row['Field'], $rows);
+}
+
+function pick_column(array $columns, array $candidates): ?string {
+    foreach ($candidates as $candidate) {
+        if (in_array($candidate, $columns, true)) {
+            return $candidate;
+        }
+    }
+    return null;
+}
+
+function quote_identifier(string $identifier): string {
+    return '`' . str_replace('`', '``', $identifier) . '`';
+}
+
 if ($method === 'GET') {
     $staffId = $_GET['staff_id'] ?? null;
     $startTime = $_GET['start_time'] ?? null;
@@ -67,6 +101,36 @@ if ($method === 'GET') {
                 ':start_time_check' => $startTime,
                 ':end_time_check' => $endTime
             ];
+
+            $eventConflictClause = '';
+            $eventStaffTable = get_existing_table_name($conn, ['event_staff', 'EventStaff']);
+            if ($eventStaffTable !== null && table_exists($conn, 'events')) {
+                $eventStaffColumns = get_table_columns($conn, $eventStaffTable);
+                $eventsColumns = get_table_columns($conn, 'events');
+
+                $eventStaffIdColumn = pick_column($eventStaffColumns, ['staff_id']);
+                $eventStaffEventColumn = pick_column($eventStaffColumns, ['event_id']);
+                $eventIdColumn = pick_column($eventsColumns, ['event_id', 'id']);
+                $eventStartColumn = pick_column($eventsColumns, ['start_time', 'start', 'start_at']);
+                $eventEndColumn = pick_column($eventsColumns, ['end_time', 'end', 'end_at']);
+
+                if ($eventStaffIdColumn && $eventStaffEventColumn && $eventIdColumn && $eventStartColumn && $eventEndColumn) {
+                    $eventConflictClause = "
+                        AND s.id NOT IN (
+                            SELECT es." . quote_identifier($eventStaffIdColumn) . "
+                            FROM " . quote_identifier($eventStaffTable) . " es
+                            JOIN events e ON es." . quote_identifier($eventStaffEventColumn) . " = e." . quote_identifier($eventIdColumn) . "
+                            WHERE e." . quote_identifier($eventStartColumn) . " < :event_end_check
+                              AND e." . quote_identifier($eventEndColumn) . " > :event_start_check
+                        )
+                    ";
+
+                    $params[':event_end_check'] = $endTime;
+                    $params[':event_start_check'] = $startTime;
+                }
+            }
+
+            $sql .= $eventConflictClause;
 
             if ($staffId !== null && $staffId !== '') {
                 $sql .= " AND s.id = :staff_id";
