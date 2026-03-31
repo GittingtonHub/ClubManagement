@@ -14,6 +14,7 @@ header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 include_once 'api.php'; 
+include_once 'email_notifications.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -33,6 +34,55 @@ if (!isset($_SESSION['user']) || !isset($_SESSION['user_id'])) {
 
 $current_user_id = $_SESSION['user_id'];
 $sessionRole = $_SESSION['user']['role'] ?? ($_SESSION['user']['privilege'] ?? 'user');
+
+function normalize_ticket_tier_value($tier): ?string {
+    $normalized = strtoupper(trim((string)$tier));
+    if ($normalized === 'GA' || $normalized === 'VIP') {
+        return $normalized;
+    }
+    return null;
+}
+
+function ticket_reservations_has_column(PDO $conn, string $columnName): bool {
+    static $columnCache = null;
+
+    if ($columnCache === null) {
+        try {
+            $columnsStmt = $conn->query("SHOW COLUMNS FROM ticket_reservations");
+            $columnCache = $columnsStmt->fetchAll(PDO::FETCH_COLUMN, 0);
+        } catch (PDOException $e) {
+            $columnCache = [];
+        }
+    }
+
+    return in_array($columnName, $columnCache, true);
+}
+
+function resolve_ticket_for_event(PDO $conn, $eventId, $ticketTier): ?array {
+    $normalizedTier = normalize_ticket_tier_value($ticketTier);
+    if (!$eventId || !$normalizedTier) {
+        return null;
+    }
+
+    try {
+        $ticketStmt = $conn->prepare("
+            SELECT ticket_id, tier, price
+            FROM tickets
+            WHERE event_id = :event_id
+              AND UPPER(TRIM(tier)) = :tier
+            LIMIT 1
+        ");
+        $ticketStmt->execute([
+            ':event_id' => $eventId,
+            ':tier' => $normalizedTier
+        ]);
+        $ticketRow = $ticketStmt->fetch(PDO::FETCH_ASSOC);
+
+        return $ticketRow ?: null;
+    } catch (PDOException $e) {
+        return null;
+    }
+}
 
 // =============================
 // 1. VIEW LOGIC (GET)
@@ -168,6 +218,8 @@ if ($method === 'POST') {
 
     try {
         $conn->beginTransaction();
+        $assigned_staff_ids = [];
+        $assignedStaffDetails = [];
         
         // --- CONFLICT CHECK ---
         // Checks if this specific resource (row) is already booked at this time
@@ -196,6 +248,7 @@ if ($method === 'POST') {
         // Added resource_id to the insert query
         $resource_name = $resource['name'];
         $resource_Type = $resource['type'];
+        $resolved_ticket_id = null;
         
         if ($resource_Type === 'Bottle Service') {
             if (!$section_number || !$guest_count || !$minimum_spend) {
@@ -238,27 +291,6 @@ if ($method === 'POST') {
             ':nat' => $notify_at
         ]);
 
-        // --- FLOW 3: STAFF IN-APP NOTIFICATION ---
-        foreach ($assigned_staff_ids as $staff_id) {
-            // 1. Get the actual user_id of the staff member
-            $getStaffUser = $conn->prepare("SELECT user_id FROM staff WHERE id = :sid");
-            $getStaffUser->execute([':sid' => $staff_id]);
-            $staffUser = $getStaffUser->fetch(PDO::FETCH_ASSOC);
-
-            if ($staffUser) {
-                $staffNotifSql = "INSERT INTO staff_notifications (staff_user_id, reservation_id, message) 
-                                VALUES (:suid, :rid, :msg)";
-                $conn->prepare($staffNotifSql)->execute([
-                    ':suid' => $staffUser['user_id'],
-                    ':rid' => $reservation_id,
-                    ':msg' => "New Assignment: You have been assigned to a $service_type shift."
-                ]);
-                
-                // 2. Trigger the Email Proof of Concept
-                sendStaffNotificationEmail($staffUser['user_id'], $reservation_id, 'new');
-            }
-        }
-
         if ($resource_name === 'Bottle Service Silver' || $resource_name === 'Bottle Service Gold') {
             if (!$section_number || !$guest_count || !$minimum_spend) {
                 $conn->rollBack();
@@ -282,15 +314,46 @@ if ($method === 'POST') {
                 echo json_encode(['success' => false, 'message' => 'Event ticket requires event_id, ticket_tier, and quantity.']);
                 exit;
             }
-            $childSql = "INSERT INTO ticket_reservations (reservation_id, event_id, ticket_tier, quantity)
-                         VALUES (:rid, :event_id, :tier, :qty)";
-            $childStmt = $conn->prepare($childSql);
-            $childStmt->execute([
-                ':rid' => $reservation_id,
-                ':event_id' => $event_id,
-                ':tier' => $ticket_tier,
-                ':qty' => $quantity
-            ]);
+            $normalizedTicketTier = normalize_ticket_tier_value($ticket_tier);
+            if (!$normalizedTicketTier) {
+                $conn->rollBack();
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'ticket_tier must be GA or VIP.']);
+                exit;
+            }
+
+            $resolvedTicket = resolve_ticket_for_event($conn, $event_id, $normalizedTicketTier);
+            if (!$resolvedTicket) {
+                $conn->rollBack();
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'No ticket found for the selected event and tier.']);
+                exit;
+            }
+
+            $resolved_ticket_id = isset($resolvedTicket['ticket_id']) ? (int)$resolvedTicket['ticket_id'] : null;
+
+            if (ticket_reservations_has_column($conn, 'ticket_id')) {
+                $childSql = "INSERT INTO ticket_reservations (reservation_id, event_id, ticket_tier, quantity, ticket_id)
+                             VALUES (:rid, :event_id, :tier, :qty, :ticket_id)";
+                $childStmt = $conn->prepare($childSql);
+                $childStmt->execute([
+                    ':rid' => $reservation_id,
+                    ':event_id' => $event_id,
+                    ':tier' => $normalizedTicketTier,
+                    ':qty' => $quantity,
+                    ':ticket_id' => $resolved_ticket_id
+                ]);
+            } else {
+                $childSql = "INSERT INTO ticket_reservations (reservation_id, event_id, ticket_tier, quantity)
+                             VALUES (:rid, :event_id, :tier, :qty)";
+                $childStmt = $conn->prepare($childSql);
+                $childStmt->execute([
+                    ':rid' => $reservation_id,
+                    ':event_id' => $event_id,
+                    ':tier' => $normalizedTicketTier,
+                    ':qty' => $quantity
+                ]);
+            }
         }
 
         // AUTO-ASSIGN STAFF BASED ON RESERVATION TYPE
@@ -303,8 +366,6 @@ if ($method === 'POST') {
         } elseif ($resource_Type === 'Event' || strpos($resource_name, 'Event') !== false) {
             $required_roles = ['Security', 'Bouncer'];
         }
-
-        $assigned_staff_ids = [];
 
         foreach ($required_roles as $role) {
             // Find one staff member who fits the role and has NO overlapping reservations
@@ -353,13 +414,63 @@ if ($method === 'POST') {
             ]);
         }
 
+        foreach ($assigned_staff_ids as $staff_id) {
+            $staffDetailsSql = "SELECT id, name, role, user_id FROM staff WHERE id = :sid LIMIT 1";
+            $staffDetailsStmt = $conn->prepare($staffDetailsSql);
+            $staffDetailsStmt->execute([':sid' => $staff_id]);
+            $staffDetails = $staffDetailsStmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$staffDetails) {
+                continue;
+            }
+
+            $assignedStaffDetails[] = [
+                'id' => (int)($staffDetails['id'] ?? 0),
+                'name' => $staffDetails['name'] ?? '',
+                'role' => $staffDetails['role'] ?? '',
+                'user_id' => $staffDetails['user_id'] ?? null
+            ];
+
+            if (!empty($staffDetails['user_id'])) {
+                $staffNotifSql = "INSERT INTO staff_notifications (staff_user_id, reservation_id, message) 
+                                  VALUES (:suid, :rid, :msg)";
+                $conn->prepare($staffNotifSql)->execute([
+                    ':suid' => $staffDetails['user_id'],
+                    ':rid' => $reservation_id,
+                    ':msg' => "New Assignment: You have been assigned to a $service_type shift."
+                ]);
+            }
+        }
+
 
         $conn->commit();
+
+        if (!empty($assignedStaffDetails)) {
+            $timeWindow = trim(($start_time ?? '') . ' - ' . ($end_time ?? ''));
+            $emailTitle = "Reservation Assignment #{$reservation_id}";
+            $emailMessage = "You have been assigned to reservation {$reservation_id} for {$resource_name}.";
+
+            foreach ($assignedStaffDetails as $staffMember) {
+                send_staff_assignment_email(
+                    'SR-BU',
+                    $emailTitle,
+                    (string)($staffMember['name'] ?? 'Staff Member'),
+                    $timeWindow,
+                    $emailMessage
+                );
+            }
+        }
 
         http_response_code(201);
         echo json_encode([
             'success' => true,
-            'message' => 'Reservation submitted and staff automatically assigned successfully.'
+            'message' => 'Reservation submitted and staff automatically assigned successfully.',
+            'reservation_id' => (int)$reservation_id,
+            'resource_name' => $resource_name,
+            'start_time' => $start_time,
+            'end_time' => $end_time,
+            'ticket_id' => $resolved_ticket_id,
+            'assigned_staff' => $assignedStaffDetails
         ]);
 
     } catch (PDOException $e) {
@@ -553,19 +664,55 @@ if ($method === 'PUT') {
                 echo json_encode(['success' => false, 'message' => 'Event ticket requires event_id, ticket_tier, and quantity.']);
                 exit;
             }
-            $childSql = "INSERT INTO ticket_reservations (reservation_id, event_id, ticket_tier, quantity)
-                         VALUES (:rid, :event_id, :tier, :qty)
-                         ON DUPLICATE KEY UPDATE
-                            event_id = VALUES(event_id),
-                            ticket_tier = VALUES(ticket_tier),
-                            quantity = VALUES(quantity)";
-            $childStmt = $conn->prepare($childSql);
-            $childStmt->execute([
-                ':rid' => $reservation_id,
-                ':event_id' => $event_id,
-                ':tier' => $ticket_tier,
-                ':qty' => $quantity
-            ]);
+            $normalizedTicketTier = normalize_ticket_tier_value($ticket_tier);
+            if (!$normalizedTicketTier) {
+                $conn->rollBack();
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'ticket_tier must be GA or VIP.']);
+                exit;
+            }
+
+            $resolvedTicket = resolve_ticket_for_event($conn, $event_id, $normalizedTicketTier);
+            if (!$resolvedTicket) {
+                $conn->rollBack();
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'No ticket found for the selected event and tier.']);
+                exit;
+            }
+
+            $resolvedTicketId = isset($resolvedTicket['ticket_id']) ? (int)$resolvedTicket['ticket_id'] : null;
+
+            if (ticket_reservations_has_column($conn, 'ticket_id')) {
+                $childSql = "INSERT INTO ticket_reservations (reservation_id, event_id, ticket_tier, quantity, ticket_id)
+                             VALUES (:rid, :event_id, :tier, :qty, :ticket_id)
+                             ON DUPLICATE KEY UPDATE
+                                event_id = VALUES(event_id),
+                                ticket_tier = VALUES(ticket_tier),
+                                quantity = VALUES(quantity),
+                                ticket_id = VALUES(ticket_id)";
+                $childStmt = $conn->prepare($childSql);
+                $childStmt->execute([
+                    ':rid' => $reservation_id,
+                    ':event_id' => $event_id,
+                    ':tier' => $normalizedTicketTier,
+                    ':qty' => $quantity,
+                    ':ticket_id' => $resolvedTicketId
+                ]);
+            } else {
+                $childSql = "INSERT INTO ticket_reservations (reservation_id, event_id, ticket_tier, quantity)
+                             VALUES (:rid, :event_id, :tier, :qty)
+                             ON DUPLICATE KEY UPDATE
+                                event_id = VALUES(event_id),
+                                ticket_tier = VALUES(ticket_tier),
+                                quantity = VALUES(quantity)";
+                $childStmt = $conn->prepare($childSql);
+                $childStmt->execute([
+                    ':rid' => $reservation_id,
+                    ':event_id' => $event_id,
+                    ':tier' => $normalizedTicketTier,
+                    ':qty' => $quantity
+                ]);
+            }
 
             $conn->prepare("DELETE FROM bottle_service WHERE reservation_id = :rid")
                  ->execute([':rid' => $reservation_id]);

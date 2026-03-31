@@ -18,6 +18,7 @@ DROP TABLE IF EXISTS ticket_reservations;
 DROP TABLE IF EXISTS bottle_service;
 DROP TABLE IF EXISTS reservations;
 DROP TABLE IF EXISTS resources;
+DROP TABLE IF EXISTS availability;
 DROP TABLE IF EXISTS staff;
 DROP TABLE IF EXISTS users;
 
@@ -178,4 +179,22 @@ CREATE TABLE user_notifications (
 
   FOREIGN KEY (user_id) REFERENCES users(id),
   FOREIGN KEY (reservation_id) REFERENCES reservations(reservation_id)
+);
+
+
+-- =========================
+-- AVAILABILITY
+-- =========================
+
+CREATE TABLE availability (
+  availability_id INT AUTO_INCREMENT PRIMARY KEY,
+  staff_id INT NOT NULL,
+  day_of_week ENUM('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday') NOT NULL,
+  start_time TIME NOT NULL,
+  end_time TIME NOT NULL,
+  is_available TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_staff_day_window (staff_id, day_of_week, start_time, end_time),
+  FOREIGN KEY (staff_id) REFERENCES staff(id) ON DELETE CASCADE,
+  CHECK (start_time < end_time)
 );
