@@ -12,11 +12,12 @@ function StaffUI() {
   const [staff, setStaff] = useState([]);
 
   const roleOptions = [
-    "Manager",
     "Bartender",
+    "Bar Back",
+    "DJ",
     "Security",
-    "Host",
-    "DJ"
+    "Bouncer",
+    "Bottle Service Promoter"
   ];
 
   const validateStaffName = (name) => {
