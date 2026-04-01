@@ -181,7 +181,6 @@ CREATE TABLE user_notifications (
   FOREIGN KEY (reservation_id) REFERENCES reservations(reservation_id)
 );
 
-
 -- =========================
 -- AVAILABILITY
 -- =========================

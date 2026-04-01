@@ -1,6 +1,9 @@
-import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
-import { DayPilot } from '@daypilot/daypilot-lite-react';
-import { useEffect, useMemo, useState } from 'react';
+import { Dialog, DialogPanel, DialogTitle, Select } from '@headlessui/react';
+import { useState } from 'react';
+import { useEffect } from 'react';
+import { Form } from 'react-router-dom';
+
+
 
 const normalizeRole = (roleValue) => String(roleValue ?? '').trim();
 
@@ -19,15 +22,12 @@ function UsersUI() {
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [users, setUsers] = useState([]);
-  const [reservations, setReservations] = useState([]);
-  const [roleOptions, setRoleOptions] = useState([]);
-  const [roleUpdateByUserId, setRoleUpdateByUserId] = useState({});
-  const [referenceNowMs] = useState(() => Date.now());
-  const safeUsers = useMemo(() => (Array.isArray(users) ? users : []), [users]);
-  const safeReservations = useMemo(
-    () => (Array.isArray(reservations) ? reservations : []),
-    [reservations]
-  );
+  const safeUsers = Array.isArray(users) ? users : [];
+  const [selectedRole,setSelectedRole] = useState([]);
+
+ 
+
+  
 
   const formatMetric = (value) => {
     if (value === null || value === undefined || value === '') {
