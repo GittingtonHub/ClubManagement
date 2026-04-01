@@ -491,12 +491,6 @@ const onTimeRangeSelected = async (args) => {
             : [];
         setAvailabilityRows(nextAvailabilityRows);
 
-        const ticketResources = formattedResources.filter(
-          (resource) => isTicketResource(resource) && resource?.name !== "Event Ticket GA"
-        );
-        const fallbackTicketRowId = ticketResources.length > 0
-          ? ticketResources[0].id
-          : null;
         const nonTicketResources = formattedResources.filter((resource) => !isTicketResource(resource));
         const eventTicketRows = mappedTicketEvents.map((eventRow) => ({
           id: toEventOnlyRowId(eventRow.id),
@@ -505,7 +499,6 @@ const onTimeRangeSelected = async (args) => {
 
         const schedulerRows = [
           ...nonTicketResources,
-          ...ticketResources,
           ...eventTicketRows
         ];
         setSchedulerResources(schedulerRows);
@@ -527,13 +520,6 @@ const onTimeRangeSelected = async (args) => {
             knownEventIds.has(String(e.event_id))
           ) {
             schedulerResourceId = toEventOnlyRowId(e.event_id);
-          } else if (
-            ticketResourceIds.has(String(e.resource_id)) &&
-            fallbackTicketRowId !== null &&
-            !knownEventIds.has(String(e.event_id))
-          ) {
-            // Keep legacy ticket reservations visible even when GA row is intentionally hidden.
-            schedulerResourceId = fallbackTicketRowId;
           }
 
           return {
