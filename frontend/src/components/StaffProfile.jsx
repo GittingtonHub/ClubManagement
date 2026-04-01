@@ -168,9 +168,7 @@ function StaffProfile() {
             return;
          }
 
-         const myReservations = (Array.isArray(data) ? data : []).filter(
-            (reservation) => String(reservation.user_id) === String(currentUserId)
-         );
+         const myReservations = Array.isArray(data) ? data : [];
          setReservations(myReservations);
          setReservationMessage("");
       } catch {
@@ -218,12 +216,17 @@ function StaffProfile() {
       }
 
       try {
-         const response = await fetch(`/api/reservations.php?id=${reservationId}`, {
-            method: "DELETE",
+         const response = await fetch(`/api/reservations.php`, {
+            method: "PUT",
             credentials: "include",
             headers: {
+               "Content-Type": "application/json",
                Authorization: `Bearer ${localStorage.getItem("authToken") || ""}`
-            }
+            },
+            body: JSON.stringify({
+               reservation_id: reservationId,
+               status: "cancelled"
+            })
          });
 
          if (!response.ok) {
@@ -597,7 +600,7 @@ function StaffProfile() {
 
             <div className="profile-reservations-past">
                <h3>Today&apos;s Reservations</h3>
-               {reservationGroups.past.length === 0 ? (
+               {reservationGroups.today.length === 0 ? (
                   <p className="profile-reservation-placeholder">No past reservations.</p>
                ) : (
                   <table className="profile-reservations-table">
@@ -610,7 +613,7 @@ function StaffProfile() {
                         </tr>
                      </thead>
                      <tbody>
-                        {reservationGroups.past.map((reservation) => {
+                        {reservationGroups.today.map((reservation) => {
                            const id = reservation.reservation_id ?? reservation.id;
                            return (
                               <tr className="table-row" key={id}>
