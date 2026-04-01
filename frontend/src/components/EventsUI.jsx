@@ -150,6 +150,15 @@ function EventsUI() {
     setIsAvailabilityLoading(false);
   };
 
+  const announceEventsChanged = () => {
+    window.dispatchEvent(new Event('events:changed'));
+    try {
+      localStorage.setItem('events:lastChangedAt', String(Date.now()));
+    } catch {
+      // no-op for environments where storage is unavailable
+    }
+  };
+
   const loadEvents = async () => {
     try {
       const response = await fetch('/api/events.php', {
@@ -411,6 +420,7 @@ function EventsUI() {
       setIsAddEventOpen(false);
       setEventsError('');
       await loadEvents();
+      announceEventsChanged();
     } catch (error) {
       console.error('Failed to add event:', error);
       setEventsError('Failed to add event.');
@@ -439,6 +449,7 @@ function EventsUI() {
 
       setEvents((previous) => previous.filter((event) => String(event.event_id) !== String(eventId)));
       setEventsError('');
+      announceEventsChanged();
     } catch (error) {
       console.error('Failed to delete event:', error);
       setEventsError('Failed to delete event.');

@@ -1,6 +1,5 @@
-import { createContext, useContext, useState } from 'react';
-import { useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import { createContext, useContext, useEffect, useState } from 'react';
+import useReservationNotifications from '../hooks/useReservationNotifications';
 
 const AuthContext = createContext(null);
 
@@ -25,9 +24,6 @@ export const AuthProvider = ({ children }) => {
         
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(isCurrently);
-
-  const [token, setToken] = useState()
-  
 
   const login = (userData) => {
     // TODO: Replace with actual API call to PHP backend
@@ -76,6 +72,10 @@ export const AuthProvider = ({ children }) => {
     
     checkAuth();
   }, []);
+
+  useReservationNotifications({
+    enabled: isAuthenticated && Boolean(user?.id)
+  });
 
   return (
     <AuthContext.Provider value={{ isAuthenticated, user, login, logout }}>

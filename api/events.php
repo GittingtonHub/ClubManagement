@@ -134,6 +134,12 @@ function fetch_available_staff_ids_for_window(
         return [];
     }
 
+    $startTimestamp = strtotime($startTime);
+    if ($startTimestamp === false) {
+        return [];
+    }
+    $dayOfWeek = date('l', $startTimestamp);
+
     $filteredIds = array_values(array_filter(array_unique(array_map(static fn($id) => (int)$id, $staffIds)), static fn($id) => $id > 0));
     if (empty($filteredIds)) {
         return [];
@@ -141,7 +147,7 @@ function fetch_available_staff_ids_for_window(
 
     $staffIdPlaceholders = implode(',', array_fill(0, count($filteredIds), '?'));
     $params = $filteredIds;
-    $availabilityParams = [$startTime, $startTime, $endTime];
+    $availabilityParams = [$dayOfWeek, $startTime, $endTime];
     $reservationParams = [];
     $eventParams = [$endTime, $startTime];
 
@@ -173,7 +179,7 @@ function fetch_available_staff_ids_for_window(
         JOIN availability a ON a.staff_id = s.id
         WHERE s.id IN ({$staffIdPlaceholders})
           AND a.is_available = 1
-          AND a.day_of_week = DAYNAME(?)
+          AND a.day_of_week = ?
           AND a.start_time <= TIME(?)
           AND a.end_time >= TIME(?)
           {$reservationConflictClause}
@@ -673,13 +679,25 @@ if ($method === 'POST') {
             $assignedStaffRows = $staffStmt->fetchAll(PDO::FETCH_ASSOC);
 
             foreach ($assignedStaffRows as $staffRow) {
-                send_staff_assignment_email(
-                    'SR-BA',
-                    "New Event Assignment: {$eventTitle}",
-                    (string)($staffRow['name'] ?? 'Staff Member'),
-                    format_time_window($startTime, $endTime),
-                    "You have been assigned to event \"{$eventTitle}\"" . ($performer !== '' ? " with performer {$performer}." : '.')
-                );
+                try {
+                    $sent = send_staff_assignment_email(
+                        'SR-BA',
+                        "New Event Assignment: {$eventTitle}",
+                        (string)($staffRow['name'] ?? 'Staff Member'),
+                        format_time_window($startTime, $endTime),
+                        "You have been assigned to event \"{$eventTitle}\"" . ($performer !== '' ? " with performer {$performer}." : '.')
+                    );
+                } catch (Throwable $e) {
+                    $sent = false;
+                    error_log("Event assignment email exception: " . $e->getMessage());
+                }
+                log_email_trigger('event_assignment_email', [
+                    'event_id' => (int)$eventId,
+                    'staff_id' => (int)($staffRow['id'] ?? 0),
+                    'staff_name' => (string)($staffRow['name'] ?? ''),
+                    'template_type' => 'SR-BA',
+                    'sent' => $sent
+                ]);
             }
         }
 

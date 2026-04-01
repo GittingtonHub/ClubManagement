@@ -1,5 +1,20 @@
 import { useState } from "react";
 
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+const getDayOfWeekFromDateTimeLocal = (value) => {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return DAY_NAMES[date.getDay()] ?? "";
+};
+
 function AvailabilityUI() {
   const [staffId, setStaffId] = useState("");
   const [start, setStart] = useState("");
@@ -13,13 +28,17 @@ function AvailabilityUI() {
     }
 
     try {
+      const dayOfWeek = getDayOfWeekFromDateTimeLocal(start);
+
       const res = await fetch("/api/availability.php", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
+        credentials: "include",
         body: JSON.stringify({
           staff_id: Number(staffId),
+          day_of_week: dayOfWeek,
           start_time: start,
           end_time: end,
           is_available: 1
