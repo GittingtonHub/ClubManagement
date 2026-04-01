@@ -619,7 +619,20 @@ if ($method === 'PUT') {
             ':end' => $end_time,
             ':reservation_id' => $reservation_id
         ]);
-    
+
+        // Keep the user reminder in sync when reservation details change.
+        $conn->prepare("DELETE FROM user_notifications WHERE reservation_id = :rid")
+             ->execute([':rid' => $reservation_id]);
+        if (strtolower((string)$status) !== 'cancelled') {
+            $notify_at = date('Y-m-d H:i:s', strtotime($start_time . ' -10 minutes'));
+            $userNotifSql = "INSERT INTO user_notifications (user_id, reservation_id, notify_at)
+                             VALUES (:uid, :rid, :nat)";
+            $conn->prepare($userNotifSql)->execute([
+                ':uid' => $user_id,
+                ':rid' => $reservation_id,
+                ':nat' => $notify_at
+            ]);
+        }
 
 
         $resource_Type = $resource['type'];
@@ -857,6 +870,8 @@ if ($method === 'DELETE') {
         $conn->prepare("DELETE FROM ticket_reservations WHERE reservation_id = :rid")
               ->execute([':rid' => $reservation_id]);
         $conn->prepare("DELETE FROM table_section WHERE reservation_id = :rid")
+              ->execute([':rid' => $reservation_id]);
+        $conn->prepare("DELETE FROM user_notifications WHERE reservation_id = :rid")
               ->execute([':rid' => $reservation_id]);
 
         $deleteSql = "DELETE FROM reservations WHERE reservation_id = :rid";
