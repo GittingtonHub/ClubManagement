@@ -1,5 +1,6 @@
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { useEffect, useMemo, useState } from 'react';
+import { dispatchStaffAssignmentEmails } from '../lib/emailDispatch';
 
 const EMPTY_EVENT_FORM = {
   event_id: '',
@@ -414,6 +415,27 @@ function EventsUI() {
       if (!response.ok) {
         setEventsError(payload?.message || 'Failed to add event.');
         return;
+      }
+
+      if (eventForm.staff_ids.length > 0) {
+        const staffMembers = eventForm.staff_ids.map((staffId) => ({
+          id: staffId,
+          name: staffById.get(String(staffId)) ?? `Staff #${staffId}`
+        }));
+
+        const emailSummary = await dispatchStaffAssignmentEmails({
+          templateType: 'SR-BA',
+          title: `New Event Assignment: ${eventForm.event_title.trim()}`,
+          timeWindow: `${eventForm.start_time} - ${eventForm.end_time}`,
+          message:
+            `You have been assigned to event "${eventForm.event_title.trim()}"` +
+            (eventForm.performer.trim() !== '' ? ` with performer ${eventForm.performer.trim()}.` : '.'),
+          staffMembers
+        });
+
+        console.info('[EMAIL_TRIGGER_FRONTEND] Event created; frontend email dispatch summary:', emailSummary);
+      } else {
+        console.info('[EMAIL_TRIGGER_FRONTEND] Event created with no assigned staff; no emails dispatched.');
       }
 
       resetEventForm();

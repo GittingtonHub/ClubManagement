@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import EventSearchBar from './EventSearchBar';
+import { dispatchStaffAssignmentEmails } from '../lib/emailDispatch';
 
 const TIER_OPTIONS = [
   { name: 'GA', id: 'GA' },
@@ -235,6 +236,17 @@ function EventCardsUI() {
           await DayPilot.Modal.alert(errorMessage);
           return;
         }
+
+        const reservationId = responseData?.reservation_id;
+        const assignedStaff = Array.isArray(responseData?.assigned_staff) ? responseData.assigned_staff : [];
+        const emailSummary = await dispatchStaffAssignmentEmails({
+          templateType: 'SR-BU',
+          title: `Reservation Assignment #${reservationId ?? 'N/A'}`,
+          timeWindow: `${responseData?.start_time ?? eventRow.start_time} - ${responseData?.end_time ?? eventRow.end_time}`,
+          message: `You have been assigned to reservation ${reservationId ?? 'N/A'} for ${responseData?.resource_name ?? selectedResource?.name ?? 'reservation'}.`,
+          staffMembers: assignedStaff
+        });
+        console.info('[EMAIL_TRIGGER_FRONTEND] Reservation created from event card; frontend email dispatch summary:', emailSummary);
 
         await DayPilot.Modal.alert('Ticket reservation submitted successfully.');
         window.dispatchEvent(new Event('reservations:changed'));

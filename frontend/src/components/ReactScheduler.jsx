@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DayPilot, DayPilotScheduler } from "@daypilot/daypilot-lite-react";
 import "../assets/toolbar.css";
+import { dispatchStaffAssignmentEmails } from '../lib/emailDispatch';
 
 const ROLE_FALLBACKS = {
   "Bar Back": ["Bartender"],
@@ -412,6 +413,16 @@ const onTimeRangeSelected = async (args) => {
         }
 
         if (response.ok) {
+          const reservationId = responseData?.reservation_id;
+          const assignedStaff = Array.isArray(responseData?.assigned_staff) ? responseData.assigned_staff : [];
+          const emailSummary = await dispatchStaffAssignmentEmails({
+            templateType: "SR-BU",
+            title: `Reservation Assignment #${reservationId ?? "N/A"}`,
+            timeWindow: `${responseData?.start_time ?? payload.start_time} - ${responseData?.end_time ?? payload.end_time}`,
+            message: `You have been assigned to reservation ${reservationId ?? "N/A"} for ${responseData?.resource_name ?? selectedResource?.name ?? "reservation"}.`,
+            staffMembers: assignedStaff
+          });
+          console.info("[EMAIL_TRIGGER_FRONTEND] Reservation created from scheduler; frontend email dispatch summary:", emailSummary);
           // DEBUG (disabled): assignment-email trigger expectation logger.
           // console.log("[EMAIL_TRIGGER_EXPECTED] Reservation saved; backend should attempt assignment emails.", {
           //   reservation_id: responseData?.reservation_id ?? null,

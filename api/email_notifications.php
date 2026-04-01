@@ -40,26 +40,40 @@ function emailjs_template_id_for_type(string $templateType): ?string {
 
 function emailjs_default_template_params(string $templateType): array {
     $normalized = strtoupper(trim($templateType));
-    $suffix = $normalized !== '' ? "_{$normalized}" : '';
+    $suffixHyphen = $normalized !== '' ? "_{$normalized}" : '';
+    $suffixUnderscore = $normalized !== '' ? "_" . str_replace('-', '_', $normalized) : '';
+    $suffixes = array_values(array_unique(array_filter([$suffixHyphen, $suffixUnderscore])));
 
-    $toEmail = env_value([
-        "EMAILJS_TO_EMAIL{$suffix}",
-        "EMAILJS_STAFF_TO_EMAIL{$suffix}",
+    // Use one shared recipient for all staff-assignment templates.
+    // This intentionally checks both SR-BA and SR-BU variants so either key can drive both templates.
+    $toCandidates = [
         'EMAILJS_TO_EMAIL',
-        'EMAILJS_STAFF_TO_EMAIL'
-    ]);
-    $fromEmail = env_value([
-        "EMAILJS_FROM_EMAIL{$suffix}",
-        'EMAILJS_FROM_EMAIL'
-    ]);
-    $fromName = env_value([
-        "EMAILJS_FROM_NAME{$suffix}",
-        'EMAILJS_FROM_NAME'
-    ]);
-    $replyTo = env_value([
-        "EMAILJS_REPLY_TO{$suffix}",
-        'EMAILJS_REPLY_TO'
-    ]);
+        'EMAILJS_STAFF_TO_EMAIL',
+        'EMAILJS_TO_EMAIL_SR_BA',
+        'EMAILJS_STAFF_TO_EMAIL_SR_BA',
+        'EMAILJS_TO_EMAIL_SR-BA',
+        'EMAILJS_STAFF_TO_EMAIL_SR-BA',
+        'EMAILJS_TO_EMAIL_SR_BU',
+        'EMAILJS_STAFF_TO_EMAIL_SR_BU',
+        'EMAILJS_TO_EMAIL_SR-BU',
+        'EMAILJS_STAFF_TO_EMAIL_SR-BU'
+    ];
+    $fromEmailCandidates = ['EMAILJS_FROM_EMAIL'];
+    $fromNameCandidates = ['EMAILJS_FROM_NAME'];
+    $replyToCandidates = ['EMAILJS_REPLY_TO'];
+
+    foreach ($suffixes as $suffix) {
+        $toCandidates[] = "EMAILJS_TO_EMAIL{$suffix}";
+        $toCandidates[] = "EMAILJS_STAFF_TO_EMAIL{$suffix}";
+        $fromEmailCandidates[] = "EMAILJS_FROM_EMAIL{$suffix}";
+        $fromNameCandidates[] = "EMAILJS_FROM_NAME{$suffix}";
+        $replyToCandidates[] = "EMAILJS_REPLY_TO{$suffix}";
+    }
+
+    $toEmail = env_value($toCandidates);
+    $fromEmail = env_value($fromEmailCandidates);
+    $fromName = env_value($fromNameCandidates);
+    $replyTo = env_value($replyToCandidates);
 
     $params = [];
     if ($toEmail) {
@@ -84,16 +98,21 @@ function send_emailjs_template_email(string $templateType, array $templateParams
         $templateId = emailjs_template_id_for_type($templateType);
         $publicKey = env_value(['EMAILJS_PUBLIC_KEY', 'EMAILJS_USER_ID']);
         $privateKey = env_value(['EMAILJS_PRIVATE_KEY', 'EMAILJS_ACCESS_TOKEN']);
+        $resolvedTemplateParams = array_merge(
+            emailjs_default_template_params($templateType),
+            $templateParams
+        );
 
         log_email_trigger('attempt', [
             'template_type' => $templateType,
             'has_service_id' => (bool)$serviceId,
             'has_template_id' => (bool)$templateId,
             'auth_mode' => $privateKey ? 'private_key' : ($publicKey ? 'public_key' : 'missing'),
-            'to_email' => $templateParams['to_email'] ?? null,
-            'title' => $templateParams['title'] ?? null,
-            'name' => $templateParams['name'] ?? null,
-            'time' => $templateParams['time'] ?? null
+            'has_to_email' => !empty($resolvedTemplateParams['to_email']),
+            'to_email' => $resolvedTemplateParams['to_email'] ?? null,
+            'title' => $resolvedTemplateParams['title'] ?? null,
+            'name' => $resolvedTemplateParams['name'] ?? null,
+            'time' => $resolvedTemplateParams['time'] ?? null
         ]);
 
         if (!$serviceId || !$templateId || (!$publicKey && !$privateKey)) {
@@ -115,10 +134,7 @@ function send_emailjs_template_email(string $templateType, array $templateParams
         $payload = [
             'service_id' => $serviceId,
             'template_id' => $templateId,
-            'template_params' => array_merge(
-                emailjs_default_template_params($templateType),
-                $templateParams
-            )
+            'template_params' => $resolvedTemplateParams
         ];
 
         if ($privateKey) {
