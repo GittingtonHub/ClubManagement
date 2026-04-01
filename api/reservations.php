@@ -266,6 +266,13 @@ if ($method === 'POST') {
         $conn->beginTransaction();
         $assigned_staff_ids = [];
         $assignedStaffDetails = [];
+        $emailDispatch = [
+            'trigger' => 'reservation_assignment',
+            'attempted' => 0,
+            'sent' => 0,
+            'failed' => 0,
+            'staff_ids' => []
+        ];
 
         $resourceTypeNormalized = strtolower(trim((string)($resource['type'] ?? '')));
         $resourceNameNormalized = strtolower(trim((string)($resource['name'] ?? '')));
@@ -514,30 +521,19 @@ if ($method === 'POST') {
 
         if (!empty($assignedStaffDetails)) {
             $timeWindow = trim(($start_time ?? '') . ' - ' . ($end_time ?? ''));
-            $emailTitle = "Reservation Assignment #{$reservation_id}";
-            $emailMessage = "You have been assigned to reservation {$reservation_id} for {$resource_name}.";
-
-            foreach ($assignedStaffDetails as $staffMember) {
-                try {
-                    $sent = send_staff_assignment_email(
-                        'SR-BU',
-                        $emailTitle,
-                        (string)($staffMember['name'] ?? 'Staff Member'),
-                        $timeWindow,
-                        $emailMessage
-                    );
-                } catch (Throwable $e) {
-                    $sent = false;
-                    error_log("Reservation assignment email exception: " . $e->getMessage());
-                }
-                log_email_trigger('reservation_assignment_email', [
-                    'reservation_id' => (int)$reservation_id,
-                    'staff_id' => (int)($staffMember['id'] ?? 0),
-                    'staff_name' => (string)($staffMember['name'] ?? ''),
-                    'template_type' => 'SR-BU',
-                    'sent' => $sent
-                ]);
-            }
+            $emailDispatch['staff_ids'] = array_values(array_map(static fn($row) => (int)($row['id'] ?? 0), $assignedStaffDetails));
+            $emailDispatch['attempted'] = count($assignedStaffDetails);
+            // Frontend now sends assignment emails directly after successful create.
+            $emailDispatch['sent'] = 0;
+            $emailDispatch['failed'] = 0;
+            $emailDispatch['delivery_mode'] = 'frontend';
+            log_email_trigger('reservation_assignment_email_backend_skipped', [
+                'reservation_id' => (int)$reservation_id,
+                'staff_ids' => $emailDispatch['staff_ids'],
+                'attempted' => $emailDispatch['attempted'],
+                'time_window' => $timeWindow,
+                'delivery_mode' => 'frontend'
+            ]);
         }
 
         http_response_code(201);
@@ -549,7 +545,8 @@ if ($method === 'POST') {
             'start_time' => $start_time,
             'end_time' => $end_time,
             'ticket_id' => $resolved_ticket_id,
-            'assigned_staff' => $assignedStaffDetails
+            'assigned_staff' => $assignedStaffDetails,
+            'email_dispatch' => $emailDispatch
         ]);
 
     } catch (PDOException $e) {

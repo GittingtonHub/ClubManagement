@@ -585,7 +585,7 @@ function StaffProfile() {
 
 
          {/* Availability UI */}
-         <AvailabilityUI />
+         <AvailabilityUI staffId={staffDetails.employeeId} />
          
          <div
             className="profile-reservations-container"

@@ -632,6 +632,13 @@ if ($method === 'POST') {
 
     try {
         $conn->beginTransaction();
+        $emailDispatch = [
+            'trigger' => 'event_assignment',
+            'attempted' => 0,
+            'sent' => 0,
+            'failed' => 0,
+            'staff_ids' => []
+        ];
 
         $insertStmt = $conn->prepare($insertSql);
         $insertStmt->execute([
@@ -677,28 +684,18 @@ if ($method === 'POST') {
             $staffStmt = $conn->prepare($staffQuery);
             $staffStmt->execute($validStaffIds);
             $assignedStaffRows = $staffStmt->fetchAll(PDO::FETCH_ASSOC);
-
-            foreach ($assignedStaffRows as $staffRow) {
-                try {
-                    $sent = send_staff_assignment_email(
-                        'SR-BA',
-                        "New Event Assignment: {$eventTitle}",
-                        (string)($staffRow['name'] ?? 'Staff Member'),
-                        format_time_window($startTime, $endTime),
-                        "You have been assigned to event \"{$eventTitle}\"" . ($performer !== '' ? " with performer {$performer}." : '.')
-                    );
-                } catch (Throwable $e) {
-                    $sent = false;
-                    error_log("Event assignment email exception: " . $e->getMessage());
-                }
-                log_email_trigger('event_assignment_email', [
-                    'event_id' => (int)$eventId,
-                    'staff_id' => (int)($staffRow['id'] ?? 0),
-                    'staff_name' => (string)($staffRow['name'] ?? ''),
-                    'template_type' => 'SR-BA',
-                    'sent' => $sent
-                ]);
-            }
+            $emailDispatch['staff_ids'] = array_values(array_map(static fn($row) => (int)($row['id'] ?? 0), $assignedStaffRows));
+            $emailDispatch['attempted'] = count($assignedStaffRows);
+            // Frontend now sends assignment emails directly after successful create.
+            $emailDispatch['sent'] = 0;
+            $emailDispatch['failed'] = 0;
+            $emailDispatch['delivery_mode'] = 'frontend';
+            log_email_trigger('event_assignment_email_backend_skipped', [
+                'event_id' => (int)$eventId,
+                'staff_ids' => $emailDispatch['staff_ids'],
+                'attempted' => $emailDispatch['attempted'],
+                'delivery_mode' => 'frontend'
+            ]);
         }
 
         $createdEvent = null;
@@ -713,7 +710,8 @@ if ($method === 'POST') {
         http_response_code(201);
         echo json_encode([
             'success' => true,
-            'event' => $createdEvent
+            'event' => $createdEvent,
+            'email_dispatch' => $emailDispatch
         ]);
     } catch (PDOException $e) {
         if ($conn->inTransaction()) {

@@ -571,6 +571,93 @@ button.inline {
   background-color: #9d1f1f;
 }
 
+.availability-editor-container {
+  width: 90%;
+  margin: 16px auto 0;
+  padding: 1rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.availability-editor-title {
+  margin: 0 0 12px;
+}
+
+.availability-grid-scroll {
+  overflow-x: auto;
+}
+
+.availability-grid-table {
+  width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+}
+
+.availability-grid-table th,
+.availability-grid-table td {
+  border: 1px solid black;
+  padding: 8px;
+}
+
+.availability-day-cell {
+  font-weight: 600;
+  min-width: 130px;
+}
+
+.availability-grid-select {
+  width: 100%;
+  min-width: 140px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.availability-grid-actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.availability-grid-save-button {
+  background-color: blue;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.availability-grid-save-button:hover {
+  background-color: black;
+}
+
+.availability-grid-save-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.availability-grid-status,
+.availability-grid-notice,
+.availability-grid-success,
+.availability-grid-error {
+  margin: 8px 0 0;
+}
+
+.availability-grid-notice {
+  color: #5f6368;
+}
+
+.availability-grid-success {
+  color: #0b5e20;
+}
+
+.availability-grid-error {
+  color: #9d1f1f;
+}
+
 .events-search-section {
   width: 90%;
   margin: 16px auto;
@@ -766,6 +853,18 @@ button.inline {
 
   .profile-reservations-container {
     grid-template-columns: 1fr;
+  }
+
+  .availability-editor-container {
+    padding: 0.8rem;
+  }
+
+  .availability-grid-actions {
+    justify-content: stretch;
+  }
+
+  .availability-grid-save-button {
+    width: 100%;
   }
 
   .events-search-section {

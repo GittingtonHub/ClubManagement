@@ -251,6 +251,99 @@ if ($method === 'POST') {
     exit;
 }
 
+if ($method === 'PUT') {
+    $input = json_decode(file_get_contents("php://input"), true);
+    if (!is_array($input)) {
+        $input = [];
+    }
+
+    $staffId = $input['staff_id'] ?? null;
+    $dayOfWeek = trim((string)($input['day_of_week'] ?? ''));
+    $startTime = $input['start_time'] ?? null;
+    $endTime = $input['end_time'] ?? null;
+    $isAvailable = $input['is_available'] ?? 1;
+
+    $allowedDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    if (!$staffId || !in_array($dayOfWeek, $allowedDays, true)) {
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'message' => 'staff_id and a valid day_of_week are required.'
+        ]);
+        exit;
+    }
+
+    $isAvailableFlag = (int)!in_array(strtolower((string)$isAvailable), ['0', 'false', 'no', 'off'], true);
+
+    if ($isAvailableFlag === 1) {
+        if (!$startTime || !$endTime) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'start_time and end_time are required when is_available is true.'
+            ]);
+            exit;
+        }
+
+        $startTimestamp = strtotime((string)$startTime);
+        $endTimestamp = strtotime((string)$endTime);
+        if ($startTimestamp === false || $endTimestamp === false || $endTimestamp <= $startTimestamp) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'start_time and end_time must be valid times, and end_time must be after start_time.'
+            ]);
+            exit;
+        }
+
+        $normalizedStart = date('H:i:s', $startTimestamp);
+        $normalizedEnd = date('H:i:s', $endTimestamp);
+    } else {
+        $normalizedStart = null;
+        $normalizedEnd = null;
+    }
+
+    try {
+        $conn->beginTransaction();
+
+        $deleteSql = "DELETE FROM availability WHERE staff_id = :staff_id AND day_of_week = :day_of_week";
+        $deleteStmt = $conn->prepare($deleteSql);
+        $deleteStmt->execute([
+            ':staff_id' => (int)$staffId,
+            ':day_of_week' => $dayOfWeek
+        ]);
+
+        if ($isAvailableFlag === 1) {
+            $insertSql = "
+                INSERT INTO availability (staff_id, day_of_week, start_time, end_time, is_available)
+                VALUES (:staff_id, :day_of_week, :start_time, :end_time, 1)
+            ";
+            $insertStmt = $conn->prepare($insertSql);
+            $insertStmt->execute([
+                ':staff_id' => (int)$staffId,
+                ':day_of_week' => $dayOfWeek,
+                ':start_time' => $normalizedStart,
+                ':end_time' => $normalizedEnd
+            ]);
+        }
+
+        $conn->commit();
+
+        echo json_encode([
+            'success' => true,
+            'day_of_week' => $dayOfWeek,
+            'is_available' => $isAvailableFlag
+        ]);
+    } catch (PDOException $e) {
+        if ($conn->inTransaction()) {
+            $conn->rollBack();
+        }
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
 http_response_code(405);
 echo json_encode([
     'success' => false,
