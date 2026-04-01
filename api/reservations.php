@@ -84,6 +84,39 @@ function resolve_ticket_for_event(PDO $conn, $eventId, $ticketTier): ?array {
     }
 }
 
+function table_exists(PDO $conn, string $tableName): bool {
+    $stmt = $conn->prepare('SHOW TABLES LIKE :table_name');
+    $stmt->execute([':table_name' => $tableName]);
+    return (bool)$stmt->fetchColumn();
+}
+
+function get_existing_table_name(PDO $conn, array $candidates): ?string {
+    foreach ($candidates as $candidate) {
+        if (table_exists($conn, $candidate)) {
+            return $candidate;
+        }
+    }
+    return null;
+}
+
+function get_assigned_event_staff_ids(PDO $conn, int $eventId): array {
+    if ($eventId <= 0) {
+        return [];
+    }
+
+    $eventStaffTable = get_existing_table_name($conn, ['EventStaff', 'event_staff']);
+    if ($eventStaffTable === null) {
+        return [];
+    }
+
+    $sql = "SELECT staff_id FROM `{$eventStaffTable}` WHERE event_id = :event_id";
+    $stmt = $conn->prepare($sql);
+    $stmt->execute([':event_id' => $eventId]);
+    $rows = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
+
+    return array_values(array_unique(array_filter(array_map(static fn($id) => (int)$id, $rows), static fn($id) => $id > 0)));
+}
+
 // =============================
 // 1. VIEW LOGIC (GET)
 // =============================
@@ -100,15 +133,25 @@ if ($method === 'GET') {
                tr.event_id,
                tr.ticket_tier,
                tr.quantity,
-               rs.staff_id
+               rs.staff_ids
         FROM reservations r
         JOIN resources res ON r.resource_id = res.id
         LEFT JOIN bottle_service bs ON bs.reservation_id = r.reservation_id
         LEFT JOIN ticket_reservations tr ON tr.reservation_id = r.reservation_id
-        LEFT JOIN ReservationStaff rs ON r.reservation_id = rs.reservation_id";
+        LEFT JOIN (
+            SELECT reservation_id,
+                   GROUP_CONCAT(DISTINCT staff_id ORDER BY staff_id SEPARATOR ',') AS staff_ids
+            FROM ReservationStaff
+            GROUP BY reservation_id
+        ) rs ON r.reservation_id = rs.reservation_id";
         
         if ($sessionRole === 'staff') {
-            $sql .= " WHERE rs.staff_id = :uid";
+            $sql .= " WHERE EXISTS (
+                        SELECT 1
+                        FROM ReservationStaff rs_filter
+                        WHERE rs_filter.reservation_id = r.reservation_id
+                          AND rs_filter.staff_id = :uid
+                      )";
         } elseif ($sessionRole !== 'admin') {
             $sql .= " WHERE r.user_id = :uid";
         }
@@ -223,29 +266,36 @@ if ($method === 'POST') {
         $conn->beginTransaction();
         $assigned_staff_ids = [];
         $assignedStaffDetails = [];
+
+        $resourceTypeNormalized = strtolower(trim((string)($resource['type'] ?? '')));
+        $resourceNameNormalized = strtolower(trim((string)($resource['name'] ?? '')));
+        $isTicketResource = $resourceTypeNormalized === 'event_ticket' || strpos($resourceNameNormalized, 'event ticket') !== false;
         
         // --- CONFLICT CHECK ---
-        // Checks if this specific resource (row) is already booked at this time
-        $checkSql = "SELECT * FROM reservations 
-                     WHERE resource_id = :rid 
-                     AND status != 'cancelled'
-                     AND NOT (end_time <= :start OR start_time >= :end)";
-        
-        $checkStmt = $conn->prepare($checkSql);
-        $checkStmt->execute([
-            ':rid' => $resource_id,
-            ':start' => $start_time,
-            ':end' => $end_time
-        ]);
-
-        if ($checkStmt->rowCount() > 0) {
-            $conn->rollBack();
-            http_response_code(409);
-            echo json_encode([
-                'success' => false,
-                'message' => 'This resource is already reserved during that time.'
+        // Tickets are non-exclusive inventory (many reservations can share the same event window).
+        // Keep exclusivity checks for non-ticket resources (e.g., bottle/open bar slots).
+        if (!$isTicketResource) {
+            $checkSql = "SELECT * FROM reservations 
+                         WHERE resource_id = :rid 
+                         AND status != 'cancelled'
+                         AND NOT (end_time <= :start OR start_time >= :end)";
+            
+            $checkStmt = $conn->prepare($checkSql);
+            $checkStmt->execute([
+                ':rid' => $resource_id,
+                ':start' => $start_time,
+                ':end' => $end_time
             ]);
-            exit;
+
+            if ($checkStmt->rowCount() > 0) {
+                $conn->rollBack();
+                http_response_code(409);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'This resource is already reserved during that time.'
+                ]);
+                exit;
+            }
         }
 
         // Added resource_id to the insert query
@@ -359,52 +409,66 @@ if ($method === 'POST') {
             }
         }
 
-        // AUTO-ASSIGN STAFF BASED ON RESERVATION TYPE
-        $required_roles = [];
-        
-        if ($resource_Type === 'Open Bar' || strpos($resource_name, 'Open Bar') !== false) {
-            $required_roles = ['Bartender', 'Bar Back'];
-        } elseif ($resource_Type === 'Bottle Service' || strpos($resource_name, 'Bottle Service') !== false) {
-            $required_roles = ['Bottle Service Promoter'];
-        } elseif ($resource_Type === 'Event' || strpos($resource_name, 'Event') !== false) {
-            $required_roles = ['Security', 'Bouncer'];
-        }
-
-        foreach ($required_roles as $role) {
-            // Find one staff member who fits the role and has NO overlapping reservations
-            $findStaffSql = "
-                SELECT s.id FROM staff s
-                WHERE s.role = :role 
-                AND s.id NOT IN (
-                    SELECT rs.staff_id FROM ReservationStaff rs
-                    JOIN reservations r ON rs.reservation_id = r.reservation_id
-                    WHERE (r.start_time < :end_time AND r.end_time > :start_time)
-                    AND r.status != 'cancelled'
-                )
-                LIMIT 1
-            ";
-            
-            $staffStmt = $conn->prepare($findStaffSql);
-            $staffStmt->execute([
-                ':role' => $role,
-                ':end_time' => $end_time,
-                ':start_time' => $start_time
-            ]);
-            
-            $available_staff = $staffStmt->fetch(PDO::FETCH_ASSOC);
-
-            // If we can't find a staff member for this role, abort the whole reservation
-            if (!$available_staff) {
+        // STAFF ASSIGNMENT
+        // Ticket reservations inherit the event's assigned staff directly.
+        if ($isTicketResource) {
+            $assigned_staff_ids = get_assigned_event_staff_ids($conn, (int)$event_id);
+            if (empty($assigned_staff_ids)) {
                 $conn->rollBack();
                 http_response_code(409);
                 echo json_encode([
                     'success' => false,
-                    'message' => "Conflict: No available staff for the required role: $role. Please try a different time."
+                    'message' => 'Conflict: No staff are assigned to the selected event. Please assign event staff first.'
                 ]);
                 exit;
             }
+        } else {
+            $required_roles = [];
 
-            $assigned_staff_ids[] = $available_staff['id'];
+            if ($resource_Type === 'Open Bar' || strpos($resource_name, 'Open Bar') !== false) {
+                $required_roles = ['Bartender', 'Bar Back'];
+            } elseif ($resource_Type === 'Bottle Service' || strpos($resource_name, 'Bottle Service') !== false) {
+                $required_roles = ['Bottle Service Promoter'];
+            } elseif ($resource_Type === 'Event' || strpos($resource_name, 'Event') !== false) {
+                $required_roles = ['Security', 'Bouncer'];
+            }
+
+            foreach ($required_roles as $role) {
+                // Find one staff member who fits the role and has NO overlapping reservations
+                $findStaffSql = "
+                    SELECT s.id FROM staff s
+                    WHERE s.role = :role 
+                    AND s.id NOT IN (
+                        SELECT rs.staff_id FROM ReservationStaff rs
+                        JOIN reservations r ON rs.reservation_id = r.reservation_id
+                        WHERE (r.start_time < :end_time AND r.end_time > :start_time)
+                        AND r.status != 'cancelled'
+                    )
+                    LIMIT 1
+                ";
+
+                $staffStmt = $conn->prepare($findStaffSql);
+                $staffStmt->execute([
+                    ':role' => $role,
+                    ':end_time' => $end_time,
+                    ':start_time' => $start_time
+                ]);
+
+                $available_staff = $staffStmt->fetch(PDO::FETCH_ASSOC);
+
+                // If we can't find a staff member for this role, abort the whole reservation
+                if (!$available_staff) {
+                    $conn->rollBack();
+                    http_response_code(409);
+                    echo json_encode([
+                        'success' => false,
+                        'message' => "Conflict: No available staff for the required role: $role. Please try a different time."
+                    ]);
+                    exit;
+                }
+
+                $assigned_staff_ids[] = $available_staff['id'];
+            }
         }
 
         // If we found everyone we need, map them to the new reservation in ReservationStaff
@@ -454,13 +518,25 @@ if ($method === 'POST') {
             $emailMessage = "You have been assigned to reservation {$reservation_id} for {$resource_name}.";
 
             foreach ($assignedStaffDetails as $staffMember) {
-                send_staff_assignment_email(
-                    'SR-BU',
-                    $emailTitle,
-                    (string)($staffMember['name'] ?? 'Staff Member'),
-                    $timeWindow,
-                    $emailMessage
-                );
+                try {
+                    $sent = send_staff_assignment_email(
+                        'SR-BU',
+                        $emailTitle,
+                        (string)($staffMember['name'] ?? 'Staff Member'),
+                        $timeWindow,
+                        $emailMessage
+                    );
+                } catch (Throwable $e) {
+                    $sent = false;
+                    error_log("Reservation assignment email exception: " . $e->getMessage());
+                }
+                log_email_trigger('reservation_assignment_email', [
+                    'reservation_id' => (int)$reservation_id,
+                    'staff_id' => (int)($staffMember['id'] ?? 0),
+                    'staff_name' => (string)($staffMember['name'] ?? ''),
+                    'template_type' => 'SR-BU',
+                    'sent' => $sent
+                ]);
             }
         }
 
@@ -580,25 +656,31 @@ if ($method === 'PUT') {
             exit;
         }
 
-        $checkSql = "SELECT reservation_id
-                     FROM reservations
-                     WHERE resource_id = :rid
-                     AND reservation_id <> :reservation_id
-                     AND status != 'cancelled'
-                     AND NOT (end_time <= :start OR start_time >= :end)";
-        $checkStmt = $conn->prepare($checkSql);
-        $checkStmt->execute([
-            ':rid' => $resource_id,
-            ':reservation_id' => $reservation_id,
-            ':start' => $start_time,
-            ':end' => $end_time
-        ]);
+        $resourceTypeNormalized = strtolower(trim((string)($resource['type'] ?? '')));
+        $resourceNameNormalized = strtolower(trim((string)($resource['name'] ?? '')));
+        $isTicketResource = $resourceTypeNormalized === 'event_ticket' || strpos($resourceNameNormalized, 'event ticket') !== false;
 
-        if ($checkStmt->rowCount() > 0) {
-            $conn->rollBack();
-            http_response_code(409);
-            echo json_encode(['success' => false, 'message' => 'This resource is already reserved during this time.']);
-            exit;
+        if (!$isTicketResource) {
+            $checkSql = "SELECT reservation_id
+                         FROM reservations
+                         WHERE resource_id = :rid
+                         AND reservation_id <> :reservation_id
+                         AND status != 'cancelled'
+                         AND NOT (end_time <= :start OR start_time >= :end)";
+            $checkStmt = $conn->prepare($checkSql);
+            $checkStmt->execute([
+                ':rid' => $resource_id,
+                ':reservation_id' => $reservation_id,
+                ':start' => $start_time,
+                ':end' => $end_time
+            ]);
+
+            if ($checkStmt->rowCount() > 0) {
+                $conn->rollBack();
+                http_response_code(409);
+                echo json_encode(['success' => false, 'message' => 'This resource is already reserved during this time.']);
+                exit;
+            }
         }
 
         $updateSql = "UPDATE reservations
@@ -738,58 +820,71 @@ if ($method === 'PUT') {
         $conn->prepare("DELETE FROM ReservationStaff WHERE reservation_id = :rid")
              ->execute([':rid' => $reservation_id]);
 
-        $required_roles = [];
-        if ($resource_Type === 'Open Bar' || strpos($resource_name, 'Open Bar') !== false) {
-            $required_roles = ['Bartender', 'Bar Back'];
-        } elseif ($resource_Type === 'Bottle Service' || strpos($resource_name, 'Bottle Service') !== false) {
-            $required_roles = ['Bottle Service Promoter'];
-        } elseif ($resource_Type === 'Event' || strpos($resource_name, 'Event') !== false) {
-            $required_roles = ['Security', 'Bouncer'];
-        }
-
         $assigned_staff_ids = [];
 
-        foreach ($required_roles as $role) {
-            // Find staff who are free during the NEW time slot
-            $findStaffSql = "
-                SELECT s.id 
-                FROM staff s
-                JOIN availability a ON s.id = a.staff_id
-                WHERE s.role = :role 
-                AND a.day_of_week = DAYNAME(:start_date)
-                AND a.start_time <= TIME(:start_time)
-                AND a.end_time >= TIME(:end_time)
-                AND s.id NOT IN (
-                    SELECT rs.staff_id FROM ReservationStaff rs
-                    JOIN reservations r ON rs.reservation_id = r.reservation_id
-                    WHERE (r.start_time < :end_time_check AND r.end_time > :start_time_check)
-                    AND r.status != 'cancelled'
-                )
-                LIMIT 1
-            ";
-            
-            $staffStmt = $conn->prepare($findStaffSql);
-            $staffStmt->execute([
-                ':role' => $role,
-                ':start_date' => $start_time,
-                ':start_time' => $start_time,
-                ':end_time' => $end_time,
-                ':start_time_check' => $start_time,
-                ':end_time_check' => $end_time
-            ]);
-            
-            $available_staff = $staffStmt->fetch(PDO::FETCH_ASSOC);
-
-            if (!$available_staff) {
+        if ($isTicketResource) {
+            $assigned_staff_ids = get_assigned_event_staff_ids($conn, (int)$event_id);
+            if (empty($assigned_staff_ids)) {
                 $conn->rollBack();
                 http_response_code(409);
                 echo json_encode([
                     'success' => false,
-                    'message' => "Conflict: No available staff for the required role: $role at this new time."
+                    'message' => 'Conflict: No staff are assigned to the selected event. Please assign event staff first.'
                 ]);
                 exit;
             }
-            $assigned_staff_ids[] = $available_staff['id'];
+        } else {
+            $required_roles = [];
+            if ($resource_Type === 'Open Bar' || strpos($resource_name, 'Open Bar') !== false) {
+                $required_roles = ['Bartender', 'Bar Back'];
+            } elseif ($resource_Type === 'Bottle Service' || strpos($resource_name, 'Bottle Service') !== false) {
+                $required_roles = ['Bottle Service Promoter'];
+            } elseif ($resource_Type === 'Event' || strpos($resource_name, 'Event') !== false) {
+                $required_roles = ['Security', 'Bouncer'];
+            }
+
+            foreach ($required_roles as $role) {
+                // Find staff who are free during the NEW time slot
+                $findStaffSql = "
+                    SELECT s.id 
+                    FROM staff s
+                    JOIN availability a ON s.id = a.staff_id
+                    WHERE s.role = :role 
+                    AND a.day_of_week = DAYNAME(:start_date)
+                    AND a.start_time <= TIME(:start_time)
+                    AND a.end_time >= TIME(:end_time)
+                    AND s.id NOT IN (
+                        SELECT rs.staff_id FROM ReservationStaff rs
+                        JOIN reservations r ON rs.reservation_id = r.reservation_id
+                        WHERE (r.start_time < :end_time_check AND r.end_time > :start_time_check)
+                        AND r.status != 'cancelled'
+                    )
+                    LIMIT 1
+                ";
+                
+                $staffStmt = $conn->prepare($findStaffSql);
+                $staffStmt->execute([
+                    ':role' => $role,
+                    ':start_date' => $start_time,
+                    ':start_time' => $start_time,
+                    ':end_time' => $end_time,
+                    ':start_time_check' => $start_time,
+                    ':end_time_check' => $end_time
+                ]);
+                
+                $available_staff = $staffStmt->fetch(PDO::FETCH_ASSOC);
+
+                if (!$available_staff) {
+                    $conn->rollBack();
+                    http_response_code(409);
+                    echo json_encode([
+                        'success' => false,
+                        'message' => "Conflict: No available staff for the required role: $role at this new time."
+                    ]);
+                    exit;
+                }
+                $assigned_staff_ids[] = $available_staff['id'];
+            }
         }
 
         foreach ($assigned_staff_ids as $staff_id) {

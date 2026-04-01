@@ -2,6 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DayPilot, DayPilotScheduler } from "@daypilot/daypilot-lite-react";
 import "../assets/toolbar.css";
 
+const ROLE_FALLBACKS = {
+  "Bar Back": ["Bartender"],
+  "Bottle Service Promoter": ["Bartender", "Bouncer"],
+  "Security": ["Bouncer"]
+};
+
+// TEMP (Sprint testing): disable availability gating so all cells are reservable.
+const ENABLE_AVAILABILITY_BLOCKING = false;
+
 const ReactScheduler = () => {
   const [scheduler, setScheduler] = useState(null);
   const [events, setEvents] = useState([]);
@@ -21,7 +30,6 @@ const ReactScheduler = () => {
     resource?.name === "Event Ticket GA" || resource?.name === "Event Ticket VIP";
 
   const toTicketEventRowId = (resourceId, eventId) => `${resourceId}::event::${eventId}`;
-  const toEventOnlyRowId = (eventId) => `event::${eventId}`;
   const ticketTierOptions = [
     { name: "GA", id: "GA" },
     { name: "VIP", id: "VIP" }
@@ -39,7 +47,9 @@ const ReactScheduler = () => {
   };
 
   const parseSchedulerResourceId = (value) => {
-    const parsed = String(value ?? "");
+    // DayPilot may internally prefix IDs with "_" when normalizing numeric IDs.
+    // Normalize that so scheduler row parsing remains stable.
+    const parsed = String(value ?? "").trim().replace(/^_+/, "");
     const eventOnlyMatch = parsed.match(/^event::(\d+)$/);
     if (eventOnlyMatch) {
       return {
@@ -59,7 +69,7 @@ const ReactScheduler = () => {
     }
 
     return {
-      resourceId: Number(value),
+      resourceId: Number(parsed),
       eventId: null,
       isEventOnlyRow: false
     };
@@ -134,6 +144,11 @@ const ReactScheduler = () => {
   }, [availabilityRows]);
 
   const isSlotSchedulable = useCallback((resourceValue, startValue, endValue) => {
+    // TEMP (Sprint testing): bypass all schedulability checks.
+    if (!ENABLE_AVAILABILITY_BLOCKING) {
+      return true;
+    }
+
     const startDate = toNativeDate(startValue);
     const endDate = toNativeDate(endValue);
     if (!startDate || !endDate || endDate <= startDate) {
@@ -166,12 +181,21 @@ const ReactScheduler = () => {
       return true;
     }
 
-    const dayName = startDate.toLocaleDateString("en-US", { weekday: "long" });
+    const dayName = startDate.toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
     const startMinutes = (startDate.getHours() * 60) + startDate.getMinutes();
     const endMinutes = (endDate.getHours() * 60) + endDate.getMinutes();
 
     return requiredRoles.every((role) => {
-      const matchingStaffIds = staffIdsByRole.get(role) ?? [];
+      const directStaffIds = staffIdsByRole.get(role) ?? [];
+      const fallbackRoles = ROLE_FALLBACKS[role] ?? [];
+      const fallbackStaffIds = fallbackRoles.flatMap((fallbackRole) => staffIdsByRole.get(fallbackRole) ?? []);
+      const matchingStaffIds = Array.from(new Set([...directStaffIds, ...fallbackStaffIds]));
+
+      // Don't hard-block the whole scheduler if this environment doesn't use this role label.
+      if (matchingStaffIds.length === 0) {
+        return true;
+      }
+
       return matchingStaffIds.some((staffId) => {
         const windows = availabilityByStaffId.get(String(staffId)) ?? [];
         return windows.some((window) => {
@@ -179,7 +203,7 @@ const ReactScheduler = () => {
           if (isAvailableFlag === 0) {
             return false;
           }
-          if (String(window?.day_of_week ?? "") !== dayName) {
+          if (String(window?.day_of_week ?? "").trim().toLowerCase() !== dayName) {
             return false;
           }
 
@@ -274,8 +298,9 @@ const ReactScheduler = () => {
   };
 
 const onTimeRangeSelected = async (args) => {
-    if (!isSlotSchedulable(args.resource, args.start, args.end)) {
-      scheduler.clearSelection();
+    if (ENABLE_AVAILABILITY_BLOCKING && !isSlotSchedulable(args.resource, args.start, args.end)) {
+      scheduler?.clearSelection();
+      await DayPilot.Modal.alert("That time range can't be reserved. Please choose a highlighted available range.");
       return;
     }
 
@@ -369,9 +394,30 @@ const onTimeRangeSelected = async (args) => {
           body: JSON.stringify(payload)
         });
 
-        const responseData = await response.json().catch(() => ({}));
+        const rawResponseText = await response.text();
+        // DEBUG (disabled): raw API response logger for reservation POST troubleshooting.
+        // console.log("[RESERVATION_POST_RAW_RESPONSE]", {
+        //   status: response.status,
+        //   ok: response.ok,
+        //   body: rawResponseText
+        // });
+
+        let responseData = {};
+        if (rawResponseText) {
+          try {
+            responseData = JSON.parse(rawResponseText);
+          } catch (parseError) {
+            console.error("[RESERVATION_POST_PARSE_ERROR]", parseError);
+          }
+        }
 
         if (response.ok) {
+          // DEBUG (disabled): assignment-email trigger expectation logger.
+          // console.log("[EMAIL_TRIGGER_EXPECTED] Reservation saved; backend should attempt assignment emails.", {
+          //   reservation_id: responseData?.reservation_id ?? null,
+          //   resource_name: responseData?.resource_name ?? selectedResource?.name ?? null,
+          //   assigned_staff: responseData?.assigned_staff ?? []
+          // });
           await loadData();
           window.dispatchEvent(new Event('reservations:changed'));
           return;
@@ -409,8 +455,22 @@ const onTimeRangeSelected = async (args) => {
   };
 
   const onBeforeCellRender = useCallback((args) => {
+    const existingClass = String(args.cell.cssClass ?? "")
+      .replace(/\bscheduler-cell-available\b/g, "")
+      .replace(/\bscheduler-cell-unavailable\b/g, "")
+      .trim();
+
+    if (!ENABLE_AVAILABILITY_BLOCKING) {
+      args.cell.disabled = false;
+      args.cell.backColor = "rgba(255, 255, 255, 0.34)";
+      args.cell.cssClass = `${existingClass} scheduler-cell-available`.trim();
+      return;
+    }
+
     const canSchedule = isSlotSchedulable(args.cell.resource, args.cell.start, args.cell.end);
-    const existingClass = String(args.cell.cssClass ?? "").trim();
+
+    // Always set disabled explicitly so cells can transition between states.
+    args.cell.disabled = !canSchedule;
 
     if (canSchedule) {
       args.cell.backColor = "rgba(255, 255, 255, 0.34)";
@@ -418,7 +478,6 @@ const onTimeRangeSelected = async (args) => {
       return;
     }
 
-    args.cell.disabled = true;
     args.cell.backColor = "rgba(255, 255, 255, 0.08)";
     args.cell.cssClass = `${existingClass} scheduler-cell-unavailable`.trim();
   }, [isSlotSchedulable]);
@@ -491,47 +550,154 @@ const onTimeRangeSelected = async (args) => {
             : [];
         setAvailabilityRows(nextAvailabilityRows);
 
-        const nonTicketResources = formattedResources.filter((resource) => !isTicketResource(resource));
-        const eventTicketRows = mappedTicketEvents.map((eventRow) => ({
-          id: toEventOnlyRowId(eventRow.id),
-          name: eventRow.name
-        }));
+        const nextStaffIdsByRole = new Map();
+        nextStaffRows.forEach((member) => {
+          const role = String(member?.role ?? "").trim();
+          const staffId = Number.parseInt(member?.id, 10);
+          if (!role || !Number.isInteger(staffId)) {
+            return;
+          }
+          const existing = nextStaffIdsByRole.get(role) ?? [];
+          existing.push(staffId);
+          nextStaffIdsByRole.set(role, existing);
+        });
 
-        const schedulerRows = [
-          ...nonTicketResources,
-          ...eventTicketRows
-        ];
+        const nextAvailabilityByStaffId = new Map();
+        nextAvailabilityRows.forEach((row) => {
+          const staffId = Number.parseInt(row?.staff_id, 10);
+          if (!Number.isInteger(staffId)) {
+            return;
+          }
+          const key = String(staffId);
+          const existing = nextAvailabilityByStaffId.get(key) ?? [];
+          existing.push(row);
+          nextAvailabilityByStaffId.set(key, existing);
+        });
+
+        const nonTicketResources = formattedResources.filter((resource) => !isTicketResource(resource));
+        const schedulerRows = [...nonTicketResources];
         setSchedulerResources(schedulerRows);
+
+        const roleCoverageByResource = nonTicketResources.map((resource) => {
+          const requiredRoles = getRequiredRolesForResource(resource.name);
+          if (requiredRoles.length === 0) {
+            return {
+              resource: resource.name,
+              required_roles: "(none)",
+              covered: true,
+              details: "No role requirement"
+            };
+          }
+
+          const roleDetails = requiredRoles.map((role) => {
+            const staffIds = nextStaffIdsByRole.get(role) ?? [];
+            const staffWithAvailability = staffIds.filter((id) => {
+              const windows = nextAvailabilityByStaffId.get(String(id)) ?? [];
+              return windows.length > 0;
+            });
+
+            return {
+              role,
+              staffCount: staffIds.length,
+              availableStaffCount: staffWithAvailability.length
+            };
+          });
+
+          return {
+            resource: resource.name,
+            required_roles: requiredRoles.join(", "),
+            covered: roleDetails.every((row) => row.availableStaffCount > 0),
+            details: roleDetails
+              .map((row) => `${row.role}: ${row.availableStaffCount}/${row.staffCount}`)
+              .join(" | ")
+          };
+        });
+
+        console.groupCollapsed("[Scheduler Availability] Data snapshot");
+        console.log("Responses", {
+          reservations_ok: eventsResponse.ok,
+          resources_ok: resourcesResponse.ok,
+          sections_ok: sectionsResponse.ok,
+          ticket_events_ok: ticketEventsResponse.ok,
+          staff_ok: staffResponse.ok,
+          availability_ok: availabilityResponse.ok,
+          availability_status: availabilityResponse.status
+        });
+        console.log("Counts", {
+          reservations: eventsData.length,
+          resources: formattedResources.length,
+          scheduler_rows: schedulerRows.length,
+          ticket_events: mappedTicketEvents.length,
+          staff_rows: nextStaffRows.length,
+          availability_rows: nextAvailabilityRows.length
+        });
+        console.log(
+          "Staff by role",
+          Object.fromEntries(
+            Array.from(nextStaffIdsByRole.entries()).map(([role, ids]) => [role, ids.length])
+          )
+        );
+        console.table(roleCoverageByResource);
+        console.table(
+          mappedTicketEvents.slice(0, 5).map((eventRow) => ({
+            event_id: eventRow.id,
+            event_name: eventRow.name,
+            start: eventRow.start_time,
+            end: eventRow.end_time
+          }))
+        );
+        if (nextAvailabilityRows.length === 0) {
+          console.warn(
+            "[Scheduler Availability] availability_rows is 0; schedulable cells for role-gated resources will be disabled."
+          );
+        }
+        console.groupEnd();
 
         const ticketResourceIds = new Set(
           formattedResources
             .filter((resource) => isTicketResource(resource))
             .map((resource) => String(resource.id))
         );
-        const knownEventIds = new Set(mappedTicketEvents.map((eventRow) => String(eventRow.id)));
 
-        // Mapping your DB fields to DayPilot fields
-        const formattedEvents = eventsData.map(e => {
-          let schedulerResourceId = e.resource_id;
-          if (
-            ticketResourceIds.has(String(e.resource_id)) &&
-            e.event_id !== null &&
-            e.event_id !== undefined &&
-            knownEventIds.has(String(e.event_id))
-          ) {
-            schedulerResourceId = toEventOnlyRowId(e.event_id);
+        // Mapping the DB fields to DayPilot fields
+        const seenReservationIds = new Set();
+        const duplicateReservationIds = new Set();
+        const formattedEvents = eventsData.reduce((acc, e, index) => {
+          // Ticket reservations are now rendered as event cards, not scheduler bars.
+          if (ticketResourceIds.has(String(e?.resource_id))) {
+            return acc;
           }
 
-          return {
-            id: e.reservation_id,
+          const reservationId = e?.reservation_id;
+          const hasReservationId = reservationId !== null && reservationId !== undefined && reservationId !== "";
+          const schedulerEventId = hasReservationId
+            ? String(reservationId)
+            : `missing-reservation-id-${index}`;
+
+          if (seenReservationIds.has(schedulerEventId)) {
+            duplicateReservationIds.add(schedulerEventId);
+            return acc;
+          }
+          seenReservationIds.add(schedulerEventId);
+
+          acc.push({
+            id: schedulerEventId,
             text: e.resource_name || e.service_type,
             start: e.start_time,
             end: e.end_time,
-            resource: schedulerResourceId,
+            resource: e.resource_id,
             status: e.status,
             event_id: e.event_id
-          };
-        });
+          });
+          return acc;
+        }, []);
+
+        if (duplicateReservationIds.size > 0) {
+          console.warn(
+            "Dropped duplicate reservation rows while building scheduler events:",
+            Array.from(duplicateReservationIds)
+          );
+        }
         setEvents(formattedEvents);
 
         const sectionsJson = await sectionsResponse.json();
@@ -584,6 +750,8 @@ const onTimeRangeSelected = async (args) => {
           {groupBy: "Day"}, //
           {groupBy: "Hour", format: "H:mm"} // //
         ]}
+        timeRangeSelectedHandling={"Enabled"}
+        timeRangeClickHandling={"Enabled"}
         startDate={startDate}
         days={days}
         rowHeaderWidth={240}

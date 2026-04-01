@@ -37,7 +37,41 @@ INSERT INTO staff (id, name, role, hourly_rate, employment_type, user_id) VALUES
 (15, 'Zack Cole', 'Bouncer', 18.00, 'part_time', NULL),
 (16, 'Noah Reed', 'Bouncer', 20.00, 'full_time', NULL),
 (17, 'Evan Shaw', 'Bouncer', 19.00, 'part_time', NULL),
-(18, 'Ty Banks', 'Bouncer', 22.00, 'full_time', NULL);
+(18, 'Ty Banks', 'Bouncer', 22.00, 'full_time', NULL),
+
+-- NEW BOTTLE SERVICE PROMOTERS
+(19, 'Ava Monroe', 'Bottle Service Promoter', 31.00, 'full_time', NULL),
+(20, 'Bianca Hale', 'Bottle Service Promoter', 29.00, 'part_time', NULL),
+(21, 'Carmen Vega', 'Bottle Service Promoter', 30.00, 'full_time', NULL),
+(22, 'Daria Quinn', 'Bottle Service Promoter', 28.00, 'part_time', NULL),
+(23, 'Elena Park', 'Bottle Service Promoter', 32.00, 'contract', NULL),
+(24, 'Fiona West', 'Bottle Service Promoter', 27.00, 'part_time', NULL),
+(25, 'Gia Torres', 'Bottle Service Promoter', 33.00, 'contract', NULL),
+
+-- NEW BAR BACKS
+(26, 'Hana Brooks', 'Bar Back', 21.00, 'part_time', NULL),
+(27, 'Iris Cole', 'Bar Back', 22.00, 'full_time', NULL),
+(28, 'Jade Flynn', 'Bar Back', 20.00, 'part_time', NULL),
+(29, 'Kira Moss', 'Bar Back', 23.00, 'contract', NULL);
+
+-- Ensure Security staff exists (idempotent inserts)
+INSERT INTO staff (name, role, hourly_rate, employment_type, user_id)
+SELECT 'Dante Cruz', 'Security', 24.00, 'full_time', NULL
+WHERE NOT EXISTS (
+  SELECT 1 FROM staff WHERE name = 'Dante Cruz' AND role = 'Security'
+);
+
+INSERT INTO staff (name, role, hourly_rate, employment_type, user_id)
+SELECT 'Mason Price', 'Security', 23.00, 'part_time', NULL
+WHERE NOT EXISTS (
+  SELECT 1 FROM staff WHERE name = 'Mason Price' AND role = 'Security'
+);
+
+INSERT INTO staff (name, role, hourly_rate, employment_type, user_id)
+SELECT 'Riley Shaw', 'Security', 25.00, 'full_time', NULL
+WHERE NOT EXISTS (
+  SELECT 1 FROM staff WHERE name = 'Riley Shaw' AND role = 'Security'
+);
 
 -- =========================
 -- AVAILABILITY (VARIED)
@@ -183,7 +217,178 @@ INSERT INTO availability (staff_id, day_of_week, start_time, end_time, is_availa
 (18,'Thursday','20:00:00','23:59:00',1),
 (18,'Friday','20:00:00','23:59:00',1),
 (18,'Saturday','20:00:00','23:59:00',1),
-(18,'Sunday','17:00:00','23:59:00',1);
+(18,'Sunday','17:00:00','23:59:00',1),
+
+-- ===== BOTTLE SERVICE PROMOTERS (5 DAYS EACH) =====
+-- ID 19
+(19,'Wednesday','16:00:00','22:00:00',1),
+(19,'Thursday','17:00:00','23:00:00',1),
+(19,'Friday','18:00:00','23:59:00',1),
+(19,'Saturday','18:00:00','23:59:00',1),
+(19,'Sunday','15:00:00','21:00:00',1),
+
+-- ID 20
+(20,'Monday','14:00:00','20:00:00',1),
+(20,'Tuesday','15:00:00','21:00:00',1),
+(20,'Wednesday','16:00:00','22:00:00',1),
+(20,'Thursday','17:00:00','23:00:00',1),
+(20,'Friday','18:00:00','23:59:00',1),
+
+-- ID 21
+(21,'Tuesday','16:00:00','22:00:00',1),
+(21,'Wednesday','17:00:00','23:00:00',1),
+(21,'Thursday','18:00:00','23:59:00',1),
+(21,'Friday','19:00:00','23:59:00',1),
+(21,'Saturday','19:00:00','23:59:00',1),
+
+-- ID 22
+(22,'Sunday','13:00:00','19:00:00',1),
+(22,'Monday','14:00:00','20:00:00',1),
+(22,'Tuesday','15:00:00','21:00:00',1),
+(22,'Wednesday','16:00:00','22:00:00',1),
+(22,'Thursday','17:00:00','23:00:00',1),
+
+-- ID 23
+(23,'Monday','18:00:00','23:59:00',1),
+(23,'Wednesday','18:00:00','23:59:00',1),
+(23,'Friday','19:00:00','23:59:00',1),
+(23,'Saturday','19:00:00','23:59:00',1),
+(23,'Sunday','16:00:00','22:00:00',1),
+
+-- ID 24
+(24,'Tuesday','14:00:00','20:00:00',1),
+(24,'Thursday','16:00:00','22:00:00',1),
+(24,'Friday','17:00:00','23:00:00',1),
+(24,'Saturday','18:00:00','23:59:00',1),
+(24,'Sunday','15:00:00','21:00:00',1),
+
+-- ID 25
+(25,'Monday','15:00:00','21:00:00',1),
+(25,'Tuesday','16:00:00','22:00:00',1),
+(25,'Wednesday','17:00:00','23:00:00',1),
+(25,'Thursday','18:00:00','23:59:00',1),
+(25,'Saturday','18:00:00','23:59:00',1),
+
+-- ===== BAR BACKS (5 DAYS EACH) =====
+-- ID 26
+(26,'Wednesday','15:00:00','21:00:00',1),
+(26,'Thursday','16:00:00','22:00:00',1),
+(26,'Friday','17:00:00','23:00:00',1),
+(26,'Saturday','18:00:00','23:59:00',1),
+(26,'Sunday','14:00:00','20:00:00',1),
+
+-- ID 27
+(27,'Monday','14:00:00','20:00:00',1),
+(27,'Tuesday','15:00:00','21:00:00',1),
+(27,'Wednesday','16:00:00','22:00:00',1),
+(27,'Thursday','17:00:00','23:00:00',1),
+(27,'Friday','18:00:00','23:59:00',1),
+
+-- ID 28
+(28,'Tuesday','16:00:00','22:00:00',1),
+(28,'Wednesday','17:00:00','23:00:00',1),
+(28,'Thursday','18:00:00','23:59:00',1),
+(28,'Friday','19:00:00','23:59:00',1),
+(28,'Saturday','19:00:00','23:59:00',1),
+
+-- ID 29
+(29,'Sunday','13:00:00','19:00:00',1),
+(29,'Monday','14:00:00','20:00:00',1),
+(29,'Tuesday','15:00:00','21:00:00',1),
+(29,'Wednesday','16:00:00','22:00:00',1),
+(29,'Thursday','17:00:00','23:00:00',1);
+
+-- Ensure Security availability exists (idempotent inserts)
+INSERT INTO availability (staff_id, day_of_week, start_time, end_time, is_available)
+SELECT s.id, 'Monday', '18:00:00', '23:59:00', 1
+FROM staff s
+WHERE s.role = 'Security'
+  AND NOT EXISTS (
+    SELECT 1
+    FROM availability a
+    WHERE a.staff_id = s.id
+      AND a.day_of_week = 'Monday'
+      AND a.start_time = '18:00:00'
+      AND a.end_time = '23:59:00'
+  );
+
+INSERT INTO availability (staff_id, day_of_week, start_time, end_time, is_available)
+SELECT s.id, 'Tuesday', '18:00:00', '23:59:00', 1
+FROM staff s
+WHERE s.role = 'Security'
+  AND NOT EXISTS (
+    SELECT 1
+    FROM availability a
+    WHERE a.staff_id = s.id
+      AND a.day_of_week = 'Tuesday'
+      AND a.start_time = '18:00:00'
+      AND a.end_time = '23:59:00'
+  );
+
+INSERT INTO availability (staff_id, day_of_week, start_time, end_time, is_available)
+SELECT s.id, 'Wednesday', '18:00:00', '23:59:00', 1
+FROM staff s
+WHERE s.role = 'Security'
+  AND NOT EXISTS (
+    SELECT 1
+    FROM availability a
+    WHERE a.staff_id = s.id
+      AND a.day_of_week = 'Wednesday'
+      AND a.start_time = '18:00:00'
+      AND a.end_time = '23:59:00'
+  );
+
+INSERT INTO availability (staff_id, day_of_week, start_time, end_time, is_available)
+SELECT s.id, 'Thursday', '18:00:00', '23:59:00', 1
+FROM staff s
+WHERE s.role = 'Security'
+  AND NOT EXISTS (
+    SELECT 1
+    FROM availability a
+    WHERE a.staff_id = s.id
+      AND a.day_of_week = 'Thursday'
+      AND a.start_time = '18:00:00'
+      AND a.end_time = '23:59:00'
+  );
+
+INSERT INTO availability (staff_id, day_of_week, start_time, end_time, is_available)
+SELECT s.id, 'Friday', '18:00:00', '23:59:00', 1
+FROM staff s
+WHERE s.role = 'Security'
+  AND NOT EXISTS (
+    SELECT 1
+    FROM availability a
+    WHERE a.staff_id = s.id
+      AND a.day_of_week = 'Friday'
+      AND a.start_time = '18:00:00'
+      AND a.end_time = '23:59:00'
+  );
+
+INSERT INTO availability (staff_id, day_of_week, start_time, end_time, is_available)
+SELECT s.id, 'Saturday', '18:00:00', '23:59:00', 1
+FROM staff s
+WHERE s.role = 'Security'
+  AND NOT EXISTS (
+    SELECT 1
+    FROM availability a
+    WHERE a.staff_id = s.id
+      AND a.day_of_week = 'Saturday'
+      AND a.start_time = '18:00:00'
+      AND a.end_time = '23:59:00'
+  );
+
+INSERT INTO availability (staff_id, day_of_week, start_time, end_time, is_available)
+SELECT s.id, 'Sunday', '18:00:00', '23:59:00', 1
+FROM staff s
+WHERE s.role = 'Security'
+  AND NOT EXISTS (
+    SELECT 1
+    FROM availability a
+    WHERE a.staff_id = s.id
+      AND a.day_of_week = 'Sunday'
+      AND a.start_time = '18:00:00'
+      AND a.end_time = '23:59:00'
+  );
 -- =========================
 -- RESOURCES
 -- =========================

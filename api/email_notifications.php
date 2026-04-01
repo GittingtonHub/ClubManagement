@@ -1,5 +1,13 @@
 <?php
 
+function log_email_trigger(string $stage, array $context = []): void {
+    $payload = json_encode($context, JSON_UNESCAPED_SLASHES);
+    if ($payload === false) {
+        $payload = '{"json_encode_error":true}';
+    }
+    error_log("[EMAIL_TRIGGER] {$stage} {$payload}");
+}
+
 function env_value(array $keys, ?string $default = null): ?string {
     foreach ($keys as $key) {
         if (isset($_ENV[$key]) && $_ENV[$key] !== '') {
@@ -71,55 +79,106 @@ function emailjs_default_template_params(string $templateType): array {
 }
 
 function send_emailjs_template_email(string $templateType, array $templateParams): bool {
-    $serviceId = env_value(['EMAILJS_SERVICE_ID']);
-    $templateId = emailjs_template_id_for_type($templateType);
-    $publicKey = env_value(['EMAILJS_PUBLIC_KEY', 'EMAILJS_USER_ID']);
-    $privateKey = env_value(['EMAILJS_PRIVATE_KEY', 'EMAILJS_ACCESS_TOKEN']);
+    try {
+        $serviceId = env_value(['EMAILJS_SERVICE_ID']);
+        $templateId = emailjs_template_id_for_type($templateType);
+        $publicKey = env_value(['EMAILJS_PUBLIC_KEY', 'EMAILJS_USER_ID']);
+        $privateKey = env_value(['EMAILJS_PRIVATE_KEY', 'EMAILJS_ACCESS_TOKEN']);
 
-    if (!$serviceId || !$templateId || (!$publicKey && !$privateKey)) {
-        error_log("EmailJS config missing for template type {$templateType}.");
+        log_email_trigger('attempt', [
+            'template_type' => $templateType,
+            'has_service_id' => (bool)$serviceId,
+            'has_template_id' => (bool)$templateId,
+            'auth_mode' => $privateKey ? 'private_key' : ($publicKey ? 'public_key' : 'missing'),
+            'to_email' => $templateParams['to_email'] ?? null,
+            'title' => $templateParams['title'] ?? null,
+            'name' => $templateParams['name'] ?? null,
+            'time' => $templateParams['time'] ?? null
+        ]);
+
+        if (!$serviceId || !$templateId || (!$publicKey && !$privateKey)) {
+            error_log("EmailJS config missing for template type {$templateType}.");
+            log_email_trigger('config_missing', [
+                'template_type' => $templateType
+            ]);
+            return false;
+        }
+
+        if (!function_exists('curl_init')) {
+            error_log("EmailJS send failed [{$templateType}] curl extension unavailable.");
+            log_email_trigger('curl_unavailable', [
+                'template_type' => $templateType
+            ]);
+            return false;
+        }
+
+        $payload = [
+            'service_id' => $serviceId,
+            'template_id' => $templateId,
+            'template_params' => array_merge(
+                emailjs_default_template_params($templateType),
+                $templateParams
+            )
+        ];
+
+        if ($privateKey) {
+            $payload['accessToken'] = $privateKey;
+        } else {
+            $payload['user_id'] = $publicKey;
+        }
+
+        $jsonPayload = json_encode($payload);
+        if ($jsonPayload === false) {
+            error_log("EmailJS payload encoding failed for template type {$templateType}.");
+            return false;
+        }
+
+        $ch = curl_init('https://api.emailjs.com/api/v1.0/email/send');
+        if ($ch === false) {
+            error_log("EmailJS send failed [{$templateType}] curl_init returned false.");
+            log_email_trigger('curl_init_failed', [
+                'template_type' => $templateType
+            ]);
+            return false;
+        }
+
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonPayload);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+
+        $response = curl_exec($ch);
+        $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        // Intentionally omit curl_close(): in this runtime it is deprecated/no-op and can pollute JSON output with warnings.
+
+        if ($response === false || $status < 200 || $status >= 300) {
+            error_log("EmailJS send failed [{$templateType}] status={$status} error={$curlError} response={$response}");
+            log_email_trigger('failed', [
+                'template_type' => $templateType,
+                'status' => $status,
+                'curl_error' => $curlError,
+                'response' => $response
+            ]);
+            return false;
+        }
+
+        log_email_trigger('sent', [
+            'template_type' => $templateType,
+            'status' => $status,
+            'response' => $response
+        ]);
+
+        return true;
+    } catch (Throwable $e) {
+        error_log("EmailJS unexpected exception [{$templateType}]: " . $e->getMessage());
+        log_email_trigger('exception', [
+            'template_type' => $templateType,
+            'message' => $e->getMessage()
+        ]);
         return false;
     }
-
-    $payload = [
-        'service_id' => $serviceId,
-        'template_id' => $templateId,
-        'template_params' => array_merge(
-            emailjs_default_template_params($templateType),
-            $templateParams
-        )
-    ];
-
-    if ($privateKey) {
-        $payload['accessToken'] = $privateKey;
-    } else {
-        $payload['user_id'] = $publicKey;
-    }
-
-    $jsonPayload = json_encode($payload);
-    if ($jsonPayload === false) {
-        error_log("EmailJS payload encoding failed for template type {$templateType}.");
-        return false;
-    }
-
-    $ch = curl_init('https://api.emailjs.com/api/v1.0/email/send');
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonPayload);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-
-    $response = curl_exec($ch);
-    $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curlError = curl_error($ch);
-    curl_close($ch);
-
-    if ($response === false || $status < 200 || $status >= 300) {
-        error_log("EmailJS send failed [{$templateType}] status={$status} error={$curlError} response={$response}");
-        return false;
-    }
-
-    return true;
 }
 
 function send_staff_assignment_email(

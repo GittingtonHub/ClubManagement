@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 const DEFAULT_VISIBLE_EVENTS = 5;
 
@@ -16,11 +16,14 @@ function EventSearchBar({ events, setFilteredEvents }) {
   const [maxPrice, setMaxPrice] = useState('');
   const [date, setDate] = useState('');
 
-  const normalizedEvents = Array.isArray(events) ? events.filter(Boolean) : [];
+  const normalizedEvents = useMemo(
+    () => (Array.isArray(events) ? events.filter(Boolean) : []),
+    [events]
+  );
 
   useEffect(() => {
     setFilteredEvents(sortByStartTime(normalizedEvents).slice(0, DEFAULT_VISIBLE_EVENTS));
-  }, [events, setFilteredEvents]);
+  }, [normalizedEvents, setFilteredEvents]);
 
   const getComparablePrice = (event) => {
     const possiblePrices = [event?.price, event?.ga_ticket_price, event?.vip_ticket_price]

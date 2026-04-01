@@ -60,8 +60,8 @@ if ($method === 'GET') {
 
     try {
         if ($startTime && $endTime) {
-            $startTimestamp = strtotime($startTime);
-            $endTimestamp = strtotime($endTime);
+            $startTimestamp = strtotime((string)$startTime);
+            $endTimestamp = strtotime((string)$endTime);
 
             if ($startTimestamp === false || $endTimestamp === false || $endTimestamp <= $startTimestamp) {
                 http_response_code(400);
@@ -71,6 +71,10 @@ if ($method === 'GET') {
                 ]);
                 exit;
             }
+
+            $normalizedStartDateTime = date('Y-m-d H:i:s', $startTimestamp);
+            $normalizedEndDateTime = date('Y-m-d H:i:s', $endTimestamp);
+            $dayOfWeek = date('l', $startTimestamp);
 
             $sql = "
                 SELECT
@@ -82,7 +86,7 @@ if ($method === 'GET') {
                 FROM staff s
                 JOIN availability a ON a.staff_id = s.id
                 WHERE a.is_available = 1
-                AND a.day_of_week = DAYNAME(:start_date)
+                AND a.day_of_week = :day_of_week
                 AND a.start_time <= TIME(:start_time)
                 AND a.end_time >= TIME(:end_time)
                 AND s.id NOT IN (
@@ -95,11 +99,11 @@ if ($method === 'GET') {
             ";
 
             $params = [
-                ':start_date' => $startTime,
-                ':start_time' => $startTime,
-                ':end_time' => $endTime,
-                ':start_time_check' => $startTime,
-                ':end_time_check' => $endTime
+                ':day_of_week' => $dayOfWeek,
+                ':start_time' => $normalizedStartDateTime,
+                ':end_time' => $normalizedEndDateTime,
+                ':start_time_check' => $normalizedStartDateTime,
+                ':end_time_check' => $normalizedEndDateTime
             ];
 
             $eventConflictClause = '';
@@ -125,8 +129,8 @@ if ($method === 'GET') {
                         )
                     ";
 
-                    $params[':event_end_check'] = $endTime;
-                    $params[':event_start_check'] = $startTime;
+                    $params[':event_end_check'] = $normalizedEndDateTime;
+                    $params[':event_start_check'] = $normalizedStartDateTime;
                 }
             }
 
@@ -186,18 +190,18 @@ if ($method === 'POST') {
     $isAvailable = $input['is_available'] ?? 1;
 
     $allowedDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    if (!$staffId || !in_array($dayOfWeek, $allowedDays, true) || !$startTime || !$endTime) {
+    if (!$staffId || !$startTime || !$endTime) {
         http_response_code(400);
         echo json_encode([
             'success' => false,
-            'message' => 'staff_id, day_of_week, start_time, and end_time are required.'
+            'message' => 'staff_id, start_time, and end_time are required.'
         ]);
         exit;
     }
 
-    $normalizedStart = date('H:i:s', strtotime($startTime));
-    $normalizedEnd = date('H:i:s', strtotime($endTime));
-    if (!$normalizedStart || !$normalizedEnd || $normalizedEnd <= $normalizedStart) {
+    $startTimestamp = strtotime((string)$startTime);
+    $endTimestamp = strtotime((string)$endTime);
+    if ($startTimestamp === false || $endTimestamp === false || $endTimestamp <= $startTimestamp) {
         http_response_code(400);
         echo json_encode([
             'success' => false,
@@ -205,6 +209,22 @@ if ($method === 'POST') {
         ]);
         exit;
     }
+
+    if ($dayOfWeek === '') {
+        $dayOfWeek = date('l', $startTimestamp);
+    }
+
+    if (!in_array($dayOfWeek, $allowedDays, true)) {
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'message' => 'day_of_week must be one of Monday through Sunday.'
+        ]);
+        exit;
+    }
+
+    $normalizedStart = date('H:i:s', $startTimestamp);
+    $normalizedEnd = date('H:i:s', $endTimestamp);
 
     $isAvailableFlag = (int)!in_array(strtolower((string)$isAvailable), ['0', 'false', 'no', 'off'], true);
 
