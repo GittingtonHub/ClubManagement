@@ -12,7 +12,7 @@ if (!isset($_SESSION['user']) || !isset($_SESSION['role']) || $_SESSION['role'] 
     exit;
 }
 
-// Read the incoming JSON data from React
+// Read JSON input
 $data = json_decode(file_get_contents("php://input"), true);
 
 if (!isset($data['id'])) {
@@ -22,22 +22,31 @@ if (!isset($data['id'])) {
 }
 
 $userToDelete = $data['id'];
+$adminId = $_SESSION['user_id'];
 
 try {
-    // Prevent the admin from accidentally deleting themselves!
-    if ($userToDelete == $_SESSION['user_id']) {
+    // Prevent admin from removing themselves
+    if ($userToDelete == $adminId) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'You cannot delete your own admin account.']);
+        echo json_encode(['success' => false, 'message' => 'You cannot remove your own admin account.']);
         exit;
     }
 
-    $query = "DELETE FROM users WHERE id = :id";
-    $stmt = $conn->prepare($query);
-    $stmt->execute([':id' => $userToDelete]);
+    // SOFT DELETE (Sprint 5)
+    $query = "UPDATE users 
+              SET removed = 1, removed_by_user_id = :admin_id 
+              WHERE id = :id";
 
-    echo json_encode(['success' => true, 'message' => 'User successfully deleted.']);
+    $stmt = $conn->prepare($query);
+    $stmt->execute([
+        ':id' => $userToDelete,
+        ':admin_id' => $adminId
+    ]);
+
+    echo json_encode(['success' => true, 'message' => 'User successfully removed.']);
+
 } catch (PDOException $e) {
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Unable to delete user.']);
+    echo json_encode(['success' => false, 'message' => 'Unable to remove user.']);
 }
 ?>
