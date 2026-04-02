@@ -953,22 +953,21 @@ if ($method === 'DELETE') {
             exit;
         }
 
-        //  DELETE STAFF ASSIGNMENT FIRST TO PREVENT CRASH
-        $conn->prepare("DELETE FROM ReservationStaff WHERE reservation_id = :rid")
-              ->execute([':rid' => $reservation_id]);
-              
-        $conn->prepare("DELETE FROM bottle_service WHERE reservation_id = :rid")
-              ->execute([':rid' => $reservation_id]);
-        $conn->prepare("DELETE FROM ticket_reservations WHERE reservation_id = :rid")
-              ->execute([':rid' => $reservation_id]);
-        $conn->prepare("DELETE FROM table_section WHERE reservation_id = :rid")
-              ->execute([':rid' => $reservation_id]);
-        $conn->prepare("DELETE FROM user_notifications WHERE reservation_id = :rid")
-              ->execute([':rid' => $reservation_id]);
+        $cancel_reason = $_GET['reason'] ?? 'Cancelled by user';
 
-        $deleteSql = "DELETE FROM reservations WHERE reservation_id = :rid";
-        $deleteStmt = $conn->prepare($deleteSql);
-        $deleteStmt->execute([':rid' => $reservation_id]);
+        $update = $conn->prepare("
+            UPDATE reservations
+            SET status = 'cancelled',
+                cancellation_reason = :reason,
+                cancelled_by_user_id = :uid
+            WHERE reservation_id = :rid
+        ");
+
+        $update->execute([
+            ':rid' => $reservation_id,
+            ':reason' => $cancel_reason,
+            ':uid' => $current_user_id
+        ]);
 
         $conn->commit();
 
