@@ -18,7 +18,7 @@ if ($method === 'GET') {
     try {
         $query = "SELECT id, name, price, description 
                   FROM resources 
-                  WHERE removed = 0";
+                  WHERE removed = 0 OR removed IS NULL";
 
         $stmt = $conn->prepare($query);
         $stmt->execute();
