@@ -6,6 +6,7 @@ header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 header("Content-Type: application/json; charset=UTF-8");
 
 include_once 'api.php';
+session_start();
 
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -18,17 +19,15 @@ if ($method === 'GET') {
         $event_id = $_GET['event_id'] ?? null;
         
         if ($event_id) {
-            $stmt = $conn->prepare("SELECT * FROM events WHERE event_id = :event_id");
+            $stmt = $conn->prepare("SELECT * FROM events WHERE event_id = :event_id AND removed = 0");
             $stmt->execute([':event_id' => $event_id]);
             $data = $stmt->fetch(PDO::FETCH_ASSOC);
         } else {
-            // Base query with a JOIN to tickets so we can filter by price
             $sql = "SELECT DISTINCT e.* FROM events e 
                     LEFT JOIN tickets t ON e.event_id = t.event_id 
-                    WHERE 1=1";
+                    WHERE e.removed = 0";
             $params = [];
 
-            // Add dynamic filters if the query parameters exist
             if (!empty($_GET['performer'])) {
                 $sql .= " AND e.performer LIKE :performer";
                 $params[':performer'] = "%" . $_GET['performer'] . "%";
@@ -38,7 +37,7 @@ if ($method === 'GET') {
                 $params[':date'] = $_GET['date'];
             }
             if (!empty($_GET['price'])) {
-                $sql .= " AND t.price <= :price"; // Finds tickets at or below the requested price
+                $sql .= " AND t.price <= :price";
                 $params[':price'] = $_GET['price'];
             }
 
@@ -58,7 +57,6 @@ if ($method === 'GET') {
 if ($method === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true);
 
-    // prevent  scheduling events in the past
     $start_time = $input['start'] ?? '';
     if (!empty($start_time)) {
         $event_start = strtotime($start_time);
@@ -70,7 +68,6 @@ if ($method === 'POST') {
     }
     
     try {
-        // Backticks required around `start` and `end`
         $insert = "INSERT INTO events (title, description, `start`, `end`, qty_tickets, performer) 
                    VALUES (:title, :description, :start, :end, :qty_tickets, :performer)";
         $stmt = $conn->prepare($insert);
@@ -82,23 +79,11 @@ if ($method === 'POST') {
             ':qty_tickets' => $input['qty_tickets'] ?? 0,
             ':performer' => $input['performer'] ?? null
         ]);
-        $event_id = $conn->lastInsertId();
 
-        $ticket_qty = $input['qty_tickets'] ?? 0;
-        if ($ticket_qty > 0) {
-            $ticketSql = "INSERT INTO tickets (event_id, ticket_tier, quantity) VALUES (:eid, 'GA', :qty)";
-            $ticketStmt = $conn->prepare($ticketSql);
-            $ticketStmt->execute([
-                ':eid' => $event_id,
-                ':qty' => $ticket_qty
-            ]);
-        }
-
-        http_response_code(201);
         echo json_encode(['success' => true, 'message' => 'Event created successfully.']);
     } catch (PDOException $e) {
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Unable to create event.', 'error' => $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => 'Unable to create event.']);
     }
     exit;
 }
@@ -106,7 +91,6 @@ if ($method === 'POST') {
 if ($method === 'PUT') {
     $input = json_decode(file_get_contents('php://input'), true);
 
-    //prevent editing an event from the past 
     $start_time = $input['start'] ?? '';
     if (!empty($start_time)) {
         $event_start = strtotime($start_time);
@@ -118,8 +102,10 @@ if ($method === 'PUT') {
     }
     
     try {
-        $update = "UPDATE events SET title = :title, description = :description, `start` = :start, `end` = :end, qty_tickets = :qty_tickets, performer = :performer 
+        $update = "UPDATE events 
+                   SET title = :title, description = :description, `start` = :start, `end` = :end, qty_tickets = :qty_tickets, performer = :performer 
                    WHERE event_id = :event_id";
+
         $stmt = $conn->prepare($update);
         $stmt->execute([
             ':title' => $input['title'] ?? '',
@@ -134,32 +120,37 @@ if ($method === 'PUT') {
         echo json_encode(['success' => true, 'message' => 'Event updated successfully.']);
     } catch (PDOException $e) {
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Unable to update event.', 'error' => $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => 'Unable to update event.']);
     }
     exit;
 }
 
 if ($method === 'DELETE') {
     $event_id = $_GET['event_id'] ?? null;
-    if (!$event_id) {
+    $adminId = $_SESSION['user_id'] ?? null;
+
+    if (!$event_id || !$adminId) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'event_id is required.']);
+        echo json_encode(['success' => false, 'message' => 'Invalid request.']);
         exit;
     }
 
-try {
-        // First, delete any staff assignments for this event to avoid foreign key issues
-        $conn->prepare("DELETE FROM EventStaff WHERE event_id = :event_id")
-             ->execute([':event_id' => $event_id]);
+    try {
+        // ✅ SOFT DELETE EVENT
+        $update = $conn->prepare("
+            UPDATE events 
+            SET removed = 1, removed_by_user_id = :admin_id 
+            WHERE event_id = :event_id
+        ");
+        $update->execute([
+            ':event_id' => $event_id,
+            ':admin_id' => $adminId
+        ]);
 
-        // Now it is safe to delete the main event
-        $delete = $conn->prepare("DELETE FROM events WHERE event_id = :event_id");
-        $delete->execute([':event_id' => $event_id]);
-        
-        echo json_encode(['success' => true, 'message' => 'Event deleted.']);
+        echo json_encode(['success' => true, 'message' => 'Event removed.']);
     } catch (PDOException $e) {
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Unable to delete event.', 'error' => $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => 'Unable to remove event.']);
     }
     exit;
 }
