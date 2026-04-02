@@ -452,7 +452,7 @@ function EventsUI() {
   };
 
   const handleDeleteEvent = async (eventId) => {
-    if (!window.confirm('Are you sure you want to delete this event?')) {
+    if (!window.confirm('Are you sure you want to cancel this event?')) {
       return;
     }
 
@@ -465,7 +465,7 @@ function EventsUI() {
       const payload = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        setEventsError(payload?.message || 'Failed to delete event.');
+        setEventsError(payload?.message || 'Failed to cancel event.');
         return;
       }
 
@@ -473,8 +473,8 @@ function EventsUI() {
       setEventsError('');
       announceEventsChanged();
     } catch (error) {
-      console.error('Failed to delete event:', error);
-      setEventsError('Failed to delete event.');
+      console.error('Failed to cancel event:', error);
+      setEventsError('Failed to cancel event.');
     }
   };
 
@@ -546,7 +546,7 @@ function EventsUI() {
                       className="delete-item-button delete-event-button"
                       onClick={() => handleDeleteEvent(event.event_id)}
                     >
-                      Delete
+                      Cancel
                     </button>
                   </div>
                 </td>
