@@ -119,7 +119,7 @@ function StaffUI() {
   };
 
   const handleDeleteStaff = async (staffId) => {
-    if (window.confirm('Are you sure you want to delete this staff member?')) {
+    if (window.confirm('Are you sure you want to remove this staff member?')) {
       try {
         const response = await fetch(`/api/staff.php?id=${staffId}`, {
           method: 'DELETE',
@@ -142,7 +142,7 @@ function StaffUI() {
         }
 
         if (response.status === 409) {
-          window.confirm(data?.message || 'This staff member cannot be deleted right now.');
+          window.confirm(data?.message || 'This staff member cannot be removed right now.');
           return;
         }
 
@@ -183,7 +183,7 @@ function StaffUI() {
               <td className="reservation-actions-cell">
                 <div className="reservation-actions-buttons">
                   <button className="delete-item-button" onClick={() => handleDeleteStaff(member.id)}>
-                    Delete
+                    Remove
                   </button>
                 </div>
               </td>

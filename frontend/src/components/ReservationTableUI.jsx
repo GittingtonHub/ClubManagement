@@ -215,15 +215,10 @@ function ReservationTableUI() {
   const handleDeleteReservation = async (reservationId) => {
     if (window.confirm('Are you sure you want to cancel this reservation?')) {
       try {
-        const response = await fetch('/api/reservations.php', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            reservation_id: reservationId,
-            status: 'cancelled'
-          })
+        const response = await fetch(`/api/reservations.php?id=${reservationId}&reason=Cancelled by user`, {
+          method: 'DELETE'
         });
-
+  
         if (response.ok) {
           await fetchReservations();
           window.dispatchEvent(new Event('reservations:changed'));
@@ -432,7 +427,7 @@ function ReservationTableUI() {
                       // if user = normal do cancel reservation instead, whatever that means
                       // also change v delete to cancel if that's the case
                     >
-                      Delete
+                      Cancel
                     </button>
                     </div>
                   </td>
