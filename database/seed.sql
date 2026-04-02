@@ -10,7 +10,7 @@ INSERT INTO users (id, email, username, password_hash, profile_image, bio) VALUE
 (4, 'morgan.kim@example.com', 'morgan.kim', '$2y$10$hash', 'morgan.png', 'VIP customer'),
 (5, 'casey.chen@example.com', 'casey.chen', '$2y$10$hash', 'casey.png', 'Birthday guest');
 
-INSERT INTO users (id, email, username, password_hash, role, profile_image, created_at) VALUES
+INSERT INTO users (id, email, username, password_hash, privilege, profile_image, created_at) VALUES
 (6, 'adminuser@adminuser.com', 'admin', '$2y$10$YqHFpNA8w2eEV1mbcn73a.tnSgOoY3jXxmQPyvqkvrvpNJm8l9Xj2', 'admin', 'default.png', '2026-04-01 04:47:25'),
 (7, 'test1@gmail.com', 'test1', '$2y$10$xMByV0Hvx/pMBKoOTsWixei8UQZPDrO10UFJrfJb7nYypt2TF453m', 'user', 'default.png', '2026-04-01 04:48:00'),
 (8, 'steve@gmail.com', 'steve', '$2y$10$AsErGyGYkUPlkWJDqnvaDu5CJcM/FP7IkS4cPLmsZYNAwAG/H0fTq', 'staff', 'default.png', '2026-04-01 04:48:20'),
@@ -420,7 +420,6 @@ INSERT INTO staff_notifications (staff_user_id, event_id, message) VALUES
 (2, 11, 'Event Assignment: You have been assigned to Week 6 Friday Night.');
 
 
-
 -- =========================
 -- SPRINT 5 TEST DATA
 -- =========================
@@ -429,7 +428,7 @@ INSERT INTO staff_notifications (staff_user_id, event_id, message) VALUES
 UPDATE users SET removed = 1, removed_by_user_id = 6 WHERE id = 5;
 UPDATE staff SET removed = 1, removed_by_user_id = 6 WHERE id = 29;
 UPDATE resources SET removed = 1, removed_by_user_id = 6 WHERE id = 4;
-UPDATE events SET removed = 1, removed_by_user_id = 6 WHERE id = 1;
+UPDATE events SET removed = 1, removed_by_user_id = 6 WHERE event_id = 1;
 
 -- Cancelled reservation
 UPDATE reservations 
@@ -443,4 +442,4 @@ UPDATE events
 SET status = 'cancelled',
     cancellation_reason = 'Weather issues',
     cancelled_by_user_id = 6
-WHERE id = 2;
+WHERE event_id = 2;
