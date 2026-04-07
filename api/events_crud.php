@@ -19,13 +19,13 @@ if ($method === 'GET') {
         
         if ($event_id) {
             $stmt = $conn->prepare("SELECT * FROM events WHERE event_id = :event_id");
-            $stmt->execute([':event_id' => $event_id]);
+            $stmt->execute(['F:event_id' => $event_id]);
             $data = $stmt->fetch(PDO::FETCH_ASSOC);
         } else {
             // Base query with a JOIN to tickets so we can filter by price
             $sql = "SELECT DISTINCT e.* FROM events e 
                     LEFT JOIN tickets t ON e.event_id = t.event_id 
-                    WHERE 1=1";
+                    WHERE e.removed = 0";
             $params = [];
 
             // Add dynamic filters if the query parameters exist

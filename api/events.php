@@ -134,12 +134,6 @@ function fetch_available_staff_ids_for_window(
         return [];
     }
 
-    $startTimestamp = strtotime($startTime);
-    if ($startTimestamp === false) {
-        return [];
-    }
-    $dayOfWeek = date('l', $startTimestamp);
-
     $filteredIds = array_values(array_filter(array_unique(array_map(static fn($id) => (int)$id, $staffIds)), static fn($id) => $id > 0));
     if (empty($filteredIds)) {
         return [];
@@ -147,7 +141,7 @@ function fetch_available_staff_ids_for_window(
 
     $staffIdPlaceholders = implode(',', array_fill(0, count($filteredIds), '?'));
     $params = $filteredIds;
-    $availabilityParams = [$dayOfWeek, $startTime, $endTime];
+    $availabilityParams = [$startTime, $startTime, $endTime];
     $reservationParams = [];
     $eventParams = [$endTime, $startTime];
 
@@ -179,7 +173,7 @@ function fetch_available_staff_ids_for_window(
         JOIN availability a ON a.staff_id = s.id
         WHERE s.id IN ({$staffIdPlaceholders})
           AND a.is_available = 1
-          AND a.day_of_week = ?
+          AND a.day_of_week = DAYNAME(?)
           AND a.start_time <= TIME(?)
           AND a.end_time >= TIME(?)
           {$reservationConflictClause}
@@ -377,6 +371,7 @@ function fetch_events(PDO $conn): array {
             FROM ticket_reservations tr
             LEFT JOIN reservations r ON r.reservation_id = tr.reservation_id
             {$ticketJoin}
+            WHERE r.start_time >= NOW() AND e.removed = 0 
             GROUP BY tr.event_id
             ORDER BY MIN(r.start_time) ASC, tr.event_id ASC
         ";
@@ -444,6 +439,7 @@ function fetch_events(PDO $conn): array {
             LEFT JOIN {$eventStaffTableName} es ON es.{$eventStaffEventId} = e.{$eventId}
             LEFT JOIN staff s ON s.{$staffPk} = es.{$eventStaffStaffId}
             {$ticketJoin}
+            WHERE e.{$startTime} >= NOW() AND e.removed = 0
             GROUP BY e.{$eventId}, e.{$eventTitle}, e.{$description}, e.{$startTime}, e.{$endTime}, e.{$qtyTickets}, e.{$performer}
             ORDER BY e.{$startTime} ASC, e.{$eventId} ASC
         ";
@@ -632,13 +628,6 @@ if ($method === 'POST') {
 
     try {
         $conn->beginTransaction();
-        $emailDispatch = [
-            'trigger' => 'event_assignment',
-            'attempted' => 0,
-            'sent' => 0,
-            'failed' => 0,
-            'staff_ids' => []
-        ];
 
         $insertStmt = $conn->prepare($insertSql);
         $insertStmt->execute([
@@ -684,18 +673,16 @@ if ($method === 'POST') {
             $staffStmt = $conn->prepare($staffQuery);
             $staffStmt->execute($validStaffIds);
             $assignedStaffRows = $staffStmt->fetchAll(PDO::FETCH_ASSOC);
-            $emailDispatch['staff_ids'] = array_values(array_map(static fn($row) => (int)($row['id'] ?? 0), $assignedStaffRows));
-            $emailDispatch['attempted'] = count($assignedStaffRows);
-            // Frontend now sends assignment emails directly after successful create.
-            $emailDispatch['sent'] = 0;
-            $emailDispatch['failed'] = 0;
-            $emailDispatch['delivery_mode'] = 'frontend';
-            log_email_trigger('event_assignment_email_backend_skipped', [
-                'event_id' => (int)$eventId,
-                'staff_ids' => $emailDispatch['staff_ids'],
-                'attempted' => $emailDispatch['attempted'],
-                'delivery_mode' => 'frontend'
-            ]);
+
+            foreach ($assignedStaffRows as $staffRow) {
+                send_staff_assignment_email(
+                    'SR-BA',
+                    "New Event Assignment: {$eventTitle}",
+                    (string)($staffRow['name'] ?? 'Staff Member'),
+                    format_time_window($startTime, $endTime),
+                    "You have been assigned to event \"{$eventTitle}\"" . ($performer !== '' ? " with performer {$performer}." : '.')
+                );
+            }
         }
 
         $createdEvent = null;
@@ -710,8 +697,7 @@ if ($method === 'POST') {
         http_response_code(201);
         echo json_encode([
             'success' => true,
-            'event' => $createdEvent,
-            'email_dispatch' => $emailDispatch
+            'event' => $createdEvent
         ]);
     } catch (PDOException $e) {
         if ($conn->inTransaction()) {
@@ -779,7 +765,7 @@ if ($method === 'DELETE') {
         }
 
         $deleteEventSql = sprintf(
-            'DELETE FROM events WHERE %s = :event_id',
+            'UPDATE events SET removed = 1 WHERE %s = :event_id',
             quote_identifier($eventMap['event_id'])
         );
 
@@ -823,3 +809,5 @@ echo json_encode([
     'success' => false,
     'message' => 'Method not allowed.'
 ]);
+
+?>

@@ -93,38 +93,60 @@ if ($method === 'PUT') {
 
     try {
         $roleColumns = getRoleColumnsInfo($conn);
-        if (empty($roleColumns)) {
-            http_response_code(500);
-            echo json_encode(['success' => false, 'message' => 'No role column found in users table.']);
-            exit;
-        }
-
         $allowedRoles = getAvailableRolesFromDatabase($conn, $roleColumns);
+        
         if (!$target_user_id || !is_string($new_role) || !in_array($new_role, $allowedRoles, true)) {
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => 'Valid user_id and new_role are required.']);
             exit;
         }
 
+        $conn->beginTransaction();
+
+        // 1. Update the USERS table
         $updateParts = [];
-        if (array_key_exists('privilege', $roleColumns)) {
-            $updateParts[] = "privilege = :role";
-        }
-        if (array_key_exists('role', $roleColumns)) {
-            $updateParts[] = "role = :role";
-        }
+        if (array_key_exists('privilege', $roleColumns)) $updateParts[] = "privilege = :role";
+        if (array_key_exists('role', $roleColumns)) $updateParts[] = "role = :role";
 
         $sql = "UPDATE users SET " . implode(', ', $updateParts) . " WHERE id = :uid";
         $stmt = $conn->prepare($sql);
-        $stmt->execute([
-            ':role' => $new_role,
-            ':uid' => $target_user_id
-        ]);
+        $stmt->execute([':role' => $new_role, ':uid' => $target_user_id]);
 
-        echo json_encode(['success' => true, 'message' => "User role updated to $new_role."]);
+        // 2. ROLE ELEVATION: If promoted to staff, create a staff record
+        if (strtolower($new_role) === 'staff') {
+            // Check if they already have a staff record (even if it was soft-deleted)
+            $checkStaff = $conn->prepare("SELECT id FROM staff WHERE user_id = :uid");
+            $checkStaff->execute([':uid' => $target_user_id]);
+            $existingStaff = $checkStaff->fetch();
+
+            if (!$existingStaff) {
+                // Get the username from users to use as the staff 'name'
+                $userStmt = $conn->prepare("SELECT username FROM users WHERE id = :uid");
+                $userStmt->execute([':uid' => $target_user_id]);
+                $userData = $userStmt->fetch();
+                $staffName = $userData['username'] ?? 'New Staff';
+
+                // INSERT into staff table with default values
+                $insertStaff = $conn->prepare("
+                    INSERT INTO staff (user_id, name, role, hourly_rate, employment_type, removed) 
+                    VALUES (:uid, :name, 'General Staff', 15.00, 'part_time', 0)
+                ");
+                $insertStaff->execute([
+                    ':uid' => $target_user_id,
+                    ':name' => $staffName
+                ]);
+            } else { // If they existed but were soft-deleted, just un-delete them!
+                $unDeleteStaff = $conn->prepare("UPDATE staff SET removed = 0 WHERE user_id = :uid");
+                $unDeleteStaff->execute([':uid' => $target_user_id]);
+            }
+        }
+
+        $conn->commit();
+        echo json_encode(['success' => true, 'message' => "User promoted and staff record linked."]);
     } catch (PDOException $e) {
+        if ($conn->inTransaction()) $conn->rollBack();
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Database error updating role.']);
+        echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
     }
     exit;
 }
