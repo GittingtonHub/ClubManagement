@@ -1,15 +1,31 @@
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
+import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { useState, useEffect } from 'react';
 
+const STAFF_ROLE_UPDATE_ENDPOINT = '/api/staff.php';
+const STAFF_RATE_UPDATE_ENDPOINT = '/api/staff.php';
+const normalizeRole = (roleValue) => String(roleValue ?? '').trim();
+const parseRateValue = (rateValue) => {
+  const parsedRate = Number.parseFloat(rateValue);
+  return Number.isNaN(parsedRate) ? null : parsedRate;
+};
+const formatRateValue = (rateValue) => {
+  const parsedRate = parseRateValue(rateValue);
+  return parsedRate === null ? '' : parsedRate.toFixed(2);
+};
+
 function StaffUI() {
-  const [staffName, setStaffName] = useState('');
-  const [staffRole, setStaffRole] = useState('');
-  const [hourlyRate, setHourlyRate] = useState('');
-  const [isAddStaffOpen, setIsAddStaffOpen] = useState(false);
-  const [staffNameError, setStaffNameError] = useState('');
-  const [staffRoleError, setStaffRoleError] = useState('');
-  const [hourlyRateError, setHourlyRateError] = useState('');
+  // const [staffName, setStaffName] = useState('');
+  // const [staffRole, setStaffRole] = useState('');
+  // const [hourlyRate, setHourlyRate] = useState('');
+  // const [isAddStaffOpen, setIsAddStaffOpen] = useState(false);
+  // const [staffNameError, setStaffNameError] = useState('');
+  // const [staffRoleError, setStaffRoleError] = useState('');
+  // const [hourlyRateError, setHourlyRateError] = useState('');
   const [staff, setStaff] = useState([]);
+  const [roleUpdateByStaffId, setRoleUpdateByStaffId] = useState({});
+  const [rateUpdateByStaffId, setRateUpdateByStaffId] = useState({});
+  const [rateDraftByStaffId, setRateDraftByStaffId] = useState({});
 
   const roleOptions = [
     "Bartender",
@@ -19,46 +35,6 @@ function StaffUI() {
     "Bouncer",
     "Bottle Service Promoter"
   ];
-
-  const validateStaffName = (name) => {
-    if (!name || name.trim() === '') {
-      setStaffNameError('Staff name is required');
-      return false;
-    }
-    if (name.length > 100) {
-      setStaffNameError('Staff name must be 100 characters or less');
-      return false;
-    }
-    setStaffNameError('');
-    return true;
-  };
-
-  const validateStaffRole = (role) => {
-    if (!role) {
-      setStaffRoleError('Please select a role');
-      return false;
-    }
-    setStaffRoleError('');
-    return true;
-  };
-
-  const validateHourlyRate = (rate) => {
-    if (!rate || rate === '') {
-      setHourlyRateError('Hourly rate is required');
-      return false;
-    }
-    const rateNum = parseFloat(rate);
-    if (isNaN(rateNum) || rateNum < 0) {
-      setHourlyRateError('Hourly rate must be a positive number');
-      return false;
-    }
-    if (rateNum > 999.99) {
-      setHourlyRateError('Hourly rate must be less than $1,000');
-      return false;
-    }
-    setHourlyRateError('');
-    return true;
-  };
 
   useEffect(() => {
     const fetchStaff = async () => {
@@ -76,47 +52,6 @@ function StaffUI() {
     
     fetchStaff();
   }, []);
-
-  const handleAddStaff = async () => {
-    const isNameValid = validateStaffName(staffName);
-    const isRoleValid = validateStaffRole(staffRole);
-    const isRateValid = validateHourlyRate(hourlyRate);
-    
-    if (!isNameValid || !isRoleValid || !isRateValid) {
-      return;
-    }
-    
-    try {
-      const response = await fetch('/api/staff.php', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          name: staffName,
-          role: staffRole,
-          hourly_rate: hourlyRate
-        })
-      });
-      
-      const data = await response.json();
-      
-      if (response.ok) {
-        if (data?.staff) {
-          setStaff((previousStaff) => [...previousStaff, data.staff]);
-        }
-        setStaffName('');
-        setStaffRole('');
-        setHourlyRate('');
-        setIsAddStaffOpen(false);
-      } else {
-        console.error('Failed to add staff:', data?.message || 'Unknown error');
-      }
-    } catch (error) {
-      console.error('Failed to add staff:', error);
-    }
-  };
 
   const handleDeleteStaff = async (staffId) => {
     if (window.confirm('Are you sure you want to remove this staff member?')) {
@@ -153,17 +88,167 @@ function StaffUI() {
     }
   };
 
+  const handleRoleChange = async (member, selectedRole) => {
+    const currentRole = normalizeRole(member?.role);
+    const nextRole = normalizeRole(selectedRole);
+    const currentRate = parseRateValue(member?.hourly_rate);
+    const staffId = member?.id;
+
+    if (!staffId || !nextRole || nextRole === currentRole || roleUpdateByStaffId[staffId]) {
+      return;
+    }
+
+    if (currentRate === null) {
+      await DayPilot.Modal.alert('Unable to update role because hourly rate is missing.');
+      return;
+    }
+
+    const confirmation = await DayPilot.Modal.confirm(
+      "Do you want to update this staff member's role?",
+      { okText: 'Yes', cancelText: 'Cancel' }
+    );
+
+    if (confirmation?.canceled) {
+      return;
+    }
+
+    setRoleUpdateByStaffId((previous) => ({ ...previous, [staffId]: true }));
+
+    try {
+      const response = await fetch(STAFF_ROLE_UPDATE_ENDPOINT, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          id: staffId,
+          role: nextRole,
+          hourly_rate: currentRate
+        })
+      });
+
+      const responseText = await response.text();
+      const payload = responseText ? JSON.parse(responseText) : {};
+
+      if (!response.ok || payload?.success === false) {
+        await DayPilot.Modal.alert(payload?.message || 'Unable to update staff role.');
+        return;
+      }
+
+      setStaff((previousStaff) =>
+        (Array.isArray(previousStaff) ? previousStaff : []).map((existingMember) =>
+          existingMember?.id === staffId
+            ? { ...existingMember, role: nextRole }
+            : existingMember
+        )
+      );
+    } catch (error) {
+      console.error('Failed to update staff role:', error);
+      await DayPilot.Modal.alert('Unable to update staff role.');
+    } finally {
+      setRoleUpdateByStaffId((previous) => ({ ...previous, [staffId]: false }));
+    }
+  };
+
+  const resetRateDraft = (staffId) => {
+    setRateDraftByStaffId((previous) => {
+      const nextDrafts = { ...previous };
+      delete nextDrafts[staffId];
+      return nextDrafts;
+    });
+  };
+
+  const handleRateDraftChange = (staffId, nextValue) => {
+    setRateDraftByStaffId((previous) => ({ ...previous, [staffId]: nextValue }));
+  };
+
+  const handleRateChange = async (member, enteredRate) => {
+    const staffId = member?.id;
+    if (!staffId || rateUpdateByStaffId[staffId]) {
+      return;
+    }
+
+    const currentRole = normalizeRole(member?.role);
+    const normalizedInput = String(enteredRate ?? '').trim();
+    const currentRate = parseRateValue(member?.hourly_rate ?? 0) ?? 0;
+    const nextRate = parseRateValue(normalizedInput);
+
+    if (normalizedInput === '') {
+      resetRateDraft(staffId);
+      return;
+    }
+
+    if (!currentRole) {
+      await DayPilot.Modal.alert('Unable to update hourly rate because role is missing.');
+      resetRateDraft(staffId);
+      return;
+    }
+
+    if (nextRate === null || nextRate < 0 || nextRate > 999.99) {
+      await DayPilot.Modal.alert('Hourly rate must be between 0 and 999.99.');
+      resetRateDraft(staffId);
+      return;
+    }
+
+    if (Math.abs(nextRate - currentRate) < 0.005) {
+      resetRateDraft(staffId);
+      return;
+    }
+
+    const confirmation = await DayPilot.Modal.confirm(
+      "Do you want to update this staff member's hourly rate?",
+      { okText: 'Yes', cancelText: 'Cancel' }
+    );
+
+    if (confirmation?.canceled) {
+      resetRateDraft(staffId);
+      return;
+    }
+
+    setRateUpdateByStaffId((previous) => ({ ...previous, [staffId]: true }));
+
+    try {
+      const response = await fetch(STAFF_RATE_UPDATE_ENDPOINT, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          id: staffId,
+          role: currentRole,
+          hourly_rate: nextRate
+        })
+      });
+
+      const responseText = await response.text();
+      const payload = responseText ? JSON.parse(responseText) : {};
+
+      if (!response.ok || payload?.success === false) {
+        await DayPilot.Modal.alert(payload?.message || 'Unable to update hourly rate.');
+        return;
+      }
+
+      setStaff((previousStaff) =>
+        (Array.isArray(previousStaff) ? previousStaff : []).map((existingMember) =>
+          existingMember?.id === staffId
+            ? { ...existingMember, hourly_rate: nextRate }
+            : existingMember
+        )
+      );
+      resetRateDraft(staffId);
+    } catch (error) {
+      console.error('Failed to update hourly rate:', error);
+      await DayPilot.Modal.alert('Unable to update hourly rate.');
+    } finally {
+      setRateUpdateByStaffId((previous) => ({ ...previous, [staffId]: false }));
+    }
+  };
+
   return (
     <>
       <div className="table-div" id='staff-table-div'>
-        
-        <div className="add-item-button">
-          <button onClick={() => {
-            setIsAddStaffOpen(true);
-          }}>
-            Add Staff
-          </button>
-        </div>
 
         <table className='inventory-table' id='staff-table'>
           <tr className="table-header">
@@ -178,8 +263,38 @@ function StaffUI() {
             <tr className="table-row" key={member.id ?? index}>
               <td className="table-cell-itemno">{index + 1}</td>
               <td>{member.name ?? 'N/A'}</td>
-              <td>{member.role ?? 'N/A'}</td>
-              <td>${Number.parseFloat(member.hourly_rate ?? 0).toFixed(2)}</td>
+              <td>
+                <select
+                  value={normalizeRole(member.role)}
+                  onChange={(event) => handleRoleChange(member, event.target.value)}
+                  disabled={Boolean(roleUpdateByStaffId[member.id] || rateUpdateByStaffId[member.id])}
+                >
+                  {!normalizeRole(member.role) && <option value="">Select role</option>}
+                  {roleOptions.map((roleOption) => (
+                    <option key={`${member.id}-${roleOption}`} value={roleOption}>
+                      {roleOption}
+                    </option>
+                  ))}
+                </select>
+              </td>
+              <td>
+                <input
+                  type="number"
+                  step="1.00"
+                  min="0"
+                  max="999.99"
+                  value={rateDraftByStaffId[member.id] ?? formatRateValue(member.hourly_rate)}
+                  onChange={(event) => handleRateDraftChange(member.id, event.target.value)}
+                  onBlur={(event) => handleRateChange(member, event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      event.currentTarget.blur();
+                    }
+                  }}
+                  disabled={Boolean(roleUpdateByStaffId[member.id] || rateUpdateByStaffId[member.id])}
+                />
+              </td>
               <td className="reservation-actions-cell">
                 <div className="reservation-actions-buttons">
                   <button className="delete-item-button" onClick={() => handleDeleteStaff(member.id)}>
@@ -190,82 +305,6 @@ function StaffUI() {
             </tr>
           ))}
         </table>
-
-        <Dialog open={isAddStaffOpen} onClose={() => {}} className="add-item-dialog">
-          <div className="add-item-dialog-backdrop" aria-hidden="true" />
-          <div className="add-item-dialog-container">
-            <DialogPanel className="add-item-dialog-panel">
-              <DialogTitle className="add-item-header">
-                Add New Staff Member
-              </DialogTitle>
-
-              <div className="inner-add-item-container">
-                <input
-                  type="text"
-                  placeholder="Staff Name"
-                  value={staffName}
-                  onChange={(e) => {
-                    setStaffName(e.target.value);
-                    if (staffNameError) validateStaffName(e.target.value);
-                  }}
-                  onBlur={() => validateStaffName(staffName)}
-                  maxLength={100}
-                  style={{
-                    border: staffNameError ? '2px solid red' : '1px solid rgba(0, 0, 0, 0.2)'
-                  }}
-                />
-                {staffNameError && <span style={{ color: 'red' }}>{staffNameError}</span>}
-
-                <select
-                  value={staffRole}
-                  onChange={(e) => {
-                    setStaffRole(e.target.value);
-                    if (staffRoleError) validateStaffRole(e.target.value);
-                  }}
-                  onBlur={() => validateStaffRole(staffRole)}
-                  className="add-item-name-input"
-                  style={{
-                    border: staffRoleError ? '2px solid red' : '1px solid rgba(0, 0, 0, 0.2)'
-                  }}
-                >
-                  <option value="">Select Role</option>
-                  {roleOptions.map((role, index) => (
-                    <option key={index} value={role}>{role}</option>
-                  ))}
-                </select>
-                {staffRoleError && <span style={{ color: 'red' }}>{staffRoleError}</span>}
-
-                <input
-                  type="number"
-                  placeholder="Hourly Rate"
-                  value={hourlyRate}
-                  onChange={(e) => {
-                    setHourlyRate(e.target.value);
-                    if (hourlyRateError) validateHourlyRate(e.target.value);
-                  }}
-                  onBlur={() => validateHourlyRate(hourlyRate)}
-                  step="0.01"
-                  min="0"
-                  max="999.99"
-                  style={{
-                    border: hourlyRateError ? '2px solid red' : '1px solid rgba(0, 0, 0, 0.2)'
-                  }}
-                />
-                {hourlyRateError && <span style={{ color: 'red' }}>{hourlyRateError}</span>}
-
-                <div className="button-group">
-                  <button onClick={handleAddStaff}>Add Staff</button>
-                  <button onClick={() => {
-                    setIsAddStaffOpen(false);
-                  }}>
-                    Cancel
-                  </button>
-                </div>
-              </div>
-
-            </DialogPanel>
-          </div>
-        </Dialog>
       </div>
     </>
   );
