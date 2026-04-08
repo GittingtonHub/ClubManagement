@@ -2,9 +2,35 @@ import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { useEffect, useMemo, useState } from 'react';
 
-
-
 const normalizeRole = (roleValue) => String(roleValue ?? '').trim();
+const STAFF_PRIVILEGE_VALUE = 'staff';
+const STAFF_PROFILE_SAVE_ENDPOINT = '/api/complete_staff_profile_placeholder.php';
+const STAFF_ROLE_OPTIONS = [
+  "Bartender",
+  "Bar Back",
+  "DJ",
+  "Security",
+  "Bouncer",
+  "Bottle Service Promoter"
+];
+
+const isStaffPrivilege = (roleValue) =>
+  normalizeRole(roleValue).toLowerCase() === STAFF_PRIVILEGE_VALUE;
+
+const deriveDefaultStaffName = (user) => {
+  const candidateName = String(user?.name ?? '').trim();
+  if (candidateName) {
+    return candidateName;
+  }
+
+  const emailText = String(user?.email ?? '').trim();
+  if (!emailText) {
+    return '';
+  }
+
+  const [localPart] = emailText.split('@');
+  return localPart || '';
+};
 
 const deriveRoleOptionsFromUsers = (userList) => {
   const derivedRoles = (Array.isArray(userList) ? userList : [])
@@ -24,6 +50,15 @@ function UsersUI() {
   const [reservations, setReservations] = useState([]);
   const [roleOptions, setRoleOptions] = useState([]);
   const [roleUpdateByUserId, setRoleUpdateByUserId] = useState({});
+  const [isAddStaffOpen, setIsAddStaffOpen] = useState(false);
+  const [staffName, setStaffName] = useState('');
+  const [staffRole, setStaffRole] = useState('');
+  const [hourlyRate, setHourlyRate] = useState('');
+  const [staffNameError, setStaffNameError] = useState('');
+  const [staffRoleError, setStaffRoleError] = useState('');
+  const [hourlyRateError, setHourlyRateError] = useState('');
+  const [linkedPromotedUser, setLinkedPromotedUser] = useState(null);
+  const [isSavingStaffProfile, setIsSavingStaffProfile] = useState(false);
   const [referenceNowMs] = useState(() => Date.now());
 
   const safeUsers = Array.isArray(users) ? users : [];
@@ -233,6 +268,119 @@ function UsersUI() {
     }
   };
 
+  const validateStaffName = (name) => {
+    if (!name || name.trim() === '') {
+      setStaffNameError('Staff name is required');
+      return false;
+    }
+    if (name.length > 100) {
+      setStaffNameError('Staff name must be 100 characters or less');
+      return false;
+    }
+    setStaffNameError('');
+    return true;
+  };
+
+  const validateStaffRole = (role) => {
+    if (!role) {
+      setStaffRoleError('Please select a role');
+      return false;
+    }
+    setStaffRoleError('');
+    return true;
+  };
+
+  const validateHourlyRate = (rate) => {
+    if (!rate || rate === '') {
+      setHourlyRateError('Hourly rate is required');
+      return false;
+    }
+    const rateNum = parseFloat(rate);
+    if (isNaN(rateNum) || rateNum < 0) {
+      setHourlyRateError('Hourly rate must be a positive number');
+      return false;
+    }
+    if (rateNum > 999.99) {
+      setHourlyRateError('Hourly rate must be less than $1,000');
+      return false;
+    }
+    setHourlyRateError('');
+    return true;
+  };
+
+  const handleAddStaff = async () => {
+    const isNameValid = validateStaffName(staffName);
+    const isRoleValid = validateStaffRole(staffRole);
+    const isRateValid = validateHourlyRate(hourlyRate);
+    
+    if (!isNameValid || !isRoleValid || !isRateValid) {
+      return;
+    }
+
+    if (!linkedPromotedUser?.id) {
+      await DayPilot.Modal.alert('Missing linked user for staff profile.');
+      return;
+    }
+    
+    setIsSavingStaffProfile(true);
+
+    try {
+      const response = await fetch(STAFF_PROFILE_SAVE_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          user_id: linkedPromotedUser.id,
+          name: staffName,
+          role: staffRole,
+          hourly_rate: hourlyRate
+        })
+      });
+      
+      const responseText = await response.text();
+      const data = responseText ? JSON.parse(responseText) : {};
+      
+      if (!response.ok || data?.success === false) {
+        await DayPilot.Modal.alert(data?.message || 'Unable to save staff profile.');
+        return;
+      }
+
+      const savedUserId = linkedPromotedUser.id;
+      setStaffName('');
+      setStaffRole('');
+      setHourlyRate('');
+      setStaffNameError('');
+      setStaffRoleError('');
+      setHourlyRateError('');
+      setLinkedPromotedUser(null);
+      setIsAddStaffOpen(false);
+
+      // Allows other screens to refresh staff-dependent assignment/booking views after save.
+      window.dispatchEvent(new CustomEvent('staff-profile-saved', { detail: { userId: savedUserId } }));
+    } catch (error) {
+      console.error('Failed to add staff:', error);
+      await DayPilot.Modal.alert('Unable to save staff profile.');
+    } finally {
+      setIsSavingStaffProfile(false);
+    }
+  };
+
+  const openCompleteStaffProfileModal = (user) => {
+    setLinkedPromotedUser({
+      id: user?.id,
+      email: user?.email
+    });
+    setStaffName(deriveDefaultStaffName(user));
+    setStaffRole('');
+    setHourlyRate('');
+    setStaffNameError('');
+    setStaffRoleError('');
+    setHourlyRateError('');
+    setIsAddStaffOpen(true);
+  };
+
   const handleRoleChange = async (user, selectedRole) => {
     const currentRole = normalizeRole(user?.role);
     const nextRole = normalizeRole(selectedRole);
@@ -281,6 +429,10 @@ function UsersUI() {
             : existingUser
         )
       );
+
+      if (!isStaffPrivilege(currentRole) && isStaffPrivilege(nextRole)) {
+        openCompleteStaffProfileModal(user);
+      }
     } catch (error) {
       console.error('Failed to update user role:', error);
       await DayPilot.Modal.alert('Unable to update user role.');
@@ -304,7 +456,7 @@ function UsersUI() {
           <tr className="table-header">
             <th>User ID</th>
             <th>Email Address</th>
-            <th>Role</th>
+            <th>Privilege</th>
             <th>Registered (Days)</th>
             <th>Total Reservations</th>
             <th>Past Reservations</th>
@@ -406,6 +558,89 @@ function UsersUI() {
                   </button>
                 </div>
               </div>
+            </DialogPanel>
+          </div>
+        </Dialog>
+
+        <Dialog open={isAddStaffOpen} onClose={() => {}} className="add-item-dialog">
+          <div className="add-item-dialog-backdrop" aria-hidden="true" />
+          <div className="add-item-dialog-container">
+            <DialogPanel className="add-item-dialog-panel">
+              <DialogTitle className="add-item-header">
+                Complete Staff Profile
+              </DialogTitle>
+
+              <div className="inner-add-item-container">
+                <div style={{ fontSize: '14px', opacity: 0.85 }}>
+                  Linked User: #{linkedPromotedUser?.id ?? 'N/A'} ({linkedPromotedUser?.email ?? 'N/A'})
+                </div>
+
+                <input
+                  type="text"
+                  placeholder="Staff Name"
+                  value={staffName}
+                  onChange={(e) => {
+                    setStaffName(e.target.value);
+                    if (staffNameError) validateStaffName(e.target.value);
+                  }}
+                  onBlur={() => validateStaffName(staffName)}
+                  maxLength={100}
+                  style={{
+                    border: staffNameError ? '2px solid red' : '1px solid rgba(0, 0, 0, 0.2)'
+                  }}
+                />
+                {staffNameError && <span style={{ color: 'red' }}>{staffNameError}</span>}
+
+                <select
+                  value={staffRole}
+                  onChange={(e) => {
+                    setStaffRole(e.target.value);
+                    if (staffRoleError) validateStaffRole(e.target.value);
+                  }}
+                  onBlur={() => validateStaffRole(staffRole)}
+                  className="add-item-name-input"
+                  style={{
+                    border: staffRoleError ? '2px solid red' : '1px solid rgba(0, 0, 0, 0.2)'
+                  }}
+                >
+                  <option value="">Select Role</option>
+                  {STAFF_ROLE_OPTIONS.map((role, index) => (
+                    <option key={index} value={role}>{role}</option>
+                  ))}
+                </select>
+                {staffRoleError && <span style={{ color: 'red' }}>{staffRoleError}</span>}
+
+                <input
+                  type="number"
+                  placeholder="Hourly Rate"
+                  value={hourlyRate}
+                  onChange={(e) => {
+                    setHourlyRate(e.target.value);
+                    if (hourlyRateError) validateHourlyRate(e.target.value);
+                  }}
+                  onBlur={() => validateHourlyRate(hourlyRate)}
+                  step="0.01"
+                  min="0"
+                  max="999.99"
+                  style={{
+                    border: hourlyRateError ? '2px solid red' : '1px solid rgba(0, 0, 0, 0.2)'
+                  }}
+                />
+                {hourlyRateError && <span style={{ color: 'red' }}>{hourlyRateError}</span>}
+
+                <div className="button-group">
+                  <button onClick={handleAddStaff} disabled={isSavingStaffProfile}>
+                    {isSavingStaffProfile ? 'Saving...' : 'Save Staff Profile'}
+                  </button>
+                  <button onClick={() => {
+                    setLinkedPromotedUser(null);
+                    setIsAddStaffOpen(false);
+                  }}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+
             </DialogPanel>
           </div>
         </Dialog>
