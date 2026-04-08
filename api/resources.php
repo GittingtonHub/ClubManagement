@@ -3,6 +3,7 @@ header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
 header("Access-Control-Allow-Methods: GET, DELETE, OPTIONS");
 header("Content-Type: application/json; charset=UTF-8");
+header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 
 include_once 'api.php';
 session_start();
@@ -30,6 +31,34 @@ if ($method === 'GET') {
         echo json_encode(['success' => false, 'message' => 'Unable to fetch resources.']);
     }
     exit;
+}
+
+if($method === 'POST'){
+    $input = json_decode(file_get_contents('php://input'), true);
+    $name = trim($input['name'] ?? '');
+
+    if($name === '') {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Resource name is required.']);
+        exit;
+    }
+
+    try{
+        $query = "INSERT INTO resources (name, description,price, removed) VALUES (:name, :description, :price, 0)";
+        $stmt = $conn->prepare($query);
+        $stmt->execute([
+            ':name' => $name,
+            ':description' => trim($input['description'] ?? ''),
+            ':price' => $input['price'] ?? 0
+        ]);
+        echo json_encode(['success' => true, 'message' => 'Resource created successfully.']);
+        exit;
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Unable to create resource.']);
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        exit;
+    }
 }
 
 // ✅ SOFT DELETE

@@ -1,7 +1,7 @@
 <?php
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
-header("Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS");
+header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS"); // Added PUT
 header("Content-Type: application/json; charset=UTF-8");
 
 include_once 'api.php';
@@ -13,14 +13,11 @@ if ($method === 'OPTIONS') {
     exit;
 }
 
+// --- 1. GET: Fetch only active staff ---
 if ($method === 'GET') {
     try {
-        // ❗ exclude removed staff
-        $query = "SELECT id, name, role, hourly_rate 
-                  FROM staff 
-                  WHERE removed = 0 
-                  ORDER BY id ASC";
-
+        // Filter out anyone where removed = 1
+        $query = "SELECT id, name, role, hourly_rate FROM staff WHERE removed = 0 ORDER BY id ASC";
         $stmt = $conn->prepare($query);
         $stmt->execute();
         $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -32,6 +29,7 @@ if ($method === 'GET') {
     exit;
 }
 
+// --- 2. POST: Create Staff ---
 if ($method === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true);
     $name = trim($input['name'] ?? '');
@@ -44,15 +42,8 @@ if ($method === 'POST') {
         exit;
     }
 
-    if (!is_numeric($hourly_rate) || (float)$hourly_rate < 0) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'hourly_rate must be a non-negative number.']);
-        exit;
-    }
-
     try {
-        $insert = "INSERT INTO staff (name, role, hourly_rate, employment_type)
-                   VALUES (:name, :role, :hourly_rate, 'part_time')";
+        $insert = "INSERT INTO staff (name, role, hourly_rate, employment_type) VALUES (:name, :role, :hourly_rate, 'part_time')";
         $stmt = $conn->prepare($insert);
         $stmt->execute([
             ':name' => $name,
@@ -74,6 +65,37 @@ if ($method === 'POST') {
     exit;
 }
 
+// --- 3. PUT: Update Staff (Role and Rate) ---
+if ($method === 'PUT') {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $id = $input['id'] ?? null;
+    $role = trim($input['role'] ?? '');
+    $hourly_rate = $input['hourly_rate'] ?? null;
+
+    if (!$id || $role === '' || $hourly_rate === null) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'id, role, and hourly_rate are required for updates.']);
+        exit;
+    }
+
+    try {
+        $update = "UPDATE staff SET role = :role, hourly_rate = :hourly_rate WHERE id = :id";
+        $stmt = $conn->prepare($update);
+        $stmt->execute([
+            ':role' => $role,
+            ':hourly_rate' => $hourly_rate,
+            ':id' => $id
+        ]);
+
+        echo json_encode(['success' => true, 'message' => 'Staff member updated successfully.']);
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Unable to update staff.']);
+    }
+    exit;
+}
+
+// --- 4. DELETE: Soft Delete ---
 if ($method === 'DELETE') {
     $id = $_GET['id'] ?? null;
     $adminId = $_SESSION['user_id'] ?? null;
@@ -85,16 +107,9 @@ if ($method === 'DELETE') {
     }
 
     try {
-        // ✅ SOFT DELETE
-        $update = $conn->prepare("
-            UPDATE staff 
-            SET removed = 1, removed_by_user_id = :admin_id 
-            WHERE id = :id
-        ");
-        $update->execute([
-            ':id' => $id,
-            ':admin_id' => $adminId
-        ]);
+        // Switch from Hard Delete to Soft Delete
+        $delete = $conn->prepare("UPDATE staff SET removed = 1 WHERE id = :id");
+        $delete->execute([':id' => $id]);
 
         if ($update->rowCount() === 0) {
             http_response_code(404);
