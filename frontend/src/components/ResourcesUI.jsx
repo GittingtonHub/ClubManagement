@@ -129,7 +129,7 @@ function ResourcesUI() {
   };
 
   const handleDeleteItem = async (itemId) => {
-    if(window.confirm('Are you sure you want to delete this item?')) {
+    if(window.confirm('Are you sure you want to remove this item?')) {
       try{
         const response = await fetch(`/api/inventory.php?id=${itemId}`, {
           method: 'DELETE',
@@ -150,15 +150,15 @@ function ResourcesUI() {
 
           if (response.status === 409) {
             window.confirm(
-              data?.message || 'This resource is currently reserved and cannot be deleted.'
+              data?.message || 'This resource is currently reserved and cannot be removed.'
             );
             return;
           }
 
-          console.error('Failed to delete item:', data?.message || response.statusText);
+          console.error('Failed to remove item:', data?.message || response.statusText);
         }
       }catch(error){
-        console.error('Failed to delete item:', error);
+        console.error('Failed to remove item:', error);
       }
     }
   };
@@ -207,7 +207,7 @@ function ResourcesUI() {
                 <td className="reservation-actions-cell">
                   <div className="reservation-actions-buttons">
                     <button className="delete-item-button" onClick={() => handleDeleteItem(item.id)}>
-                      Delete
+                      Remove
                     </button>
                   </div>
                 </td>
