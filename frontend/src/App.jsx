@@ -10,10 +10,6 @@ import StaffProfile  from './components/StaffProfile';
 import UserProfile from './components/UserProfile';
 import NotFoundPage from './pages/NotFoundPage';
 
-import Inventory from "./pages/Inventory"
-import Profile from "./pages/Profile"
-import Users from "./pages/Users"
-
 function App() {
 
   const userOrStaff = () => {

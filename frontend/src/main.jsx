@@ -16,9 +16,6 @@ import Reservations from './pages/Reservations.jsx';
 import Profile from './pages/Profile.jsx'
 import Admin from './pages/Admin.jsx';
 
-import Users from './pages/Users.jsx';
-import Inventory from './pages/Inventory.jsx';
-
 const router = createBrowserRouter([
   {
     path: "/login",
