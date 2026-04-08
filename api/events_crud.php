@@ -16,10 +16,10 @@ if ($method === 'OPTIONS') {
 if ($method === 'GET') {
     try {
         $event_id = $_GET['event_id'] ?? null;
-        
+
         if ($event_id) {
-            $stmt = $conn->prepare("SELECT * FROM events WHERE event_id = :event_id");
-            $stmt->execute(['F:event_id' => $event_id]);
+            $stmt = $conn->prepare("SELECT * FROM events WHERE event_id = :event_id AND removed = 0");
+            $stmt->execute([':event_id' => $event_id]);
             $data = $stmt->fetch(PDO::FETCH_ASSOC);
         } else {
             // Base query with a JOIN to tickets so we can filter by price
@@ -147,19 +147,22 @@ if ($method === 'DELETE') {
         exit;
     }
 
-try {
-        // First, delete any staff assignments for this event to avoid foreign key issues
-        $conn->prepare("DELETE FROM EventStaff WHERE event_id = :event_id")
-             ->execute([':event_id' => $event_id]);
+    try {
+        // SOFT DELETE EVENT
+        $update = $conn->prepare("
+            UPDATE events 
+            SET removed = 1, removed_by_user_id = :admin_id 
+            WHERE event_id = :event_id
+        ");
+        $update->execute([
+            ':event_id' => $event_id,
+            ':admin_id' => $adminId
+        ]);
 
-        // Now it is safe to delete the main event
-        $delete = $conn->prepare("DELETE FROM events WHERE event_id = :event_id");
-        $delete->execute([':event_id' => $event_id]);
-        
-        echo json_encode(['success' => true, 'message' => 'Event deleted.']);
+        echo json_encode(['success' => true, 'message' => 'Event removed.']);
     } catch (PDOException $e) {
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Unable to delete event.', 'error' => $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => 'Unable to remove event.']);
     }
     exit;
 }

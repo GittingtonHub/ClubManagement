@@ -119,7 +119,7 @@ function StaffUI() {
   };
 
   const handleDeleteStaff = async (staffId) => {
-    if (window.confirm('Are you sure you want to delete this staff member?')) {
+    if (window.confirm('Are you sure you want to remove this staff member?')) {
       try {
         const response = await fetch(`/api/staff.php?id=${staffId}`, {
           method: 'DELETE',
@@ -142,13 +142,13 @@ function StaffUI() {
         }
 
         if (response.status === 409) {
-          window.confirm(data?.message || 'This staff member cannot be deleted right now.');
+          window.confirm(data?.message || 'This staff member cannot be removed right now.');
           return;
         }
 
-        console.error('Failed to delete staff:', data?.message || response.statusText);
+        console.error('Failed to remove staff:', data?.message || response.statusText);
       } catch (error) {
-        console.error('Failed to delete staff:', error);
+        console.error('Failed to remove staff:', error);
       }
     }
   };

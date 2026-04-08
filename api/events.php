@@ -769,12 +769,25 @@ if ($method === 'DELETE') {
             quote_identifier($eventMap['event_id'])
         );
 
-        $deleteEventStmt = $conn->prepare($deleteEventSql);
-        $deleteEventStmt->execute([
-            ':event_id' => $eventId
+        $reason = $_GET['reason'] ?? 'Cancelled by admin';
+        $adminId = $_SESSION['user_id'] ?? null;
+
+        $updateEventSql = "
+            UPDATE events 
+            SET status = 'cancelled',
+                cancellation_reason = :reason,
+                cancelled_by_user_id = :admin_id
+            WHERE {$eventMap['event_id']} = :event_id
+        ";
+
+        $updateStmt = $conn->prepare($updateEventSql);
+        $updateStmt->execute([
+            ':event_id' => $eventId,
+            ':reason' => $reason,
+            ':admin_id' => $adminId
         ]);
 
-        if ($deleteEventStmt->rowCount() === 0) {
+        if ($updateStmt->rowCount() === 0) {
             $conn->rollBack();
             http_response_code(404);
             echo json_encode([
@@ -787,7 +800,7 @@ if ($method === 'DELETE') {
         $conn->commit();
         echo json_encode([
             'success' => true,
-            'message' => 'Event deleted.'
+            'message' => 'Event cancelled.'
         ]);
     } catch (PDOException $e) {
         if ($conn->inTransaction()) {
