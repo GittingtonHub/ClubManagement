@@ -8,14 +8,13 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { AuthProvider } from './context/AuthContext.jsx';
 import ProtectedRoute from "./components/ProtectedRoute";
 
-import Inventory from './pages/Inventory.jsx';
 import Login from './pages/Login.jsx';
 import App from './App.jsx'
 import NotFoundPage from './pages/NotFoundPage.jsx';
 import Home from './pages/Home.jsx';
 import Reservations from './pages/Reservations.jsx';
 import Profile from './pages/Profile.jsx'
-import Users from './pages/Users.jsx';
+import Admin from './pages/Admin.jsx';
 
 const router = createBrowserRouter([
   {
@@ -32,10 +31,9 @@ const router = createBrowserRouter([
     children: [
       { path: "/*", element: <Home />},
       { path: "/home", element: <Home /> },
-      { path: "/inventory", element: <Inventory /> },
       { path: "/reservations", element: <Reservations /> },
       { path: "/profile", element: <Profile />},
-      { path: "/users", element: <Users /> },
+      { path: "/admin", element: <Admin />},
     ],
   },
 

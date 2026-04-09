@@ -33,7 +33,10 @@ CREATE TABLE users (
   privilege ENUM('user','admin','staff') DEFAULT 'user',
   profile_image VARCHAR(255) DEFAULT 'default.png',
   bio TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  removed BOOLEAN DEFAULT FALSE,
+  removed_by_user_id INT,
+  FOREIGN KEY (removed_by_user_id) REFERENCES users(id)
 );
 
 -- =========================
@@ -46,8 +49,10 @@ CREATE TABLE staff (
   hourly_rate DECIMAL(5,2),
   employment_type ENUM('full_time','part_time','contract') NOT NULL,
   user_id INT,
-  FOREIGN KEY (user_id) REFERENCES users(id)
-);
+  removed BOOLEAN DEFAULT FALSE,
+  removed_by_user_id INT,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (removed_by_user_id) REFERENCES users(id));
 
 -- =========================
 -- RESOURCES
@@ -57,7 +62,10 @@ CREATE TABLE resources (
   name VARCHAR(100) NOT NULL,
   type VARCHAR(50) NOT NULL,
   price DECIMAL(6,2),
-  description TEXT
+  description TEXT,
+  removed BOOLEAN DEFAULT FALSE,
+  removed_by_user_id INT,
+  FOREIGN KEY (removed_by_user_id) REFERENCES users(id)
 );
 
 -- =========================
@@ -70,7 +78,14 @@ CREATE TABLE events (
   start DATETIME NOT NULL,
   end DATETIME NOT NULL,
   qty_tickets INT NOT NULL,
-  performer VARCHAR(255)
+  performer VARCHAR(255),
+  status ENUM('pending','confirmed','cancelled') DEFAULT 'pending',
+  cancellation_reason TEXT,
+  cancelled_by_user_id INT,
+  removed BOOLEAN DEFAULT FALSE,
+  removed_by_user_id INT,
+  FOREIGN KEY (cancelled_by_user_id) REFERENCES users(id),
+  FOREIGN KEY (removed_by_user_id) REFERENCES users(id)
 );
 
 -- =========================
@@ -96,8 +111,11 @@ CREATE TABLE reservations (
   start_time DATETIME NOT NULL,
   end_time DATETIME NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  cancellation_reason TEXT,
+  cancelled_by_user_id INT,
   FOREIGN KEY (user_id) REFERENCES users(id),
-  FOREIGN KEY (resource_id) REFERENCES resources(id)
+  FOREIGN KEY (resource_id) REFERENCES resources(id),
+  FOREIGN KEY (cancelled_by_user_id) REFERENCES users(id)
 );
 
 -- =========================

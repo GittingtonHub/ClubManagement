@@ -49,18 +49,12 @@ function Header() {
           {userRole === 'admin' && (
             <>
               <NavLink 
-                to="/inventory" 
+                to="/admin" 
                 className={({ isActive }) => isActive ? "active" : ""}
               >
-                Inventory
+                Admin
               </NavLink>
 
-              <NavLink 
-                to="/users" 
-                className={({ isActive }) => isActive ? "active" : ""}
-              >
-                Users
-              </NavLink>
             </>
           )}
 
