@@ -16,16 +16,17 @@ if ($method === 'OPTIONS') {
 if ($method === 'GET') {
     try {
         $event_id = $_GET['event_id'] ?? null;
-
+        
         if ($event_id) {
-            $stmt = $conn->prepare("SELECT * FROM events WHERE event_id = :event_id AND removed = 0");
+            // Check for specific event, making sure it isn't cancelled
+            $stmt = $conn->prepare("SELECT * FROM events WHERE event_id = :event_id AND status = 'active'");
             $stmt->execute([':event_id' => $event_id]);
             $data = $stmt->fetch(PDO::FETCH_ASSOC);
         } else {
-            // Base query with a JOIN to tickets so we can filter by price
+            // Base query with JOIN to tickets, ONLY pulling 'active' events
             $sql = "SELECT DISTINCT e.* FROM events e 
                     LEFT JOIN tickets t ON e.event_id = t.event_id 
-                    WHERE e.removed = 0";
+                    WHERE e.status = 'active'"; 
             $params = [];
 
             // Add dynamic filters if the query parameters exist
@@ -34,11 +35,11 @@ if ($method === 'GET') {
                 $params[':performer'] = "%" . $_GET['performer'] . "%";
             }
             if (!empty($_GET['date'])) {
-                $sql .= " AND DATE(e.`start`) = :date";
+                $sql .= " AND DATE(e.`start`) = :date"; // Note: Ensure your column is actually `start` or `start_time`
                 $params[':date'] = $_GET['date'];
             }
             if (!empty($_GET['price'])) {
-                $sql .= " AND t.price <= :price"; // Finds tickets at or below the requested price
+                $sql .= " AND t.price <= :price"; 
                 $params[':price'] = $_GET['price'];
             }
 
@@ -47,6 +48,7 @@ if ($method === 'GET') {
             $stmt->execute($params);
             $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
+        
         echo json_encode(['success' => true, 'data' => $data]);
     } catch (PDOException $e) {
         http_response_code(500);
@@ -54,6 +56,7 @@ if ($method === 'GET') {
     }
     exit;
 }
+
 
 if ($method === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true);

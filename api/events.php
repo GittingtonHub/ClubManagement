@@ -737,81 +737,71 @@ if ($method === 'DELETE') {
     $eventId = $_GET['id'] ?? null;
     if ($eventId === null || $eventId === '') {
         http_response_code(400);
-        echo json_encode([
-            'success' => false,
-            'message' => 'id is required.'
-        ]);
+        echo json_encode(['success' => false, 'message' => 'id is required.']);
         exit;
+    }
+
+    // --- CANCELLATION REASON & AUTH LOGIC ---
+    $cancelled_by = $_SESSION['user_id'] ?? null;
+    $user_role = $_SESSION['user']['role'] ?? ($_SESSION['user']['privilege'] ?? 'user');
+    $cancel_reason = trim($_GET['reason'] ?? '');
+
+    // Requirement: Admin/Staff MUST provide a reason
+    if (($user_role === 'admin' || $user_role === 'staff') && empty($cancel_reason)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Cancellation reason is required for staff and admins.']);
+        exit;
+    }
+
+    // Default reason for normal users
+    if (empty($cancel_reason)) {
+        $cancel_reason = 'Cancelled by user';
     }
 
     try {
         $conn->beginTransaction();
 
-        delete_event_ticket_rows($conn, (int)$eventId);
-
-        $eventStaffMap = get_event_staff_column_map($conn);
-        if ($eventStaffMap !== null) {
-            $eventStaffTableName = quote_identifier($eventStaffMap['table_name']);
-            $deleteAssignmentsSql = sprintf(
-                'DELETE FROM %s WHERE %s = :event_id',
-                $eventStaffTableName,
-                quote_identifier($eventStaffMap['event_id'])
-            );
-
-            $deleteAssignmentsStmt = $conn->prepare($deleteAssignmentsSql);
-            $deleteAssignmentsStmt->execute([
-                ':event_id' => $eventId
-            ]);
-        }
-
-        $deleteEventSql = sprintf(
-            'UPDATE events SET removed = 1 WHERE %s = :event_id',
-            quote_identifier($eventMap['event_id'])
-        );
-
-        $reason = $_GET['reason'] ?? 'Cancelled by admin';
-        $adminId = $_SESSION['user_id'] ?? null;
-
+        $eventIdCol = quote_identifier($eventMap['event_id']);
+        
+        // UPDATE the event instead of deleting it
         $updateEventSql = "
             UPDATE events 
-            SET status = 'cancelled',
-                cancellation_reason = :reason,
-                cancelled_by_user_id = :admin_id
-            WHERE {$eventMap['event_id']} = :event_id
+            SET status = 'cancelled', 
+                removed = 1, 
+                cancelled_by = :by, 
+                cancellation_reason = :reason 
+            WHERE {$eventIdCol} = :event_id
         ";
 
-        $updateStmt = $conn->prepare($updateEventSql);
-        $updateStmt->execute([
-            ':event_id' => $eventId,
-            ':reason' => $reason,
-            ':admin_id' => $adminId
+        $updateEventStmt = $conn->prepare($updateEventSql);
+        $updateEventStmt->execute([
+            ':by' => $cancelled_by,
+            ':reason' => $cancel_reason,
+            ':event_id' => $eventId
         ]);
 
-        if ($updateStmt->rowCount() === 0) {
+        if ($updateEventStmt->rowCount() === 0) {
             $conn->rollBack();
             http_response_code(404);
-            echo json_encode([
-                'success' => false,
-                'message' => 'Event not found.'
-            ]);
+            echo json_encode(['success' => false, 'message' => 'Event not found.']);
             exit;
         }
 
+        // NOTE: We do NOT delete the tickets or the event_staff anymore! 
+        // We leave them in the database for the audit trail.
+
         $conn->commit();
         echo json_encode([
-            'success' => true,
-            'message' => 'Event cancelled.'
+            'success' => true, 
+            'message' => 'Event successfully cancelled and archived.'
         ]);
     } catch (PDOException $e) {
         if ($conn->inTransaction()) {
             $conn->rollBack();
         }
-
+        
         http_response_code(500);
-        echo json_encode([
-            'success' => false,
-            'message' => 'Unable to delete event.'
-        ]);
+        echo json_encode(['success' => false, 'message' => 'Unable to cancel event.']);
     }
 
     exit;
