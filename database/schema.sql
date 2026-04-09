@@ -12,7 +12,7 @@ DROP TABLE IF EXISTS ReservationStaff;
 DROP TABLE IF EXISTS EventStaff;
 DROP TABLE IF EXISTS tickets;
 DROP TABLE IF EXISTS events;
-
+DROP TABLE IF EXISTS availability;
 DROP TABLE IF EXISTS table_section;
 DROP TABLE IF EXISTS ticket_reservations;
 DROP TABLE IF EXISTS bottle_service;
