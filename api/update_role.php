@@ -91,6 +91,10 @@ if ($method === 'PUT') {
     $target_user_id = $input['user_id'] ?? null;
     $new_role = $input['new_role'] ?? null;
 
+    $hourlyRate = $input['hourly_rate'] ?? 15; // default hourly rate for staff
+    $employmentType = $input['employment_type'] ?? 'part-time'; // default employment
+
+
     try {
         $roleColumns = getRoleColumnsInfo($conn);
         $allowedRoles = getAvailableRolesFromDatabase($conn, $roleColumns);
@@ -126,14 +130,18 @@ if ($method === 'PUT') {
                 $userData = $userStmt->fetch();
                 $staffName = $userData['username'] ?? 'New Staff';
 
+
                 // INSERT into staff table with default values
                 $insertStaff = $conn->prepare("
                     INSERT INTO staff (user_id, name, role, hourly_rate, employment_type, removed) 
-                    VALUES (:uid, :name, 'General Staff', 15.00, 'part_time', 0)
+                    VALUES (:uid, :name, :role, :hourly_rate, :employment_type, 0)
                 ");
                 $insertStaff->execute([
                     ':uid' => $target_user_id,
-                    ':name' => $staffName
+                    ':name' => $staffName,
+                    ':role'=> $new_role,
+                    ':hourly_rate' => $hourlyRate,
+                    ':employment_type' => $employmentType
                 ]);
             } else { // If they existed but were soft-deleted, just un-delete them!
                 $unDeleteStaff = $conn->prepare("UPDATE staff SET removed = 0 WHERE user_id = :uid");
