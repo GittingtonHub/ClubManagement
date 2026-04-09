@@ -90,6 +90,7 @@
         $input = json_decode(file_get_contents('php://input'), true);
         $target_user_id = $input['user_id'] ?? null;
         $new_role = $input['new_role'] ?? null;
+        $isPromotingToStaff = (strtolower($new_role) === 'staff');
 
         try {
             $roleColumns = getRoleColumnsInfo($conn);
@@ -110,12 +111,15 @@
             $stmt = $conn->prepare($sql);
             $stmt->execute([':role' => $new_role, ':uid' => $target_user_id]);
 
-            echo json_encode(['success' => true, 'message' => "User privilege updated."]);
+            echo json_encode(['success' => true, 'message' => "User privilege updated.",'trigger_staff_update' => $isPromotingToStaff, 'new_role' => $new_role]);
         } catch (PDOException $e) {
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => 'Database error.']);
         }
+
         exit;
+
+
     }
 
 
