@@ -19,7 +19,7 @@ if (!isset($_SESSION['user_id']) || $sessionRole !== 'admin') {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true);
-    
+
     $user_id = filter_var($input['user_id'] ?? 0, FILTER_VALIDATE_INT);
     $name = substr(trim($input['name'] ?? ''), 0, 100);
     $role = trim($input['role'] ?? '');
@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // UPSERT Logic
         $check = $conn->prepare("SELECT id FROM staff WHERE user_id = :uid");
         $check->execute([':uid' => $user_id]);
-        
+
         if ($check->fetch()) {
             $sql = "UPDATE staff SET name = :name, role = :role, hourly_rate = :rate, removed = 0 WHERE user_id = :uid";
             $stmt = $conn->prepare($sql);

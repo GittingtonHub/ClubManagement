@@ -16,7 +16,7 @@ if ($method === 'OPTIONS') {
 if ($method === 'GET') {
     try {
         $event_id = $_GET['event_id'] ?? null;
-        
+
         if ($event_id) {
             // Check for specific event, making sure it isn't cancelled
             $stmt = $conn->prepare("SELECT * FROM events WHERE event_id = :event_id AND status = 'active'");
@@ -26,7 +26,7 @@ if ($method === 'GET') {
             // Base query with JOIN to tickets, ONLY pulling 'active' events
             $sql = "SELECT DISTINCT e.* FROM events e 
                     LEFT JOIN tickets t ON e.event_id = t.event_id 
-                    WHERE e.status = 'active'"; 
+                    WHERE e.status = 'active'";
             $params = [];
 
             // Add dynamic filters if the query parameters exist
@@ -39,7 +39,7 @@ if ($method === 'GET') {
                 $params[':date'] = $_GET['date'];
             }
             if (!empty($_GET['price'])) {
-                $sql .= " AND t.price <= :price"; 
+                $sql .= " AND t.price <= :price";
                 $params[':price'] = $_GET['price'];
             }
 
@@ -48,7 +48,7 @@ if ($method === 'GET') {
             $stmt->execute($params);
             $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
-        
+
         echo json_encode(['success' => true, 'data' => $data]);
     } catch (PDOException $e) {
         http_response_code(500);
@@ -71,7 +71,7 @@ if ($method === 'POST') {
             exit;
         }
     }
-    
+
     try {
         // Backticks required around `start` and `end`
         $insert = "INSERT INTO events (title, description, `start`, `end`, qty_tickets, performer) 
@@ -119,7 +119,7 @@ if ($method === 'PUT') {
             exit;
         }
     }
-    
+
     try {
         $update = "UPDATE events SET title = :title, description = :description, `start` = :start, `end` = :end, qty_tickets = :qty_tickets, performer = :performer 
                    WHERE event_id = :event_id";
