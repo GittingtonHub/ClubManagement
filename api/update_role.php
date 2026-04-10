@@ -70,25 +70,6 @@
         exit;
     }
     exit;
-}
-
-if ($method === 'PUT') {
-    $input = json_decode(file_get_contents('php://input'), true);
-    $target_user_id = $input['user_id'] ?? null;
-    $new_role = $input['new_role'] ?? null;
-    $isPromotingToStaff = (strtolower($new_role) === 'staff');
-
-    try {
-        $roleColumns = getRoleColumnsInfo($conn);
-        $allowedRoles = getAvailableRolesFromDatabase($conn, $roleColumns);
-
-        if (!$target_user_id || !in_array($new_role, $allowedRoles, true)) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Invalid user or role.']);
-            exit;
-        }
-        exit;
-    }
 
     if ($method === 'PUT') {
         $input = json_decode(file_get_contents('php://input'), true);
