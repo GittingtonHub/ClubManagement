@@ -814,7 +814,7 @@ if ($method === 'DELETE') {
         if ($conn->inTransaction()) {
             $conn->rollBack();
         }
-
+        
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => 'Unable to cancel event.']);
     }
