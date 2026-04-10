@@ -9,21 +9,19 @@
     $method = $_SERVER['REQUEST_METHOD'];
     if ($method === 'OPTIONS') exit;
 
-function extractEnumValues($columnType)
-{
-    if (!is_string($columnType) || stripos($columnType, "enum(") !== 0) {
-        return [];
-    }
+    function extractEnumValues($columnType) {
+        if (!is_string($columnType) || stripos($columnType, "enum(") !== 0) {
+            return [];
+        }
 
         preg_match_all("/'([^']+)'/", $columnType, $matches);
         return $matches[1] ?? [];
     }
 
-function getRoleColumnsInfo($conn)
-{
-    $columnsStmt = $conn->query("SHOW COLUMNS FROM users");
-    $columns = $columnsStmt->fetchAll(PDO::FETCH_ASSOC);
-    $roleColumns = [];
+    function getRoleColumnsInfo($conn) {
+        $columnsStmt = $conn->query("SHOW COLUMNS FROM users");
+        $columns = $columnsStmt->fetchAll(PDO::FETCH_ASSOC);
+        $roleColumns = [];
 
         foreach ($columns as $column) {
             $fieldName = $column['Field'] ?? null;
@@ -35,9 +33,8 @@ function getRoleColumnsInfo($conn)
         return $roleColumns;
     }
 
-function getAvailableRolesFromDatabase($conn, $roleColumns)
-{
-    $roles = [];
+    function getAvailableRolesFromDatabase($conn, $roleColumns) {
+        $roles = [];
 
         foreach ($roleColumns as $column) {
             $enumRoles = extractEnumValues($column['Type'] ?? '');
