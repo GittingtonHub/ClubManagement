@@ -953,7 +953,18 @@ if ($method === 'DELETE') {
             exit;
         }
 
-        $cancel_reason = $_GET['reason'] ?? 'Cancelled by user';
+        $cancel_reason = trim($_GET['reason'] ?? '');
+
+        if (($sessionRole === 'admin' || $sessionRole === 'staff') && empty($cancel_reason)) {
+            $conn->rollBack();
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Cancellation reason is required for staff and admins.']);
+            exit;
+        }
+
+        if (empty($cancel_reason)) {
+            $cancel_reason = 'Cancelled by user';
+        }
 
         $update = $conn->prepare("
             UPDATE reservations
@@ -981,6 +992,5 @@ if ($method === 'DELETE') {
     }
     exit;
 }
-
 
 ?>
