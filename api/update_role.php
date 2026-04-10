@@ -9,19 +9,21 @@
     $method = $_SERVER['REQUEST_METHOD'];
     if ($method === 'OPTIONS') exit;
 
-    function extractEnumValues($columnType) {
-        if (!is_string($columnType) || stripos($columnType, "enum(") !== 0) {
-            return [];
-        }
+function extractEnumValues($columnType)
+{
+    if (!is_string($columnType) || stripos($columnType, "enum(") !== 0) {
+        return [];
+    }
 
         preg_match_all("/'([^']+)'/", $columnType, $matches);
         return $matches[1] ?? [];
     }
 
-    function getRoleColumnsInfo($conn) {
-        $columnsStmt = $conn->query("SHOW COLUMNS FROM users");
-        $columns = $columnsStmt->fetchAll(PDO::FETCH_ASSOC);
-        $roleColumns = [];
+function getRoleColumnsInfo($conn)
+{
+    $columnsStmt = $conn->query("SHOW COLUMNS FROM users");
+    $columns = $columnsStmt->fetchAll(PDO::FETCH_ASSOC);
+    $roleColumns = [];
 
         foreach ($columns as $column) {
             $fieldName = $column['Field'] ?? null;
@@ -33,8 +35,9 @@
         return $roleColumns;
     }
 
-    function getAvailableRolesFromDatabase($conn, $roleColumns) {
-        $roles = [];
+function getAvailableRolesFromDatabase($conn, $roleColumns)
+{
+    $roles = [];
 
         foreach ($roleColumns as $column) {
             $enumRoles = extractEnumValues($column['Type'] ?? '');
@@ -69,19 +72,23 @@
         echo json_encode(['success' => false, 'message' => 'Forbidden: Admins only.']);
         exit;
     }
+    exit;
+}
 
-    if ($method === 'GET') {
-        try {
-            $roleColumns = getRoleColumnsInfo($conn);
-            $availableRoles = getAvailableRolesFromDatabase($conn, $roleColumns);
+if ($method === 'PUT') {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $target_user_id = $input['user_id'] ?? null;
+    $new_role = $input['new_role'] ?? null;
+    $isPromotingToStaff = (strtolower($new_role) === 'staff');
 
-            echo json_encode([
-                'success' => true,
-                'roles' => $availableRoles
-            ]);
-        } catch (PDOException $e) {
-            http_response_code(500);
-            echo json_encode(['success' => false, 'message' => 'Database error fetching roles.']);
+    try {
+        $roleColumns = getRoleColumnsInfo($conn);
+        $allowedRoles = getAvailableRolesFromDatabase($conn, $roleColumns);
+
+        if (!$target_user_id || !in_array($new_role, $allowedRoles, true)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Invalid user or role.']);
+            exit;
         }
         exit;
     }

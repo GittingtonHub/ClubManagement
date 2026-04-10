@@ -13,13 +13,15 @@ if ($method === 'OPTIONS') {
     exit;
 }
 
-function table_exists(PDO $conn, string $tableName): bool {
+function table_exists(PDO $conn, string $tableName): bool
+{
     $stmt = $conn->prepare('SHOW TABLES LIKE :table_name');
     $stmt->execute([':table_name' => $tableName]);
     return (bool)$stmt->fetchColumn();
 }
 
-function get_existing_table_name(PDO $conn, array $candidates): ?string {
+function get_existing_table_name(PDO $conn, array $candidates): ?string
+{
     foreach ($candidates as $candidate) {
         if (table_exists($conn, $candidate)) {
             return $candidate;
@@ -28,13 +30,15 @@ function get_existing_table_name(PDO $conn, array $candidates): ?string {
     return null;
 }
 
-function get_table_columns(PDO $conn, string $tableName): array {
+function get_table_columns(PDO $conn, string $tableName): array
+{
     $stmt = $conn->query("DESCRIBE `{$tableName}`");
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     return array_map(static fn($row) => $row['Field'], $rows);
 }
 
-function pick_column(array $columns, array $candidates): ?string {
+function pick_column(array $columns, array $candidates): ?string
+{
     foreach ($candidates as $candidate) {
         if (in_array($candidate, $columns, true)) {
             return $candidate;
@@ -44,11 +48,13 @@ function pick_column(array $columns, array $candidates): ?string {
     return null;
 }
 
-function quote_identifier(string $identifier): string {
+function quote_identifier(string $identifier): string
+{
     return '`' . str_replace('`', '``', $identifier) . '`';
 }
 
-function normalize_datetime(?string $value): ?string {
+function normalize_datetime(?string $value): ?string
+{
     if (!$value) {
         return null;
     }
@@ -61,7 +67,8 @@ function normalize_datetime(?string $value): ?string {
     return date('Y-m-d H:i:s', $timestamp);
 }
 
-function format_time_window(?string $startTime, ?string $endTime): string {
+function format_time_window(?string $startTime, ?string $endTime): string
+{
     if (!$startTime && !$endTime) {
         return '';
     }
@@ -69,7 +76,8 @@ function format_time_window(?string $startTime, ?string $endTime): string {
     return trim(($startTime ?? '') . ' - ' . ($endTime ?? ''));
 }
 
-function get_events_column_map(PDO $conn): ?array {
+function get_events_column_map(PDO $conn): ?array
+{
     if (!table_exists($conn, 'events')) {
         return null;
     }
@@ -95,7 +103,8 @@ function get_events_column_map(PDO $conn): ?array {
     return $map;
 }
 
-function get_event_staff_column_map(PDO $conn): ?array {
+function get_event_staff_column_map(PDO $conn): ?array
+{
     $eventStaffTable = get_existing_table_name($conn, ['event_staff', 'EventStaff']);
     if ($eventStaffTable === null || !table_exists($conn, 'staff')) {
         return null;
@@ -194,7 +203,8 @@ function fetch_available_staff_ids_for_window(
     return array_values(array_unique(array_map(static fn($id) => (int)$id, $rows)));
 }
 
-function get_resources_column_map(PDO $conn): ?array {
+function get_resources_column_map(PDO $conn): ?array
+{
     if (!table_exists($conn, 'resources')) {
         return null;
     }
@@ -213,7 +223,8 @@ function get_resources_column_map(PDO $conn): ?array {
     return $map;
 }
 
-function get_tickets_column_map(PDO $conn): ?array {
+function get_tickets_column_map(PDO $conn): ?array
+{
     if (!table_exists($conn, 'tickets')) {
         return null;
     }
@@ -233,7 +244,8 @@ function get_tickets_column_map(PDO $conn): ?array {
     return $map;
 }
 
-function replace_event_ticket_rows(PDO $conn, int $eventId, float $gaTicketPrice, float $vipTicketPrice): void {
+function replace_event_ticket_rows(PDO $conn, int $eventId, float $gaTicketPrice, float $vipTicketPrice): void
+{
     $ticketsMap = get_tickets_column_map($conn);
     if ($ticketsMap === null) {
         return;
@@ -281,7 +293,8 @@ function replace_event_ticket_rows(PDO $conn, int $eventId, float $gaTicketPrice
     ]);
 }
 
-function delete_event_ticket_rows(PDO $conn, int $eventId): void {
+function delete_event_ticket_rows(PDO $conn, int $eventId): void
+{
     $ticketsMap = get_tickets_column_map($conn);
     if ($ticketsMap === null) {
         return;
@@ -293,7 +306,8 @@ function delete_event_ticket_rows(PDO $conn, int $eventId): void {
     $deleteStmt->execute([':event_id' => $eventId]);
 }
 
-function set_event_ticket_resource_prices(PDO $conn, float $gaTicketPrice, float $vipTicketPrice): void {
+function set_event_ticket_resource_prices(PDO $conn, float $gaTicketPrice, float $vipTicketPrice): void
+{
     $resourcesMap = get_resources_column_map($conn);
 
     if ($resourcesMap === null) {
@@ -322,7 +336,8 @@ function set_event_ticket_resource_prices(PDO $conn, float $gaTicketPrice, float
     ]);
 }
 
-function fetch_events(PDO $conn): array {
+function fetch_events(PDO $conn): array
+{
     $eventMap = get_events_column_map($conn);
     $ticketsMap = get_tickets_column_map($conn);
 
@@ -762,7 +777,7 @@ if ($method === 'DELETE') {
         $conn->beginTransaction();
 
         $eventIdCol = quote_identifier($eventMap['event_id']);
-        
+
         // UPDATE the event instead of deleting it
         $updateEventSql = "
             UPDATE events 
@@ -792,7 +807,7 @@ if ($method === 'DELETE') {
 
         $conn->commit();
         echo json_encode([
-            'success' => true, 
+            'success' => true,
             'message' => 'Event successfully cancelled and archived.'
         ]);
     } catch (PDOException $e) {

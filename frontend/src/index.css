@@ -259,8 +259,8 @@ th, td {
 }
 
 .analytics-container {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 1rem;
   align-items: start;
 
@@ -274,6 +274,19 @@ th, td {
   border-radius: 12px;
 
   padding: 2rem;
+}
+
+.analytics-top,
+.analytics-middle,
+.analytics-bottom {
+  width: 100%;
+}
+
+.analytics-middle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
 }
 
 .topthree-analytics-container,
@@ -319,6 +332,24 @@ th, td {
   gap: 0.75rem;
 }
 
+.topthree-analytics-container .analytics-metrics-grid,
+.user-analytics-container .analytics-metrics-grid {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+}
+
+.topthree-analytics-container .analytics-metric,
+.user-analytics-container .analytics-metric {
+  flex: 1 1 0;
+}
+
+.clubevents-analytics-container .analytics-metrics-grid,
+.cancellation-analytics-container .analytics-metrics-grid {
+  display: flex;
+  flex-direction: column;
+}
+
 .analytics-metric {
   background: rgba(255, 255, 255, 0.3);
   border: 1px solid rgba(0, 0, 0, 0.12);
@@ -327,9 +358,14 @@ th, td {
 }
 
 .analytics-label {
-  margin: 0 0 0.3rem 0;
+  margin: 0 0 0.5rem 0;
   font-size: 0.9rem;
   font-weight: 600;
+  color: #ffffff;
+  background-color: blue;
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem;
+  display: inline-block;
 }
 
 .analytics-value {
@@ -338,12 +374,58 @@ th, td {
   font-weight: 700;
 }
 
+.analytics-topthree-list {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.analytics-topthree-row {
+  display: grid;
+  grid-template-columns: 1fr 3fr;
+  align-items: start;
+  column-gap: 0.5rem;
+}
+
+.analytics-topthree-rank {
+  opacity: 0.75;
+}
+
+.analytics-topthree-item {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.analytics-category-list {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.analytics-category-row {
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  align-items: start;
+  column-gap: 0.5rem;
+}
+
+.analytics-category-label {
+  opacity: 0.75;
+}
+
+.analytics-category-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 900px) {
   .analytics-container {
-    grid-template-columns: 1fr;
+    padding: 1rem;
   }
 
-  .analytics-metrics-grid {
+  .analytics-middle {
     grid-template-columns: 1fr;
   }
 }

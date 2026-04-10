@@ -71,7 +71,7 @@ if ($method === 'POST') {
             exit;
         }
     }
-    
+
     try {
         // Backticks required around `start` and `end`
         $insert = "INSERT INTO events (title, description, `start`, `end`, qty_tickets, performer) 
@@ -119,7 +119,7 @@ if ($method === 'PUT') {
             exit;
         }
     }
-    
+
     try {
         $update = "UPDATE events SET title = :title, description = :description, `start` = :start, `end` = :end, qty_tickets = :qty_tickets, performer = :performer 
                    WHERE event_id = :event_id";
