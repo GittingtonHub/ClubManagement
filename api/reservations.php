@@ -70,6 +70,8 @@ function resolve_ticket_for_event(PDO $conn, $eventId, $ticketTier): ?array {
             FROM tickets
             WHERE event_id = :event_id
               AND UPPER(TRIM(tier)) = :tier
+              And e.removed = 0
+              and e.status != 'cancelled'
             LIMIT 1
         ");
         $ticketStmt->execute([
@@ -215,7 +217,7 @@ if ($method === 'POST') {
     }
   
     // Ensure resource exists and service_type (if provided) matches resource name
-    $resourceStmt = $conn->prepare("SELECT name, type, price FROM resources WHERE id = :rid");
+    $resourceStmt = $conn->prepare("SELECT name, type, price FROM resources WHERE id = :rid And removed =0");
     $resourceStmt->execute([':rid' => $resource_id]);
     $resource = $resourceStmt->fetch(PDO::FETCH_ASSOC);
 
@@ -390,6 +392,36 @@ if ($method === 'POST') {
                 exit;
             }
 
+            // CHECK EVENT CAPACITY BEFORE ALLOWING TICKET RESERVATION
+
+            $capStmt = $conn->prepare("SELECT qty_tickets FROM events WHERE event_id = :eid");
+            $capStmt->execute([':eid' => $event_id]);
+            $eventData = $capStmt->fetch(PDO::FETCH_ASSOC);
+            $totalCapacity = $eventData ? (int)$eventData['qty_tickets'] : 0;
+
+            // Calculate how many tickets are already sold (ignoring cancelled ones)
+            $soldStmt = $conn->prepare("
+                SELECT COALESCE(SUM(tr.quantity), 0) as sold
+                FROM ticket_reservations tr
+                JOIN reservations r ON tr.reservation_id = r.reservation_id
+                WHERE tr.event_id = :eid AND r.status != 'cancelled'
+            ");
+            $soldStmt->execute([':eid' => $event_id]);
+            $soldData = $soldStmt->fetch(PDO::FETCH_ASSOC);
+            $ticketsSold = (int)$soldData['sold'];
+
+            // Check if this purchase pushes us over the limit
+            if (($ticketsSold + $quantity) > $totalCapacity) {
+                $conn->rollBack();
+                $remaining = max(0, $totalCapacity - $ticketsSold);
+                http_response_code(409); // Conflict
+                echo json_encode([
+                    'success' => false, 
+                    'message' => "Not enough tickets available. Only $remaining left."
+                ]);
+                exit;
+            }
+
             $resolved_ticket_id = isset($resolvedTicket['ticket_id']) ? (int)$resolvedTicket['ticket_id'] : null;
 
             if (ticket_reservations_has_column($conn, 'ticket_id')) {
@@ -444,7 +476,7 @@ if ($method === 'POST') {
                 // Find one staff member who fits the role and has NO overlapping reservations
                 $findStaffSql = "
                     SELECT s.id FROM staff s
-                    WHERE s.role = :role 
+                    WHERE s.role = :role AND s.removed = 0
                     AND s.id NOT IN (
                         SELECT rs.staff_id FROM ReservationStaff rs
                         JOIN reservations r ON rs.reservation_id = r.reservation_id
@@ -633,7 +665,7 @@ if ($method === 'PUT') {
             exit;
         }
 
-        $resourceStmt = $conn->prepare("SELECT name, type, price FROM resources WHERE id = :rid");
+        $resourceStmt = $conn->prepare("SELECT name, type, price FROM resources WHERE id = :rid AND removed = 0");
         $resourceStmt->execute([':rid' => $resource_id]);
         $resource = $resourceStmt->fetch(PDO::FETCH_ASSOC);
         
@@ -775,6 +807,35 @@ if ($method === 'PUT') {
                 exit;
             }
 
+            $capStmt = $conn->prepare("SELECT qty_tickets FROM events WHERE event_id = :eid");
+            $capStmt->execute([':eid' => $event_id]);
+            $eventData = $capStmt->fetch(PDO::FETCH_ASSOC);
+            $totalCapacity = $eventData ? (int)$eventData['qty_tickets'] : 0;
+
+            $soldStmt = $conn->prepare("
+                SELECT COALESCE(SUM(tr.quantity), 0) as sold
+                FROM ticket_reservations tr
+                JOIN reservations r ON tr.reservation_id = r.reservation_id
+                WHERE tr.event_id = :eid AND r.status != 'cancelled' AND tr.reservation_id <> :rid
+            ");
+            $soldStmt->execute([
+                ':eid' => $event_id,
+                ':rid' => $reservation_id
+            ]);
+            $soldData = $soldStmt->fetch(PDO::FETCH_ASSOC);
+            $ticketsSold = (int)$soldData['sold'];
+
+            if(($ticketsSold + $quantity) > $totalCapacity) {
+                $conn->rollBack();
+                $remaining = max(0, $totalCapacity - $ticketsSold);
+                http_response_code(409);
+                echo json_encode([
+                    'success' => false, 
+                    'message' => "Not enough tickets available. Only $remaining left."
+                ]);
+                exit;
+            }
+
             $resolvedTicketId = isset($resolvedTicket['ticket_id']) ? (int)$resolvedTicket['ticket_id'] : null;
 
             if (ticket_reservations_has_column($conn, 'ticket_id')) {
@@ -846,7 +907,7 @@ if ($method === 'PUT') {
                     SELECT s.id 
                     FROM staff s
                     JOIN availability a ON s.id = a.staff_id
-                    WHERE s.role = :role 
+                    WHERE s.role = :role And s.removed = 0
                     AND a.day_of_week = DAYNAME(:start_date)
                     AND a.start_time <= TIME(:start_time)
                     AND a.end_time >= TIME(:end_time)
@@ -945,8 +1006,35 @@ if ($method === 'DELETE') {
             exit;
         }
 
+        if(strtotime($existingRes['start_time'] ?? '') < time()) {
+            $conn->rollBack();
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Cannot cancel a reservation in the past.']);
+            exit;
+        }
+
         // 🔒 SECURITY CHECK: Verify ownership
-        if ($sessionRole !== 'admin' && $existingRes['user_id'] !== $current_user_id) {
+
+        $isOwner = $existingRes['user_id'] === $current_user_id;
+        $isAssignedStaff = false;
+
+        // checks if the user is staff and is assigned to this reservation, allowing them to cancel even if they don't own it but are assigned to work it
+        if($sessionRole === 'staff') {
+            $staffCheckStmt = $conn->prepare("
+                SELECT 1 FROM ReservationStaff rs
+                JOIN staff s ON rs.staff_id = s.id
+                WHERE rs.reservation_id = :reservation_id AND s.user_id = :user_id AND s.removed = 0
+            ");
+
+            $staffCheckStmt->execute([
+                ':reservation_id' => $reservation_id,
+                ':user_id' => $current_user_id
+            ]);
+            $isAssignedStaff = (bool)$staffCheckStmt->fetch(PDO::FETCH_ASSOC);
+        }
+
+
+        if ($sessionRole !== 'admin' && $existingRes['user_id'] !== $current_user_id && !$isAssignedStaff) {
             $conn->rollBack();
             http_response_code(403);
             echo json_encode(['success' => false, 'message' => 'Forbidden: You do not own this reservation.']);
