@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 
 function StaffProfile() {
+   
    const { user } = useAuth();
    const [bio, setBio] = useState("");
    const [savedBio, setSavedBio] = useState("");
@@ -12,6 +13,8 @@ function StaffProfile() {
    
    const [reservations, setReservations] = useState([]);
    const [reservationMessage, setReservationMessage] = useState("");
+   const [isCancelOpen, setIsCancelOpen] = useState(false);
+   const [cancelReason, setCancelReason] = useState('');
    const [profileImageSrc, setProfileImageSrc] = useState("/url_icon.png");
    const [isUploadImageOpen, setIsUploadImageOpen] = useState(false);
    const [isReservationInfoOpen, setIsReservationInfoOpen] = useState(false);
@@ -271,12 +274,31 @@ function StaffProfile() {
    };
 
    const handleRequestRemoval = async () => {
-      if (!selectedReservationId) {
-         return;
+      if (!selectedReservationId || !cancelReason.trim()) return;
+    
+      try {
+        const response = await fetch(
+          `/api/reservations.php?id=${selectedReservationId}&reason=${encodeURIComponent(cancelReason)}`,
+          {
+            method: 'DELETE',
+            credentials: 'include'
+          }
+        );
+    
+        if (!response.ok) {
+          setReservationMessage("Could not cancel reservation");
+          return;
+        }
+    
+        await fetchMyReservations();
+        setIsCancelOpen(false);
+        setCancelReason('');
+        handleCloseReservationInfoModal();
+    
+      } catch {
+        setReservationMessage("Could not cancel reservation");
       }
-      await handleCancelReservation(selectedReservationId, { skipConfirm: true });
-      handleCloseReservationInfoModal();
-   };
+    };
 
    const handleImageFileChange = (event) => {
       const incomingFile = event.target.files?.[0];
@@ -572,9 +594,15 @@ function StaffProfile() {
                      <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", width: "100%" }}>
                         {/* info about the reservation */}
 
-                        <button type="button" onClick={handleRequestRemoval}>
+                        <button
+                           type="button"
+                           onClick={() => {
+                              setCancelReason('');
+                              setIsCancelOpen(true);
+                           }}
+                           >
                            Request to be removed
-                        </button>
+                           </button>
                         <button type="button" onClick={handleCloseReservationInfoModal}>
                            OK
                         </button>
@@ -678,6 +706,26 @@ function StaffProfile() {
             </div>
          </div>
          {reservationMessage ? <p className="profile-value">{reservationMessage}</p> : null}
+         <Dialog open={isCancelOpen} onClose={() => {}} className="add-item-dialog">
+            <div className="add-item-dialog-backdrop" />
+            <div className="add-item-dialog-container">
+               <DialogPanel className="add-item-dialog-panel">
+                  <DialogTitle className="add-item-header">Request Removal</DialogTitle>
+
+                  <textarea
+                  placeholder="Enter reason..."
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  className="add-item-name-input"
+                  />
+
+                  <div className="button-group">
+                  <button onClick={handleRequestRemoval}>Submit</button>
+                  <button onClick={() => setIsCancelOpen(false)}>Close</button>
+                  </div>
+               </DialogPanel>
+            </div>
+         </Dialog>
       </>
    );
 }

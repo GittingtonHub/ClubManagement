@@ -25,6 +25,9 @@ function UsersUI() {
   const [roleOptions, setRoleOptions] = useState([]);
   const [roleUpdateByUserId, setRoleUpdateByUserId] = useState({});
   const [referenceNowMs] = useState(() => Date.now());
+  const [isRemoveOpen, setIsRemoveOpen] = useState(false);
+  const [removeUserId, setRemoveUserId] = useState(null);
+  const [removeReason, setRemoveReason] = useState('');
 
   const safeUsers = Array.isArray(users) ? users : [];
   const safeReservations = Array.isArray(reservations) ? reservations : [];
@@ -309,9 +312,10 @@ function UsersUI() {
             <th>Total Reservations</th>
             <th>Past Reservations</th>
             <th>Upcoming Reservations</th>
+            <th>Actions</th>
           </tr>
 
-          {safeUsers.map((user, index) => {
+          {safeUsers.filter(u => !u.removed).map((user, index) => {
             const userMetrics = reservationMetricsByUser.get(String(user.id)) ?? {
               total: 0,
               past: 0,
@@ -340,7 +344,21 @@ function UsersUI() {
                 <td>{userMetrics.total}</td>
                 <td>{userMetrics.past}</td>
                 <td>{userMetrics.upcoming}</td>
-              </tr>
+
+                <td>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRemoveUserId(user.id);
+                      setRemoveReason('');
+                      setIsRemoveOpen(true);
+                    }}
+                  >
+                    Remove
+                  </button>
+                </td>
+
+                </tr>
             );
           })}
         </table>
@@ -348,72 +366,141 @@ function UsersUI() {
       <button type="submit">Submit</button> */}
           </form>
 
-        <Dialog open={isAddUserOpen} onClose={() => {}} className="add-item-dialog">
-          <div className="add-item-dialog-backdrop" aria-hidden="true" />
-          <div className="add-item-dialog-container">
-            <DialogPanel className="add-item-dialog-panel">
-              <DialogTitle className="add-item-header">Add New User</DialogTitle>
-              <div className="inner-add-item-container">
-                <input
-                  type="email"
-                  placeholder="Email"
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    if (emailError) validateEmail(e.target.value);
-                  }}
-                  onBlur={() => validateEmail(email)}
-                  className="add-item-name-input"
-                  maxLength={255}
-                  style={{
-                    border: emailError ? '2px solid red' : '1px solid rgba(0, 0, 0, 0.2)'
-                  }}
-                />
-                {emailError && <span style={{ color: 'red', fontSize: '14px' }}>{emailError}</span>}
-
-                <input
-                  type="password"
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    if (passwordError) validatePassword(e.target.value);
-                  }}
-                  onBlur={() => validatePassword(password)}
-                  className="add-item-type-input"
-                  style={{
-                    border: passwordError ? '2px solid red' : '1px solid rgba(0, 0, 0, 0.2)'
-                  }}
-                />
-                {passwordError && <span style={{ color: 'red', fontSize: '14px' }}>{passwordError}</span>}
-
-                <div className="button-group">
-                  <button 
-                    onClick={() => {
-                      handleAddUser()
+          <Dialog open={isAddUserOpen} onClose={() => {}} className="add-item-dialog">
+            <div className="add-item-dialog-backdrop" aria-hidden="true" />
+            <div className="add-item-dialog-container">
+              <DialogPanel className="add-item-dialog-panel">
+                <DialogTitle className="add-item-header">Add New User</DialogTitle>
+                <div className="inner-add-item-container">
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (emailError) validateEmail(e.target.value);
                     }}
-                    className="inline"
-                  >
-                    Add User
-                  </button>
-                  <button 
-                    onClick={() => {
-                      setIsAddUserOpen(false);
+                    onBlur={() => validateEmail(email)}
+                    className="add-item-name-input"
+                    maxLength={255}
+                    style={{
+                      border: emailError ? '2px solid red' : '1px solid rgba(0, 0, 0, 0.2)'
                     }}
-                    className="inline"
-                  >
-                    Cancel
-                  </button>
+                  />
+                  {emailError && <span style={{ color: 'red', fontSize: '14px' }}>{emailError}</span>}
+
+                  <input
+                    type="password"
+                    placeholder="Password"
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (passwordError) validatePassword(e.target.value);
+                    }}
+                    onBlur={() => validatePassword(password)}
+                    className="add-item-type-input"
+                    style={{
+                      border: passwordError ? '2px solid red' : '1px solid rgba(0, 0, 0, 0.2)'
+                    }}
+                  />
+                  {passwordError && <span style={{ color: 'red', fontSize: '14px' }}>{passwordError}</span>}
+
+                  <div className="button-group">
+                    <button 
+                      onClick={() => {
+                        handleAddUser()
+                      }}
+                      className="inline"
+                    >
+                      Add User
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setIsAddUserOpen(false);
+                      }}
+                      className="inline"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </DialogPanel>
+              </DialogPanel>
+            </div>
+          </Dialog>
+
+          {/* NEW REMOVE USER MODAL */}
+          <Dialog open={isRemoveOpen} onClose={() => setIsRemoveOpen(false)} className="add-item-dialog">
+            <div className="add-item-dialog-backdrop" aria-hidden="true" />
+            <div className="add-item-dialog-container">
+              <DialogPanel className="add-item-dialog-panel">
+                <DialogTitle className="add-item-header">Remove User</DialogTitle>
+
+                <div className="inner-add-item-container">
+                  <textarea
+                    placeholder="Enter reason..."
+                    value={removeReason}
+                    onChange={(e) => setRemoveReason(e.target.value)}
+                    className="add-item-name-input"
+                  />
+
+                  <div className="button-group">
+                    <button
+                      onClick={async () => {
+                        if (!removeReason.trim()) {
+                          alert("Reason required");
+                          return;
+                        }
+
+                        try {
+                          const res = await fetch('/api/delete_user.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                              id: removeUserId,
+                              reason: removeReason
+                            })
+                          });
+
+                          const data = await res.json();
+
+                          if (!res.ok || !data.success) {
+                            alert(data.message || "Failed to remove user.");
+                            return;
+                          }
+
+                          setUsers(prev =>
+                            prev.map(u =>
+                              u.id === removeUserId ? { ...u, removed: 1 } : u
+                            )
+                          );
+                          setIsRemoveOpen(false);
+
+                        } catch (err) {
+                          console.error(err);
+                          alert("Error removing user.");
+                        }
+                      }}
+                      className="inline"
+                    >
+                      Remove
+                    </button>
+
+                    <button 
+                      onClick={() => setIsRemoveOpen(false)}
+                      className="inline"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </DialogPanel>
+            </div>
+          </Dialog>
+
           </div>
-        </Dialog>
-
-      </div>
-    </>
-    
-  );
-}
-
-export default UsersUI;
+        </>
+      );
+    }
+        
+    export default UsersUI;          

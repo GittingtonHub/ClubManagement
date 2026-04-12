@@ -507,6 +507,7 @@ const onTimeRangeSelected = async (args) => {
 
         const eventsJson = await eventsResponse.json();
         const eventsData = Array.isArray(eventsJson) ? eventsJson : [];
+        console.log("EVENTS DATA:", eventsData);
 
         const [resourcesResponse, sectionsResponse, ticketEventsResponse, staffResponse, availabilityResponse] = await Promise.all([
           fetch('/api/inventory.php', { credentials: 'include' }),
@@ -674,6 +675,7 @@ const onTimeRangeSelected = async (args) => {
         const seenReservationIds = new Set();
         const duplicateReservationIds = new Set();
         const formattedEvents = eventsData.reduce((acc, e, index) => {
+          if (e?.status === 'cancelled' || e?.removed === 1) return acc;
           // Ticket reservations are now rendered as event cards, not scheduler bars.
           if (ticketResourceIds.has(String(e?.resource_id))) {
             return acc;
