@@ -6,10 +6,16 @@ import CancellationAnalytics from "./CancellationAnalytics";
 function Analytics() {
    return(
       <div className="analytics-container">
-         <UserAnalytics />
-         <ClubEventAnalytics />
-         <TopThreeAnalytics />
-         <CancellationAnalytics />
+         <div className="analytics-top"> 
+            <TopThreeAnalytics />
+         </div>
+         <div className="analytics-middle"> 
+            <ClubEventAnalytics />
+            <CancellationAnalytics />
+         </div>
+         <div className="analytics-bottom"> 
+            <UserAnalytics />
+         </div>
       </div>
    );
 }

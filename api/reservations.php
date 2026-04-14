@@ -13,7 +13,7 @@ header('Content-Type: application/json');
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
-include_once 'api.php'; 
+include_once 'api.php';
 include_once 'email_notifications.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
@@ -35,7 +35,8 @@ if (!isset($_SESSION['user']) || !isset($_SESSION['user_id'])) {
 $current_user_id = $_SESSION['user_id'];
 $sessionRole = $_SESSION['user']['role'] ?? ($_SESSION['user']['privilege'] ?? 'user');
 
-function normalize_ticket_tier_value($tier): ?string {
+function normalize_ticket_tier_value($tier): ?string
+{
     $normalized = strtoupper(trim((string)$tier));
     if ($normalized === 'GA' || $normalized === 'VIP') {
         return $normalized;
@@ -43,7 +44,8 @@ function normalize_ticket_tier_value($tier): ?string {
     return null;
 }
 
-function ticket_reservations_has_column(PDO $conn, string $columnName): bool {
+function ticket_reservations_has_column(PDO $conn, string $columnName): bool
+{
     static $columnCache = null;
 
     if ($columnCache === null) {
@@ -58,7 +60,8 @@ function ticket_reservations_has_column(PDO $conn, string $columnName): bool {
     return in_array($columnName, $columnCache, true);
 }
 
-function resolve_ticket_for_event(PDO $conn, $eventId, $ticketTier): ?array {
+function resolve_ticket_for_event(PDO $conn, $eventId, $ticketTier): ?array
+{
     $normalizedTier = normalize_ticket_tier_value($ticketTier);
     if (!$eventId || !$normalizedTier) {
         return null;
@@ -86,13 +89,15 @@ function resolve_ticket_for_event(PDO $conn, $eventId, $ticketTier): ?array {
     }
 }
 
-function table_exists(PDO $conn, string $tableName): bool {
+function table_exists(PDO $conn, string $tableName): bool
+{
     $stmt = $conn->prepare('SHOW TABLES LIKE :table_name');
     $stmt->execute([':table_name' => $tableName]);
     return (bool)$stmt->fetchColumn();
 }
 
-function get_existing_table_name(PDO $conn, array $candidates): ?string {
+function get_existing_table_name(PDO $conn, array $candidates): ?string
+{
     foreach ($candidates as $candidate) {
         if (table_exists($conn, $candidate)) {
             return $candidate;
@@ -101,7 +106,8 @@ function get_existing_table_name(PDO $conn, array $candidates): ?string {
     return null;
 }
 
-function get_assigned_event_staff_ids(PDO $conn, int $eventId): array {
+function get_assigned_event_staff_ids(PDO $conn, int $eventId): array
+{
     if ($eventId <= 0) {
         return [];
     }
@@ -146,7 +152,7 @@ if ($method === 'GET') {
             FROM ReservationStaff
             GROUP BY reservation_id
         ) rs ON r.reservation_id = rs.reservation_id";
-        
+
         if ($sessionRole === 'staff') {
             $sql .= " WHERE EXISTS (
                         SELECT 1
@@ -160,7 +166,7 @@ if ($method === 'GET') {
 
         $sql .= " ORDER BY r.start_time ASC";
         $stmt = $conn->prepare($sql);
-        
+
         if ($sessionRole !== 'admin') {
             $stmt->bindParam(':uid', $current_user_id);
         }
@@ -169,11 +175,10 @@ if ($method === 'GET') {
         $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         echo json_encode($data);
-
     } catch (PDOException $e) {
         http_response_code(500);
         echo json_encode([
-            'success' => false, 
+            'success' => false,
             'message' => 'Unable to retrieve reservations.'
         ]);
     }
@@ -190,12 +195,12 @@ if ($method === 'POST') {
     }
 
     if ($sessionRole === 'admin') {
-        $user_id = $input['user_id'] ?? $_SESSION['user_id']; 
+        $user_id = $input['user_id'] ?? $_SESSION['user_id'];
     } else {
-        $user_id = $_SESSION['user_id'] ?? null; 
+        $user_id = $_SESSION['user_id'] ?? null;
     }
-    
-    $resource_id = $input['resource_id'] ?? null; 
+
+    $resource_id = $input['resource_id'] ?? null;
     $service_type = $input['service_type'] ?? null;
     $start_time = $input['start_time'] ?? null;
     $end_time = $input['end_time'] ?? null;
@@ -210,57 +215,55 @@ if ($method === 'POST') {
     if (!$user_id || !$resource_id || !$start_time || !$end_time) {
         http_response_code(400);
         echo json_encode([
-            'success' => false, 
+            'success' => false,
             'message' => 'You must be logged in to make a reservation.'
         ]);
         exit;
     }
-  
+
     // Ensure resource exists and service_type (if provided) matches resource name
     $resourceStmt = $conn->prepare("SELECT name, type, price FROM resources WHERE id = :rid And removed =0");
     $resourceStmt->execute([':rid' => $resource_id]);
     $resource = $resourceStmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$resource) {
-      http_response_code(400);
-      echo json_encode(['success' => false, 'message' => 'Invalid resource_id.']);
-      exit;
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Invalid resource_id.']);
+        exit;
     }
 
     // service_type defaults to resource name; if provided must match
     if (empty($service_type)) {
-      $service_type = $resource['name'];
+        $service_type = $resource['name'];
     } elseif ($service_type !== $resource['name']) {
-      http_response_code(400);
-      echo json_encode(['success' => false, 'message' => 'service_type must match resource name.']);
-      exit;
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'service_type must match resource name.']);
+        exit;
     }
 
     // Validate timestamps only if provided
     if (!empty($start_time) || !empty($end_time)) {
-      $timestampStart = strtotime($start_time ?? '');
-      $timestampEnd   = strtotime($end_time ?? '');
+        $timestampStart = strtotime($start_time ?? '');
+        $timestampEnd   = strtotime($end_time ?? '');
 
-      if (!$timestampStart || !$timestampEnd) {
-          http_response_code(400);
-          echo json_encode(['success' => false, 'message' => 'If provided, start_time and end_time must both be valid.']);
-          exit;
-      }
+        if (!$timestampStart || !$timestampEnd) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'If provided, start_time and end_time must both be valid.']);
+            exit;
+        }
 
-      if ($timestampStart >= $timestampEnd) {
-          http_response_code(400);
-          echo json_encode(['success' => false, 'message' => 'start_time must be before end_time.']);
-          exit;
-      }
+        if ($timestampStart >= $timestampEnd) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'start_time must be before end_time.']);
+            exit;
+        }
 
-      // just in case someone tries to bypass frontend validation, we also prevent for past times here
-      if ($timestampStart < time()) {
-          http_response_code(400);
-          echo json_encode(['success' => false, 'message' => 'Reservations cannot be made in the past.']);
-          exit;
-      }
-
-
+        // just in case someone tries to bypass frontend validation, we also prevent for past times here
+        if ($timestampStart < time()) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Reservations cannot be made in the past.']);
+            exit;
+        }
     }
 
 
@@ -279,7 +282,7 @@ if ($method === 'POST') {
         $resourceTypeNormalized = strtolower(trim((string)($resource['type'] ?? '')));
         $resourceNameNormalized = strtolower(trim((string)($resource['name'] ?? '')));
         $isTicketResource = $resourceTypeNormalized === 'event_ticket' || strpos($resourceNameNormalized, 'event ticket') !== false;
-        
+
         // --- CONFLICT CHECK ---
         // Tickets are non-exclusive inventory (many reservations can share the same event window).
         // Keep exclusivity checks for non-ticket resources (e.g., bottle/open bar slots).
@@ -288,7 +291,7 @@ if ($method === 'POST') {
                          WHERE resource_id = :rid 
                          AND status != 'cancelled'
                          AND NOT (end_time <= :start OR start_time >= :end)";
-            
+
             $checkStmt = $conn->prepare($checkSql);
             $checkStmt->execute([
                 ':rid' => $resource_id,
@@ -311,7 +314,7 @@ if ($method === 'POST') {
         $resource_name = $resource['name'];
         $resource_Type = $resource['type'];
         $resolved_ticket_id = null;
-        
+
         if ($resource_Type === 'Bottle Service') {
             if (!$section_number || !$guest_count || !$minimum_spend) {
                 $conn->rollBack();
@@ -328,7 +331,7 @@ if ($method === 'POST') {
                 exit;
             }
         }
-        
+
         $insertSql = "INSERT INTO reservations (user_id, resource_id, service_type, status, start_time, end_time)
                       VALUES (:uid, :rid, :service, 'pending', :start, :end)";
         $insertStmt = $conn->prepare($insertSql);
@@ -342,7 +345,7 @@ if ($method === 'POST') {
 
         $reservation_id = $conn->lastInsertId();
 
-                // --- FLOW 1: USER 10-MIN WARNING (DB RECORD) ---
+        // --- FLOW 1: USER 10-MIN WARNING (DB RECORD) ---
         $notify_at = date('Y-m-d H:i:s', strtotime($start_time . ' -10 minutes'));
 
         $userNotifSql = "INSERT INTO user_notifications (user_id, reservation_id, notify_at) 
@@ -580,7 +583,6 @@ if ($method === 'POST') {
             'assigned_staff' => $assignedStaffDetails,
             'email_dispatch' => $emailDispatch
         ]);
-
     } catch (PDOException $e) {
         if ($conn->inTransaction()) {
             $conn->rollBack();
@@ -600,13 +602,13 @@ if ($method === 'PUT') {
     $input = json_decode(file_get_contents('php://input'), true);
 
     $reservation_id = $input['reservation_id'] ?? null;
-    
+
     if ($sessionRole === 'admin') {
-        $user_id = $input['user_id'] ?? $_SESSION['user_id']; 
+        $user_id = $input['user_id'] ?? $_SESSION['user_id'];
     } else {
-        $user_id = $_SESSION['user_id'] ?? null; 
+        $user_id = $_SESSION['user_id'] ?? null;
     }
-    
+
     $resource_id = $input['resource_id'] ?? null;
     $service_type = $input['service_type'] ?? null;
     $status = $input['status'] ?? null;
@@ -649,7 +651,7 @@ if ($method === 'PUT') {
         $existsStmt = $conn->prepare("SELECT user_id, reservation_id FROM reservations WHERE reservation_id = :reservation_id");
         $existsStmt->execute([':reservation_id' => $reservation_id]);
         $existingRes = $existsStmt->fetch(PDO::FETCH_ASSOC);
-        
+
         if (!$existingRes) {
             $conn->rollBack();
             http_response_code(404);
@@ -668,7 +670,7 @@ if ($method === 'PUT') {
         $resourceStmt = $conn->prepare("SELECT name, type, price FROM resources WHERE id = :rid AND removed = 0");
         $resourceStmt->execute([':rid' => $resource_id]);
         $resource = $resourceStmt->fetch(PDO::FETCH_ASSOC);
-        
+
         if (!$resource) {
             $conn->rollBack();
             http_response_code(400);
@@ -733,7 +735,7 @@ if ($method === 'PUT') {
 
         // Keep the user reminder in sync when reservation details change.
         $conn->prepare("DELETE FROM user_notifications WHERE reservation_id = :rid")
-             ->execute([':rid' => $reservation_id]);
+            ->execute([':rid' => $reservation_id]);
         if (strtolower((string)$status) !== 'cancelled') {
             $notify_at = date('Y-m-d H:i:s', strtotime($start_time . ' -10 minutes'));
             $userNotifSql = "INSERT INTO user_notifications (user_id, reservation_id, notify_at)
@@ -748,7 +750,7 @@ if ($method === 'PUT') {
 
         $resource_Type = $resource['type'];
         $resource_name = $resource['name'];
-        
+
         if ($resource_Type === 'Bottle Service') {
             if (!$section_number || !$guest_count || !$minimum_spend) {
                 $conn->rollBack();
@@ -757,15 +759,15 @@ if ($method === 'PUT') {
                 exit;
             }
 
-            $required_minimum = $resource['price']; 
-            
+            $required_minimum = $resource['price'];
+
             if ($minimum_spend < $required_minimum) {
                 $conn->rollBack();
                 http_response_code(400);
                 echo json_encode(['success' => false, 'message' => "The minimum spend for " . $resource['name'] . " is $" . $required_minimum . "."]);
                 exit;
             }
-            
+
             // Handle updates or inserts for bottle service
             $childSql = "INSERT INTO bottle_service (reservation_id, section_number, guest_count, minimum_spend)
                          VALUES (:rid, :section, :guests, :min_spend)
@@ -780,10 +782,9 @@ if ($method === 'PUT') {
                 ':guests' => $guest_count,
                 ':min_spend' => $minimum_spend
             ]);
-            
+
             $conn->prepare("DELETE FROM ticket_reservations WHERE reservation_id = :rid")
-                 ->execute([':rid' => $reservation_id]);
-                 
+                ->execute([':rid' => $reservation_id]);
         } elseif ($resource_name === 'Event Ticket GA' || $resource_name === 'Event Ticket VIP') {
             if (!$event_id || !$ticket_tier || !$quantity) {
                 $conn->rollBack();
@@ -871,12 +872,12 @@ if ($method === 'PUT') {
             }
 
             $conn->prepare("DELETE FROM bottle_service WHERE reservation_id = :rid")
-                 ->execute([':rid' => $reservation_id]);
+                ->execute([':rid' => $reservation_id]);
         }
 
 
         $conn->prepare("DELETE FROM ReservationStaff WHERE reservation_id = :rid")
-             ->execute([':rid' => $reservation_id]);
+            ->execute([':rid' => $reservation_id]);
 
         $assigned_staff_ids = [];
 
@@ -919,7 +920,7 @@ if ($method === 'PUT') {
                     )
                     LIMIT 1
                 ";
-                
+
                 $staffStmt = $conn->prepare($findStaffSql);
                 $staffStmt->execute([
                     ':role' => $role,
@@ -929,7 +930,7 @@ if ($method === 'PUT') {
                     ':start_time_check' => $start_time,
                     ':end_time_check' => $end_time
                 ]);
-                
+
                 $available_staff = $staffStmt->fetch(PDO::FETCH_ASSOC);
 
                 if (!$available_staff) {
@@ -998,7 +999,7 @@ if ($method === 'DELETE') {
         $existsStmt = $conn->prepare("SELECT user_id FROM reservations WHERE reservation_id = :reservation_id");
         $existsStmt->execute([':reservation_id' => $reservation_id]);
         $existingRes = $existsStmt->fetch(PDO::FETCH_ASSOC);
-        
+
         if (!$existingRes) {
             $conn->rollBack();
             http_response_code(404);

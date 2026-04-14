@@ -69,22 +69,7 @@
         echo json_encode(['success' => false, 'message' => 'Forbidden: Admins only.']);
         exit;
     }
-
-    if ($method === 'GET') {
-        try {
-            $roleColumns = getRoleColumnsInfo($conn);
-            $availableRoles = getAvailableRolesFromDatabase($conn, $roleColumns);
-
-            echo json_encode([
-                'success' => true,
-                'roles' => $availableRoles
-            ]);
-        } catch (PDOException $e) {
-            http_response_code(500);
-            echo json_encode(['success' => false, 'message' => 'Database error fetching roles.']);
-        }
-        exit;
-    }
+    exit;
 
     if ($method === 'PUT') {
         $input = json_decode(file_get_contents('php://input'), true);
