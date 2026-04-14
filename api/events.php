@@ -91,11 +91,17 @@ function get_events_column_map(PDO $conn): ?array
         'start_time' => pick_column($columns, ['start_time', 'start', 'start_at']),
         'end_time' => pick_column($columns, ['end_time', 'end', 'end_at']),
         'qty_tickets' => pick_column($columns, ['qty_tickets', 'ticket_qty', 'quantity', 'tickets_qty']),
-        'performer' => pick_column($columns, ['performer', 'performer_name', 'artist'])
+        'performer' => pick_column($columns, ['performer', 'performer_name', 'artist']),
+        'status' => pick_column($columns, ['status']),
+        'removed' => pick_column($columns, ['removed', 'is_removed', 'deleted']),
+        'cancellation_reason' => pick_column($columns, ['cancellation_reason', 'cancel_reason']),
+        'cancelled_by_user_id' => pick_column($columns, ['cancelled_by_user_id', 'cancelled_by']),
+        'removed_by_user_id' => pick_column($columns, ['removed_by_user_id', 'removed_by'])
     ];
 
-    foreach ($map as $column) {
-        if ($column === null) {
+    $required = ['event_id', 'event_title', 'description', 'start_time', 'end_time', 'qty_tickets', 'performer'];
+    foreach ($required as $requiredKey) {
+        if ($map[$requiredKey] === null) {
             return null;
         }
     }
@@ -766,6 +772,7 @@ if ($method === 'DELETE') {
     $cancel_reason = trim($_GET['reason'] ?? '');
     $eventIdCol = quote_identifier($eventMap['event_id']);
     $startTimeCol = quote_identifier($eventMap['start_time']);
+    $startTimeField = $eventMap['start_time'];
 
     $checkStmt = $conn->prepare("SELECT e.{$eventIdCol}, e.{$startTimeCol} FROM events e WHERE e.{$eventIdCol} = :event_id AND e.removed = 0");
     $checkStmt->execute([':event_id' => $_GET['id']]);
@@ -782,7 +789,7 @@ if ($method === 'DELETE') {
     }
 
     // CHECK if the event is from the past
-    if (strtotime($existingEvent[$startTimeCol]) < time()) {
+    if (strtotime($existingEvent[$startTimeField] ?? '') < time()) {
         http_response_code(400);
         echo json_encode([
             'success' => false,
@@ -804,7 +811,7 @@ if ($method === 'DELETE') {
             exit;
         }
         $staffCheck = $conn->prepare("
-                Select 1 from {$eventStaffTable}' es
+                Select 1 from {$eventStaffTable} es
                 JOIN staff s ON es.staff_id = s.id
                 WHERE es.event_id = :event_id AND s.id = :staff_id AND s.removed = 0  
             ");
@@ -841,21 +848,42 @@ if ($method === 'DELETE') {
         $eventIdCol = quote_identifier($eventMap['event_id']);
 
         // UPDATE the event instead of deleting it
+        $setParts = [];
+        $updateParams = [
+            ':event_id' => $eventId
+        ];
+
+        if (!empty($eventMap['status'])) {
+            $setParts[] = quote_identifier($eventMap['status']) . " = 'cancelled'";
+        }
+        if (!empty($eventMap['removed'])) {
+            $setParts[] = quote_identifier($eventMap['removed']) . " = 1";
+        }
+        if (!empty($eventMap['cancelled_by_user_id'])) {
+            $setParts[] = quote_identifier($eventMap['cancelled_by_user_id']) . " = :by";
+            $updateParams[':by'] = $cancelled_by;
+        }
+        if (!empty($eventMap['removed_by_user_id'])) {
+            $setParts[] = quote_identifier($eventMap['removed_by_user_id']) . " = :removed_by";
+            $updateParams[':removed_by'] = $cancelled_by;
+        }
+        if (!empty($eventMap['cancellation_reason'])) {
+            $setParts[] = quote_identifier($eventMap['cancellation_reason']) . " = :reason";
+            $updateParams[':reason'] = $cancel_reason;
+        }
+
+        if (empty($setParts)) {
+            throw new PDOException('No cancellation-compatible columns found on events table.');
+        }
+
         $updateEventSql = "
                 UPDATE events 
-                SET status = 'cancelled', 
-                    removed = 1, 
-                    cancelled_by = :by, 
-                    cancellation_reason = :reason 
+                SET " . implode(", ", $setParts) . "
                 WHERE {$eventIdCol} = :event_id
             ";
 
         $updateEventStmt = $conn->prepare($updateEventSql);
-        $updateEventStmt->execute([
-            ':by' => $cancelled_by,
-            ':reason' => $cancel_reason,
-            ':event_id' => $eventId
-        ]);
+        $updateEventStmt->execute($updateParams);
 
         if ($updateEventStmt->rowCount() === 0) {
             $conn->rollBack();
@@ -876,6 +904,7 @@ if ($method === 'DELETE') {
         if ($conn->inTransaction()) {
             $conn->rollBack();
         }
+        error_log('Event cancellation failed: ' . $e->getMessage());
 
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => 'Unable to cancel event.']);
