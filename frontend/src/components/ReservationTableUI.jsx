@@ -34,15 +34,22 @@ function ReservationTableUI() {
   const fetchFormOptions = useCallback(async () => {
     try {
       const [resourcesResponse, sectionsResponse, eventsResponse] = await Promise.all([
-        fetch(`/api/resources.php`),
-        fetch(`/api/table_section.php`),
-        fetch(`/api/events.php`),
-        fetch(`/api/reservations.php`)
+        fetch('/api/resources.php', { credentials: 'include' }),
+        fetch('/api/sections.php', { credentials: 'include' }),
+        fetch('/api/events.php', { credentials: 'include' })
       ]);
 
-      const resourcesJson = await resourcesResponse.json();
-      const sectionsJson = await sectionsResponse.json();
-      const eventsJson = await eventsResponse.json();
+      if (!resourcesResponse.ok || !sectionsResponse.ok || !eventsResponse.ok) {
+        throw new Error(
+          `Form options request failed (resources=${resourcesResponse.status}, sections=${sectionsResponse.status}, events=${eventsResponse.status})`
+        );
+      }
+
+      const [resourcesJson, sectionsJson, eventsJson] = await Promise.all([
+        resourcesResponse.json().catch(() => []),
+        sectionsResponse.json().catch(() => []),
+        eventsResponse.json().catch(() => [])
+      ]);
 
       const resourcesData = Array.isArray(resourcesJson) ? resourcesJson : [];
       const sectionsData = Array.isArray(sectionsJson) ? sectionsJson : [];
