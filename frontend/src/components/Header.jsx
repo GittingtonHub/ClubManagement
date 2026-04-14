@@ -10,7 +10,11 @@ function Header() {
   const userRole = user?.role || localStorage.getItem('userRole');
 
   const handleShowProfile = () => {
-    navigate('/profile');
+    if (isAuthenticated)
+    {
+     navigate('/profile');
+    }
+
   };
 
   const handleAuthClick = () => {
