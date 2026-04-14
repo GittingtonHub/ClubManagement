@@ -62,7 +62,7 @@
     }
 
     session_start();
-    // 🔒 SECURITY: Must be logged in AND be an admin
+    // SECURITY: Must be logged in AND be an admin
     $sessionRole = $_SESSION['user']['role'] ?? ($_SESSION['user']['privilege'] ?? 'user');
     if (!isset($_SESSION['user_id']) || $sessionRole !== 'admin') {
         http_response_code(403);
@@ -86,7 +86,7 @@
                 echo json_encode(['success' => false, 'message' => 'Invalid user or role.']);
                 exit;
             }
-
+            //
             // Just update the user privilege
             $updateParts = [];
             if (array_key_exists('privilege', $roleColumns)) $updateParts[] = "privilege = :role";
