@@ -20,42 +20,31 @@ function table_exists(PDO $conn, string $tableName): bool
     return (bool)$stmt->fetchColumn();
 }
 
-function get_existing_table_name(PDO $conn, array $candidates): ?string
-{
-    foreach ($candidates as $candidate) {
-        if (table_exists($conn, $candidate)) {
-            return $candidate;
-        }
+    function table_exists(PDO $conn, string $tableName): bool {
+        $stmt = $conn->prepare('SHOW TABLES LIKE :table_name');
+        $stmt->execute([':table_name' => $tableName]);
+        return (bool)$stmt->fetchColumn();
     }
-    return null;
-}
 
-function get_table_columns(PDO $conn, string $tableName): array
-{
-    $stmt = $conn->query("DESCRIBE `{$tableName}`");
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    return array_map(static fn($row) => $row['Field'], $rows);
-}
-
-function pick_column(array $columns, array $candidates): ?string
-{
-    foreach ($candidates as $candidate) {
-        if (in_array($candidate, $columns, true)) {
-            return $candidate;
+    function get_existing_table_name(PDO $conn, array $candidates): ?string {
+        foreach ($candidates as $candidate) {
+            if (table_exists($conn, $candidate)) {
+                return $candidate;
+            }
         }
+        return null;
     }
 
         return null;
     }
 
-function quote_identifier(string $identifier): string
-{
-    return '`' . str_replace('`', '``', $identifier) . '`';
-}
+    function pick_column(array $columns, array $candidates): ?string {
+        foreach ($candidates as $candidate) {
+            if (in_array($candidate, $columns, true)) {
+                return $candidate;
+            }
+        }
 
-function normalize_datetime(?string $value): ?string
-{
-    if (!$value) {
         return null;
     }
 
@@ -76,10 +65,7 @@ function format_time_window(?string $startTime, ?string $endTime): string
         return trim(($startTime ?? '') . ' - ' . ($endTime ?? ''));
     }
 
-function get_events_column_map(PDO $conn): ?array
-{
-    if (!table_exists($conn, 'events')) {
-        return null;
+        return date('Y-m-d H:i:s', $timestamp);
     }
 
         $columns = get_table_columns($conn, 'events');
@@ -103,11 +89,7 @@ function get_events_column_map(PDO $conn): ?array
         return $map;
     }
 
-function get_event_staff_column_map(PDO $conn): ?array
-{
-    $eventStaffTable = get_existing_table_name($conn, ['event_staff', 'EventStaff']);
-    if ($eventStaffTable === null || !table_exists($conn, 'staff')) {
-        return null;
+        return $map;
     }
 
         $eventStaffColumns = get_table_columns($conn, $eventStaffTable);
@@ -225,10 +207,7 @@ function get_resources_column_map(PDO $conn): ?array
         return $map;
     }
 
-function get_tickets_column_map(PDO $conn): ?array
-{
-    if (!table_exists($conn, 'tickets')) {
-        return null;
+        return $map;
     }
 
         $columns = get_table_columns($conn, 'tickets');
@@ -246,12 +225,13 @@ function get_tickets_column_map(PDO $conn): ?array
         return $map;
     }
 
-function replace_event_ticket_rows(PDO $conn, int $eventId, float $gaTicketPrice, float $vipTicketPrice): void
-{
-    $ticketsMap = get_tickets_column_map($conn);
-    if ($ticketsMap === null) {
-        return;
-    }
+        $ticketEventIdColumn = quote_identifier($ticketsMap['event_id']);
+        $ticketPriceColumn = quote_identifier($ticketsMap['price']);
+        $ticketTierColumn = $ticketsMap['tier'] ? quote_identifier($ticketsMap['tier']) : null;
+
+        $deleteSql = sprintf('DELETE FROM tickets WHERE %s = :event_id', $ticketEventIdColumn);
+        $deleteStmt = $conn->prepare($deleteSql);
+        $deleteStmt->execute([':event_id' => $eventId]);
 
         $ticketEventIdColumn = quote_identifier($ticketsMap['event_id']);
         $ticketPriceColumn = quote_identifier($ticketsMap['price']);
@@ -308,9 +288,9 @@ function delete_event_ticket_rows(PDO $conn, int $eventId): void
         $deleteStmt->execute([':event_id' => $eventId]);
     }
 
-function set_event_ticket_resource_prices(PDO $conn, float $gaTicketPrice, float $vipTicketPrice): void
-{
-    $resourcesMap = get_resources_column_map($conn);
+        if ($resourcesMap === null) {
+            return;
+        }
 
         if ($resourcesMap === null) {
             return;
@@ -338,10 +318,30 @@ function set_event_ticket_resource_prices(PDO $conn, float $gaTicketPrice, float
         ]);
     }
 
-function fetch_events(PDO $conn): array
-{
-    $eventMap = get_events_column_map($conn);
-    $ticketsMap = get_tickets_column_map($conn);
+            $ticketJoin = '';
+            $ticketPriceSelect = "NULL AS price, NULL AS ga_ticket_price, NULL AS vip_ticket_price";
+
+            if ($ticketsMap !== null) {
+                $ticketEventId = quote_identifier($ticketsMap['event_id']);
+                $ticketPriceColumn = quote_identifier($ticketsMap['price']);
+                $ticketTierColumn = $ticketsMap['tier'] ? quote_identifier($ticketsMap['tier']) : null;
+
+                $ticketJoin = "LEFT JOIN tickets t ON t.{$ticketEventId} = tr.event_id";
+
+                if ($ticketTierColumn !== null) {
+                    $ticketPriceSelect = "
+                        MIN(t.{$ticketPriceColumn}) AS price,
+                        MAX(CASE WHEN LOWER(TRIM(t.{$ticketTierColumn})) IN ('ga', 'general admission', 'general') THEN t.{$ticketPriceColumn} END) AS ga_ticket_price,
+                        MAX(CASE WHEN LOWER(TRIM(t.{$ticketTierColumn})) IN ('vip', 'v.i.p.') THEN t.{$ticketPriceColumn} END) AS vip_ticket_price
+                    ";
+                } else {
+                    $ticketPriceSelect = "
+                        MIN(t.{$ticketPriceColumn}) AS price,
+                        NULL AS ga_ticket_price,
+                        NULL AS vip_ticket_price
+                    ";
+                }
+            }
 
         if ($eventMap === null) {
             if (!table_exists($conn, 'ticket_reservations')) {
@@ -838,17 +838,19 @@ function fetch_events(PDO $conn): array
         try {
             $conn->beginTransaction();
 
-        $eventIdCol = quote_identifier($eventMap['event_id']);
+            $updateEventStmt = $conn->prepare($updateEventSql);
+            $updateEventStmt->execute([
+                ':by' => $cancelled_by,
+                ':reason' => $cancel_reason,
+                ':event_id' => $eventId
+            ]);
 
-        // UPDATE the event instead of deleting it
-        $updateEventSql = "
-            UPDATE events 
-            SET status = 'cancelled', 
-                removed = 1, 
-                cancelled_by = :by, 
-                cancellation_reason = :reason 
-            WHERE {$eventIdCol} = :event_id
-        ";
+            if ($updateEventStmt->rowCount() === 0) {
+                $conn->rollBack();
+                http_response_code(404);
+                echo json_encode(['success' => false, 'message' => 'Event not found.']);
+                exit;
+            }
 
             $updateEventStmt = $conn->prepare($updateEventSql);
             $updateEventStmt->execute([
