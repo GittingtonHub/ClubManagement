@@ -171,3 +171,26 @@ export const dispatchStaffAssignmentEmails = async ({
 
   return summary;
 };
+
+export const dispatchNamedTemplateEmails = async ({
+  templateType,
+  title,
+  timeWindow,
+  message,
+  recipients
+}) => {
+  // Intentionally reuse the same email dispatch path as assignment emails
+  // so to_email resolution stays identical (env/default config based).
+  const summary = await dispatchStaffAssignmentEmails({
+    templateType,
+    title,
+    timeWindow,
+    message,
+    staffMembers: Array.isArray(recipients) ? recipients : []
+  });
+
+  return {
+    ...summary,
+    trigger: "cancellation_frontend"
+  };
+};

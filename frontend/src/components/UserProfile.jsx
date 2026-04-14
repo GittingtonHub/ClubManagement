@@ -1,6 +1,7 @@
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import { dispatchNamedTemplateEmails } from "../lib/emailDispatch";
 
 function UserProfile() {
    const { user } = useAuth();
@@ -18,6 +19,23 @@ function UserProfile() {
    const [isUploadingImage, setIsUploadingImage] = useState(false);
    const [imageUploadError, setImageUploadError] = useState("");
    const [imageUploadMessage, setImageUploadMessage] = useState("");
+
+   const parseStaffIds = (value) => {
+      if (Array.isArray(value)) {
+         return value
+            .map((item) => Number.parseInt(item, 10))
+            .filter(Number.isInteger);
+      }
+
+      if (typeof value === "string" && value.trim() !== "") {
+         return value
+            .split(",")
+            .map((item) => Number.parseInt(item.trim(), 10))
+            .filter(Number.isInteger);
+      }
+
+      return [];
+   };
 
    const hasChanges = bio !== savedBio;
    const username = user?.username || localStorage.getItem("userUsername") || "Unavailable";
@@ -161,6 +179,11 @@ function UserProfile() {
       }
 
       try {
+         const cancelledReservation = reservations.find((reservation) => {
+            const id = reservation?.reservation_id ?? reservation?.id;
+            return String(id) === String(reservationId);
+         });
+
          const response = await fetch(`/api/reservations.php?id=${reservationId}`, {
             method: "DELETE",
             credentials: "include",
@@ -172,6 +195,29 @@ function UserProfile() {
          if (!response.ok) {
             setReservationMessage("Could not cancel reservation");
             return;
+         }
+
+         const staffIds = parseStaffIds(cancelledReservation?.staff_ids);
+         const recipients = staffIds.map((staffId) => ({
+            id: `staff-${staffId}`,
+            name: `Staff #${staffId}`
+         }));
+
+         if (recipients.length > 0) {
+            const actorName =
+               user?.username ||
+               localStorage.getItem("userUsername") ||
+               "User";
+            const serviceType = cancelledReservation?.service_type || "reservation";
+            const timeWindow = `${cancelledReservation?.start_time || ""} - ${cancelledReservation?.end_time || ""}`;
+            const emailSummary = await dispatchNamedTemplateEmails({
+               templateType: "SR-BU",
+               title: `USER Reservation Cancellation #${reservationId}`,
+               timeWindow,
+               message: `Reservation #${reservationId} (${serviceType}) was cancelled by ${actorName} (user).`,
+               recipients
+            });
+            console.info("[EMAIL_TRIGGER_FRONTEND] User reservation cancelled; frontend email dispatch summary:", emailSummary);
          }
 
          setReservations((previousReservations) =>

@@ -2,6 +2,7 @@ import AvailabilityUI from "./AvailabilityUI";
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import { dispatchNamedTemplateEmails } from "../lib/emailDispatch";
 
 function StaffProfile() {
    
@@ -277,6 +278,11 @@ function StaffProfile() {
       if (!selectedReservationId || !cancelReason.trim()) return;
     
       try {
+        const cancelledReservation = reservations.find((reservation) => {
+          const id = reservation?.reservation_id ?? reservation?.id;
+          return String(id) === String(selectedReservationId);
+        });
+
         const response = await fetch(
           `/api/reservations.php?id=${selectedReservationId}&reason=${encodeURIComponent(cancelReason)}`,
           {
@@ -288,6 +294,30 @@ function StaffProfile() {
         if (!response.ok) {
           setReservationMessage("Could not cancel reservation");
           return;
+        }
+
+        const reservationUserId = Number.parseInt(cancelledReservation?.user_id, 10);
+        const recipients = Number.isInteger(reservationUserId)
+          ? [{ id: reservationUserId, name: `User #${reservationUserId}` }]
+          : [];
+
+        if (recipients.length > 0) {
+          const actorName =
+            user?.username ||
+            localStorage.getItem("userUsername") ||
+            "Staff";
+          const serviceType = cancelledReservation?.service_type || "reservation";
+          const timeWindow = `${cancelledReservation?.start_time || ""} - ${cancelledReservation?.end_time || ""}`;
+          const emailSummary = await dispatchNamedTemplateEmails({
+            templateType: "SR-BU",
+            title: `STAFF Reservation Cancellation #${selectedReservationId}`,
+            timeWindow,
+            message:
+              `Reservation #${selectedReservationId} (${serviceType}) was cancelled by ${actorName} (staff). ` +
+              `Reason: ${cancelReason.trim()}`,
+            recipients
+          });
+          console.info("[EMAIL_TRIGGER_FRONTEND] Staff reservation cancellation; frontend email dispatch summary:", emailSummary);
         }
     
         await fetchMyReservations();
