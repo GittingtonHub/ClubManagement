@@ -1,40 +1,43 @@
 import { useCallback, useEffect, useState } from 'react';
 import { DayPilot } from "@daypilot/daypilot-lite-react";
+import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 
 function ReservationTableUI() {
   const [reservations, setReservations] = useState([]);
   const [resources, setResources] = useState([]);
   const [sectionOptions, setSectionOptions] = useState([]);
   const [eventOptions, setEventOptions] = useState([]);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [selectedReservationId, setSelectedReservationId] = useState(null);
 
   const fetchReservations = useCallback(async () => {
-      try {
-        const response = await fetch('/api/reservations.php', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-          }
-        });
-
-        const text = await response.text();
-        if (!text) {
-          setReservations([]);
-          return;
-        }
-
-        const data = JSON.parse(text);
-        setReservations(Array.isArray(data) ? data : []);
-      } catch (error) {
-        console.error('Failed to fetch reservations:', error);
+    try {
+      const response = await fetch('/api/reservations.php', {
+        credentials: 'include'
+      });
+  
+      const text = await response.text();
+      if (!text) {
         setReservations([]);
+        return;
       }
+  
+      const data = JSON.parse(text);
+      setReservations(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Failed to fetch reservations:', error);
+      setReservations([]);
+    }
   }, []);
 
   const fetchFormOptions = useCallback(async () => {
     try {
       const [resourcesResponse, sectionsResponse, eventsResponse] = await Promise.all([
-        fetch('/api/inventory.php'),
-        fetch('/api/sections.php'),
-        fetch('/api/events.php')
+        fetch(`/api/resources.php`),
+        fetch(`/api/table_section.php`),
+        fetch(`/api/events.php`),
+        fetch(`/api/reservations.php`)
       ]);
 
       const resourcesJson = await resourcesResponse.json();
@@ -212,22 +215,39 @@ function ReservationTableUI() {
     return startDate >= entryStartDate && endDate <= entryEndDate;
   };
 
-  const handleDeleteReservation = async (reservationId) => {
-    if (window.confirm('Are you sure you want to cancel this reservation?')) {
-      try {
-        const response = await fetch(`/api/reservations.php?id=${reservationId}&reason=Cancelled by user`, {
-          method: 'DELETE'
-        });
+  const handleDeleteReservation = (reservationId) => {
+    setSelectedReservationId(reservationId);
+    setShowCancelModal(true);
+  };
 
-        if (response.ok) {
-          await fetchReservations();
-          window.dispatchEvent(new Event('reservations:changed'));
-        } else {
-          console.error('Failed to cancel reservation:', response.statusText);
+  const submitCancellation = async () => {
+    console.log("CANCEL CLICKED", selectedReservationId);
+  
+    if (!cancelReason.trim()) {
+      alert('Please provide a cancellation reason.');
+      return;
+    }
+  
+    try {
+      const response = await fetch(
+        `/api/reservations.php?id=${selectedReservationId}&reason=${encodeURIComponent(cancelReason)}`,
+        {
+          method: 'DELETE',
+          credentials: 'include'
         }
-      } catch (error) {
-        console.error('Failed to cancel reservation:', error);
+      );
+  
+      console.log("RESPONSE STATUS:", response.status);
+  
+      if (response.ok) {
+        setShowCancelModal(false);
+        setCancelReason('');
+        setSelectedReservationId(null);
+  
+        window.dispatchEvent(new Event('reservations:changed'));
       }
+    } catch (error) {
+      console.error(error);
     }
   };
 
@@ -243,7 +263,7 @@ function ReservationTableUI() {
     }
 
     try {
-      const response = await fetch('/api/availability.php', {
+      fetch('/api/availability.php', {
         credentials: 'include'
       });
 
@@ -395,6 +415,8 @@ function ReservationTableUI() {
               <th>User ID</th>
               <th>Service Type</th>
               <th>Status</th>
+              <th>Cancelled By</th>
+              <th>Reason</th>
               <th>Start Time</th>
               <th>End Time</th>
               <th>Created At</th>
@@ -410,6 +432,8 @@ function ReservationTableUI() {
                   <td>{reservation.user_id}</td>
                   <td>{reservation.service_type}</td>
                   <td>{reservation.status}</td>
+                  <td>{reservation.cancelled_by_user_id || '—'}</td>
+                  <td>{reservation.cancellation_reason || '—'}</td>
                   <td>{reservation.start_time ? new Date(reservation.start_time).toLocaleString() : ''}</td>
                   <td>{reservation.end_time ? new Date(reservation.end_time).toLocaleString() : ''}</td>
                   <td>{reservation.created_at ? new Date(reservation.created_at).toLocaleString() : ''}</td>
@@ -436,8 +460,38 @@ function ReservationTableUI() {
             })}
           </table>
         )}
-      </div>
-    </>
+            </div>
+
+            <Dialog open={showCancelModal} onClose={() => {}} className="add-item-dialog">
+              <div className="add-item-dialog-backdrop" />
+              <div className="add-item-dialog-container">
+                <DialogPanel className="add-item-dialog-panel">
+                  <DialogTitle className="add-item-header">Cancel Reservation</DialogTitle>
+
+                  <textarea
+                    placeholder="Enter cancellation reason..."
+                    value={cancelReason}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                    className="add-item-name-input"
+                  />
+
+                  <div className="button-group">
+                    <button onClick={submitCancellation}>Confirm Cancel</button>
+                    <button
+                      onClick={() => {
+                        setShowCancelModal(false);
+                        setCancelReason('');
+                        setSelectedReservationId(null);
+                      }}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </DialogPanel>
+              </div>
+            </Dialog>
+
+            </>
   );
 }
 

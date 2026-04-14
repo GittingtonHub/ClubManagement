@@ -21,19 +21,23 @@
         exit;
     }
 
-    $userToDelete = $data['id'];
+    $userToDelete = (int)$data['id'];
+    $currentAdminId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
 
     try {
         // Prevent the admin from accidentally deleting themselves!
-        if ($userToDelete == $_SESSION['user_id']) {
+        if ($currentAdminId !== null && $userToDelete === $currentAdminId) {
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => 'You cannot delete your own admin account.']);
             exit;
         }
 
-        $query = "UPDATE users SET is_deleted = 1 WHERE id = :id";
+        $query = "UPDATE users SET removed = 1, removed_by_user_id = :admin_id WHERE id = :id";
         $stmt = $conn->prepare($query);
-        $stmt->execute([':id' => $userToDelete]);
+        $stmt->execute([
+            ':id' => $userToDelete,
+            ':admin_id' => $currentAdminId
+        ]);
 
         echo json_encode(['success' => true, 'message' => 'User successfully deleted.']);
     } catch (PDOException $e) {
