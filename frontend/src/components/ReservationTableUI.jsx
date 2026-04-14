@@ -212,7 +212,7 @@ function ReservationTableUI() {
     return startDate >= entryStartDate && endDate <= entryEndDate;
   };
 
-  const handleDeleteReservation = async (reservationId) => {
+  const handleDeleteReservation = async (reservationId, start_time, end_time) => {
     if (window.confirm('Are you sure you want to cancel this reservation?')) {
       try {
         const response = await fetch(`/api/reservations.php?id=${reservationId}&reason=Cancelled by user`, {
@@ -220,6 +220,52 @@ function ReservationTableUI() {
         });
 
         if (response.ok) {
+
+          if (localStorage.getItem('userRole' == 'user'))
+          {
+          const assignedStaff = Array.isArray(response?.assigned_staff) ? response.assigned_staff : [];
+      
+          const emailSummary = await dispatchStaffAssignmentEmails({
+            templateType: "SR-BU",
+            title: `User Reservation Cancellation #${reservationId ?? "N/A"}`,
+            timeWindow: `${start_time} - ${end_time}`,
+            message: `The Reservation ${reservationId ?? "N/A"} has been cancelled by ${response?.author}`,
+            staffMembers: assignedStaff
+          });
+          console.info("[EMAIL_TRIGGER_FRONTEND] Reservation created from scheduler; frontend email dispatch summary:", emailSummary);
+            
+          }
+          else if (localStorage.getItem('userRole' == 'staff'))
+          {
+          const arr = [response?.author] //passses exclusively the author
+          const emailSummary = await dispatchStaffAssignmentEmails({
+            templateType: "SR-BU",
+            title: `Staff Reservation Cancellation #${reservationId ?? "N/A"}`,
+            timeWindow: `${start_time} - ${end_time}`,
+            message: `Your reservation  with the ID${reservationId ?? "N/A"} has been cancelled by the Staff.`,
+            staffMembers: arr
+          });
+          console.info("[EMAIL_TRIGGER_FRONTEND] Reservation created from scheduler; frontend email dispatch summary:", emailSummary);
+          }
+          else if (localStorage.getItem('userRole' == 'admin'))
+          {
+          const assignedStaff = Array.isArray(response?.assigned_staff) ? response.assigned_staff : [];
+          assignedStaff.push(response?.author)// adds author to recipients
+          const emailSummary = await dispatchStaffAssignmentEmails({
+            templateType: "SR-BU",
+            title: `Admin Reservation Cancellation #${reservationId ?? "N/A"}`,
+            timeWindow: `${start_time} - ${end_time}`,
+            message: `The reservation ${reservationId ?? "N/A"} has been cancelled by an Admin.`,
+            staffMembers: assignedStaff
+          });
+          console.info("[EMAIL_TRIGGER_FRONTEND] Reservation created from scheduler; frontend email dispatch summary:", emailSummary);
+          }
+
+         
+
+
+
+
           await fetchReservations();
           window.dispatchEvent(new Event('reservations:changed'));
         } else {
@@ -423,7 +469,7 @@ function ReservationTableUI() {
                       </button>
                     <button
                       className="delete-item-button"
-                      onClick={() => handleDeleteReservation(reservationId)}
+                      onClick={() => handleDeleteReservation(reservationId, reservation.start_time, reservation.end_time)}
                       // if user = normal do cancel reservation instead, whatever that means
                       // also change v delete to cancel if that's the case
                     >

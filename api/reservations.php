@@ -939,6 +939,60 @@ if ($method === 'DELETE') {
         $existsStmt->execute([':reservation_id' => $reservation_id]);
         $existingRes = $existsStmt->fetch(PDO::FETCH_ASSOC);
 
+
+        // Get Staff Array 
+        $conn->beginTransaction();
+        $assigned_staff_ids = [];
+        $assigned_staff_ids = get_assigned_event_staff_ids($conn, (int)$event_id);
+        $assignedStaffDetails = [];
+        $emailDispatch = [
+            'trigger' => 'reservation_assignment',
+            'attempted' => 0,
+            'sent' => 0,
+            'failed' => 0,
+            'staff_ids' => []
+        ];
+
+         foreach ($assigned_staff_ids as $staff_id) {
+            $staffDetailsSql = "SELECT id, name, role, user_id FROM staff WHERE id = :sid LIMIT 1";
+            $staffDetailsStmt = $conn->prepare($staffDetailsSql);
+            $staffDetailsStmt->execute([':sid' => $staff_id]);
+            $staffDetails = $staffDetailsStmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$staffDetails) {
+                continue;
+            }
+
+            $assignedStaffDetails[] = [
+                'id' => (int)($staffDetails['id'] ?? 0),
+                'name' => $staffDetails['name'] ?? '',
+                'role' => $staffDetails['role'] ?? '',
+                'user_id' => $staffDetails['user_id'] ?? null
+            ];
+        }
+
+
+        $conn->commit();
+
+        if (!empty($assignedStaffDetails)) {
+            $emailDispatch['staff_ids'] = array_values(array_map(static fn($row) => (int)($row['id'] ?? 0), $assignedStaffDetails));
+            $emailDispatch['attempted'] = count($assignedStaffDetails);
+            // Frontend now sends assignment emails directly after successful create.
+            $emailDispatch['sent'] = 0;
+            $emailDispatch['failed'] = 0;
+            $emailDispatch['delivery_mode'] = 'frontend';
+            log_email_trigger('reservation_assignment_email_backend_skipped', [
+                'reservation_id' => (int)$reservation_id,
+                'staff_ids' => $emailDispatch['staff_ids'],
+                'attempted' => $emailDispatch['attempted'],
+                'delivery_mode' => 'frontend'
+            ]);
+        }
+
+
+        // Get Event Owner
+         $author = $conn->query("SELECT user_id FROM reservations WHERE reservation_id = :reservation_id");
+
         if (!$existingRes) {
             $conn->rollBack();
             http_response_code(404);
@@ -983,7 +1037,11 @@ if ($method === 'DELETE') {
 
         $conn->commit();
 
-        echo json_encode(['success' => true]);
+
+
+        
+        echo json_encode(['success' => true, 'author' => $author, 'assigned_staff' => $assignedStaffDetails,
+        'email_dispatch' => $emailDispatch]);
     } catch (PDOException $e) {
         if ($conn->inTransaction()) {
             $conn->rollBack();
