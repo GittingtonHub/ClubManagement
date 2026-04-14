@@ -1,6 +1,9 @@
+
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { useEffect, useMemo, useState } from 'react';
 import { dispatchStaffAssignmentEmails } from '../lib/emailDispatch';
+
+
 
 const EMPTY_EVENT_FORM = {
   event_id: '',
@@ -53,7 +56,10 @@ const normalizeEventRow = (event) => {
     ga_ticket_price: event.ga_ticket_price ?? '',
     performer: event.performer ?? '',
     assigned_staff_names: event.assigned_staff_names ?? '',
-    assigned_staff_ids: assignedStaffIds
+    assigned_staff_ids: assignedStaffIds,
+
+    status: event.status ?? '',
+    removed: event.removed ?? 0
   };
 };
 
@@ -108,6 +114,9 @@ const parseAvailableStaffIds = (payload) => {
 };
 
 function EventsUI() {
+  const [isCancelOpen, setIsCancelOpen] = useState(false);
+  const [cancelEventId, setCancelEventId] = useState(null);
+  const [cancelReason, setCancelReason] = useState('');
   const [events, setEvents] = useState([]);
   const [staff, setStaff] = useState([]);
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
@@ -451,32 +460,39 @@ function EventsUI() {
     }
   };
 
-  const handleDeleteEvent = async (eventId) => {
-    if (!window.confirm('Are you sure you want to cancel this event?')) {
-      return;
-    }
-
+  const handleDeleteEvent = async () => {
+    if (!cancelReason) return;
+  
     try {
-      const response = await fetch(`/api/events.php?id=${eventId}`, {
-        method: 'DELETE',
-        credentials: 'include'
-      });
-
+      const response = await fetch(
+        `/api/events.php?id=${cancelEventId}&reason=${encodeURIComponent(cancelReason)}`,
+        {
+          method: 'DELETE',
+          credentials: 'include'
+        }
+      );
+  
       const payload = await response.json().catch(() => ({}));
-
+  
       if (!response.ok) {
         setEventsError(payload?.message || 'Failed to cancel event.');
         return;
       }
-
-      setEvents((previous) => previous.filter((event) => String(event.event_id) !== String(eventId)));
-      setEventsError('');
-      announceEventsChanged();
+  
+      setEvents(prev =>
+        prev.filter(e => String(e.event_id) !== String(cancelEventId))
+      );
+  
+      setIsCancelOpen(false);
+      setCancelEventId(null);
+      setCancelReason('');
+  
     } catch (error) {
-      console.error('Failed to cancel event:', error);
+      console.error(error);
       setEventsError('Failed to cancel event.');
     }
   };
+  
 
   const getAssignedStaffLabel = (event) => {
     if (event.assigned_staff_names && event.assigned_staff_names.trim() !== '') {
@@ -494,6 +510,19 @@ function EventsUI() {
     }
 
     return 'Unassigned';
+  };
+
+  const isEventCancellable = (event) => {
+    if (!event || String(event.status).toLowerCase() === 'cancelled') {
+      return false;
+    }
+
+    const startDate = new Date(event.start_time ?? '');
+    if (Number.isNaN(startDate.getTime())) {
+      return false;
+    }
+
+    return startDate.getTime() >= Date.now();
   };
 
   return (
@@ -529,7 +558,9 @@ function EventsUI() {
               <th>Actions</th>
             </tr>
 
-            {events.filter(Boolean).map((event, index) => (
+            {events
+              .filter(e => e && e.status !== 'cancelled' && e.removed !== 1)
+              .map((event, index) => (
               <tr className="table-row" key={`${event.event_id}-${index}`}>
                 <td className="table-cell-itemno">{index + 1}</td>
                 <td>{event.event_id}</td>
@@ -542,12 +573,18 @@ function EventsUI() {
                 <td>{getAssignedStaffLabel(event)}</td>
                 <td className="reservation-actions-cell event-actions-cell">
                   <div className="reservation-actions-buttons event-actions-buttons">
-                    <button
-                      className="delete-item-button delete-event-button"
-                      onClick={() => handleDeleteEvent(event.event_id)}
-                    >
-                      Cancel
-                    </button>
+                    {isEventCancellable(event) ? (
+                      <button
+                        className="delete-item-button delete-event-button"
+                        onClick={() => {
+                          setCancelEventId(event.event_id);
+                          setCancelReason('');
+                          setIsCancelOpen(true);
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    ) : null}
                   </div>
                 </td>
               </tr>
@@ -555,7 +592,7 @@ function EventsUI() {
           </table>
         )}
 
-        <Dialog open={isAddEventOpen} onClose={() => {}} className="add-item-dialog add-event-dialog">
+        <Dialog open={isAddEventOpen} onClose={() => setIsCancelOpen(false)} className="add-item-dialog add-event-dialog">
           <div className="add-item-dialog-backdrop add-event-dialog-backdrop" aria-hidden="true" />
           <div className="add-item-dialog-container add-event-dialog-container">
             <DialogPanel className="add-item-dialog-panel add-event-dialog-panel">
@@ -771,6 +808,26 @@ function EventsUI() {
           </div>
         </Dialog>
       </div>
+      <Dialog open={isCancelOpen} onClose={() => {}} className="add-item-dialog">
+        <div className="add-item-dialog-backdrop" />
+        <div className="add-item-dialog-container">
+          <DialogPanel className="add-item-dialog-panel">
+            <DialogTitle className="add-item-header">Cancel Event</DialogTitle>
+
+            <textarea
+              placeholder="Enter cancellation reason"
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              className="add-item-name-input"
+            />
+
+            <div className="button-group">
+              <button onClick={handleDeleteEvent}>Confirm Cancel</button>
+              <button onClick={() => setIsCancelOpen(false)}>Close</button>
+            </div>
+          </DialogPanel>
+        </div>
+      </Dialog>
     </>
   );
 }

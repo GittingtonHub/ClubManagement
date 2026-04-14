@@ -7,14 +7,14 @@ function Analytics() {
    return(
       <div className="analytics-container">
          <div className="analytics-top"> 
-            <TopThreeAnalytics />
+            <UserAnalytics />
          </div>
          <div className="analytics-middle"> 
-            <ClubEventAnalytics />
+            <TopThreeAnalytics />
             <CancellationAnalytics />
          </div>
          <div className="analytics-bottom"> 
-            <UserAnalytics />
+            <ClubEventAnalytics />
          </div>
       </div>
    );
