@@ -5,6 +5,15 @@ import { useEffect, useMemo, useState } from 'react';
 
 
 const normalizeRole = (roleValue) => String(roleValue ?? '').trim();
+const STAFF_PROFILE_COMPLETION_ENDPOINT = '/api/complete_staff_profile_placeholder.php';
+const staffRoleOptions = [
+  "Bartender",
+  "Bar Back",
+  "DJ",
+  "Security",
+  "Bouncer",
+  "Bottle Service Promoter"
+];
 
 const deriveRoleOptionsFromUsers = (userList) => {
   const derivedRoles = (Array.isArray(userList) ? userList : [])
@@ -22,12 +31,129 @@ function UsersUI() {
   const [referenceNowMs] = useState(() => Date.now());
   const [isRemoveOpen, setIsRemoveOpen] = useState(false);
   const [removeUserId, setRemoveUserId] = useState(null);
+  const [isStaffCompletionOpen, setIsStaffCompletionOpen] = useState(false);
+  const [pendingStaffUserId, setPendingStaffUserId] = useState(null);
+  const [staffName, setStaffName] = useState('');
+  const [staffRole, setStaffRole] = useState(staffRoleOptions[0]);
+  const [hourlyRate, setHourlyRate] = useState('');
+  const [staffCompletionMessage, setStaffCompletionMessage] = useState('');
+  const [isSubmittingStaffCompletion, setIsSubmittingStaffCompletion] = useState(false);
 
   const safeUsers = Array.isArray(users) ? users : [];
   const safeReservations = Array.isArray(reservations) ? reservations : [];
 
   const handleRoleSubmit = (event) => {
     event.preventDefault();
+  };
+
+  const deriveDefaultStaffName = (user) => {
+    const emailValue = String(user?.email ?? '').trim();
+    if (!emailValue.includes('@')) {
+      return emailValue || 'New Staff Member';
+    }
+
+    const localPart = emailValue.split('@')[0];
+    const formatted = localPart
+      .split(/[._-]+/)
+      .filter(Boolean)
+      .map((chunk) => chunk.charAt(0).toUpperCase() + chunk.slice(1))
+      .join(' ');
+    return formatted || emailValue;
+  };
+
+  const openStaffCompletionModal = (user) => {
+    const userId = user?.id;
+    if (!userId) {
+      return;
+    }
+
+    setPendingStaffUserId(userId);
+    setStaffName(deriveDefaultStaffName(user));
+    setStaffRole(staffRoleOptions[0]);
+    setHourlyRate('');
+    setStaffCompletionMessage('');
+    setIsStaffCompletionOpen(true);
+  };
+
+  const handleCloseStaffCompletionModal = () => {
+    if (isSubmittingStaffCompletion) {
+      return;
+    }
+    setIsStaffCompletionOpen(false);
+    setPendingStaffUserId(null);
+    setStaffCompletionMessage('');
+  };
+
+  const handleSubmitStaffCompletion = async () => {
+    if (!pendingStaffUserId) {
+      setStaffCompletionMessage('Missing target user for staff completion.');
+      return;
+    }
+
+    const trimmedName = String(staffName ?? '').trim();
+    const selectedRole = String(staffRole ?? '').trim();
+    const parsedRate = Number.parseFloat(hourlyRate);
+
+    if (!trimmedName) {
+      setStaffCompletionMessage('Name is required.');
+      return;
+    }
+    if (!selectedRole) {
+      setStaffCompletionMessage('Role is required.');
+      return;
+    }
+    if (!Number.isFinite(parsedRate) || parsedRate < 0 || parsedRate > 999.99) {
+      setStaffCompletionMessage('Hourly rate must be between 0 and 999.99.');
+      return;
+    }
+
+    setIsSubmittingStaffCompletion(true);
+    setStaffCompletionMessage('');
+
+    try {
+      const response = await fetch(STAFF_PROFILE_COMPLETION_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          user_id: pendingStaffUserId,
+          name: trimmedName,
+          role: selectedRole,
+          hourly_rate: parsedRate
+        })
+      });
+
+      const responseText = await response.text();
+      const payload = responseText ? JSON.parse(responseText) : {};
+      if (!response.ok || payload?.success === false) {
+        setStaffCompletionMessage(payload?.message || 'Unable to complete staff profile.');
+        return;
+      }
+
+      const previousUserId = Number.parseInt(payload?.previous_user_id, 10);
+      const nextUserId = Number.parseInt(payload?.user_id, 10);
+      if (Number.isInteger(previousUserId) && Number.isInteger(nextUserId) && previousUserId !== nextUserId) {
+        setUsers((previousUsers) =>
+          (Array.isArray(previousUsers) ? previousUsers : []).map((existingUser) =>
+            Number.parseInt(existingUser?.id, 10) === previousUserId
+              ? { ...existingUser, id: nextUserId }
+              : existingUser
+          )
+        );
+      }
+
+      setIsStaffCompletionOpen(false);
+      setPendingStaffUserId(null);
+      setStaffCompletionMessage('');
+      await DayPilot.Modal.alert('Staff profile completed successfully.');
+    } catch (error) {
+      console.error('Failed to complete staff profile:', error);
+      setStaffCompletionMessage('Unable to complete staff profile.');
+    } finally {
+      setIsSubmittingStaffCompletion(false);
+    }
   };
 
   
@@ -210,6 +336,10 @@ function UsersUI() {
             : existingUser
         )
       );
+
+      if (payload?.trigger_staff_update && nextRole.toLowerCase() === 'staff') {
+        openStaffCompletionModal({ ...user, role: nextRole });
+      }
     } catch (error) {
       console.error('Failed to update user role:', error);
       await DayPilot.Modal.alert('Unable to update user role.');
@@ -334,6 +464,68 @@ function UsersUI() {
                     <button 
                       onClick={() => setIsRemoveOpen(false)}
                       className="inline"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </DialogPanel>
+            </div>
+          </Dialog>
+
+          <Dialog open={isStaffCompletionOpen} onClose={handleCloseStaffCompletionModal} className="add-item-dialog">
+            <div className="add-item-dialog-backdrop" aria-hidden="true" />
+            <div className="add-item-dialog-container">
+              <DialogPanel className="add-item-dialog-panel">
+                <DialogTitle className="add-item-header">Complete Staff Profile</DialogTitle>
+
+                <div className="inner-add-item-container">
+                  <input
+                    type="text"
+                    value={staffName}
+                    onChange={(event) => setStaffName(event.target.value)}
+                    placeholder="Staff Name"
+                    disabled={isSubmittingStaffCompletion}
+                  />
+
+                  <select
+                    value={staffRole}
+                    onChange={(event) => setStaffRole(event.target.value)}
+                    disabled={isSubmittingStaffCompletion}
+                  >
+                    {staffRoleOptions.map((roleOption) => (
+                      <option key={`staff-completion-role-${roleOption}`} value={roleOption}>
+                        {roleOption}
+                      </option>
+                    ))}
+                  </select>
+
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="999.99"
+                    value={hourlyRate}
+                    onChange={(event) => setHourlyRate(event.target.value)}
+                    placeholder="Hourly Rate"
+                    disabled={isSubmittingStaffCompletion}
+                  />
+
+                  {staffCompletionMessage ? <p>{staffCompletionMessage}</p> : null}
+
+                  <div className="button-group">
+                    <button
+                      onClick={handleSubmitStaffCompletion}
+                      className="inline"
+                      disabled={isSubmittingStaffCompletion}
+                    >
+                      {isSubmittingStaffCompletion ? 'Saving...' : 'Save Staff Profile'}
+                    </button>
+
+                    <button
+                      onClick={handleCloseStaffCompletionModal}
+                      className="inline"
+                      disabled={isSubmittingStaffCompletion}
                     >
                       Cancel
                     </button>
