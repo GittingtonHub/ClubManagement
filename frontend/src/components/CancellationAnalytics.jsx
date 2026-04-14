@@ -1,21 +1,22 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { fetchAnalytics } from "../lib/analyticsApi";
 
 const DEFAULT_CANCELLATION_ANALYTICS = Object.freeze({
    totalCancellations: 0,
    cancellationsThisMonth: 0,
-   // how many admin cancelled, how many staff cancelled, how many users cancelled
-   cancellationsByCategory: [0, 0, 0], 
+   cancellationsByCategory: [],
 });
-
-const CANCELLATION_CATEGORY_LABELS = Object.freeze(["Admin", "Staff", "Users"]);
 
 function parseCancellationCategoryRows(values) {
    const safeValues = Array.isArray(values) ? values : [];
+   if (safeValues.length === 0) {
+      return [{ categoryLabel: "Unavailable", value: "0" }];
+   }
 
-   return CANCELLATION_CATEGORY_LABELS.map((categoryLabel, index) => ({
-      categoryLabel,
-      value: (Number(safeValues[index]) || 0).toLocaleString(),
+   return safeValues.map((entry) => ({
+      categoryLabel: String(entry?.category ?? "Unavailable"),
+      value: (Number(entry?.count) || 0).toLocaleString(),
    }));
 }
 
@@ -24,21 +25,15 @@ function CancellationAnalytics() {
    const [isLoading, setIsLoading] = useState(true);
    const [loadMessage, setLoadMessage] = useState("");
 
-   // Placeholder loaders for now. Replace each with real API/data logic later.
-   const getTotalCancellations = useCallback(async () => DEFAULT_CANCELLATION_ANALYTICS.totalCancellations, []);
-   const getCancellationsThisMonth = useCallback(async () => DEFAULT_CANCELLATION_ANALYTICS.cancellationsThisMonth, []);
-   const getCancellationsByCategory = useCallback(async () => DEFAULT_CANCELLATION_ANALYTICS.cancellationsByCategory, []);
-
    const loadCancellationAnalytics = useCallback(async () => {
       setIsLoading(true);
       setLoadMessage("");
 
       try {
-         const [totalCancellations, cancellationsThisMonth, cancellationsByCategory] = await Promise.all([
-            getTotalCancellations(),
-            getCancellationsThisMonth(),
-            getCancellationsByCategory()
-         ]);
+         const cancellationAnalytics = await fetchAnalytics("cancellations");
+         const totalCancellations = cancellationAnalytics?.total_cancellations;
+         const cancellationsThisMonth = cancellationAnalytics?.monthly_cancellations;
+         const cancellationsByCategory = cancellationAnalytics?.by_category;
 
          setMetrics({
             totalCancellations: Number(totalCancellations) || 0,
@@ -53,7 +48,7 @@ function CancellationAnalytics() {
       } finally {
          setIsLoading(false);
       }
-   }, [getTotalCancellations, getCancellationsThisMonth, getCancellationsByCategory]);
+   }, []);
 
    useEffect(() => {
       loadCancellationAnalytics();

@@ -227,6 +227,19 @@ function ReservationTableUI() {
     setShowCancelModal(true);
   };
 
+  const isReservationCancellable = (reservation) => {
+    if (!reservation || String(reservation.status).toLowerCase() === 'cancelled') {
+      return false;
+    }
+
+    const startDate = new Date(reservation.start_time ?? '');
+    if (Number.isNaN(startDate.getTime())) {
+      return false;
+    }
+
+    return startDate.getTime() >= Date.now();
+  };
+
   const submitCancellation = async () => {
     console.log("CANCEL CLICKED", selectedReservationId);
   
@@ -432,6 +445,7 @@ function ReservationTableUI() {
 
             {reservations.map((reservation, index) => {
               const reservationId = reservation.reservation_id ?? reservation.id;
+              const canCancel = isReservationCancellable(reservation);
               return (
                 <tr className="table-row" key={reservationId ?? index}>
                   <td className="table-cell-itemno">{index + 1}</td>
@@ -452,14 +466,14 @@ function ReservationTableUI() {
                       >
                         Edit
                       </button>
-                    <button
-                      className="delete-item-button"
-                      onClick={() => handleDeleteReservation(reservationId)}
-                      // if user = normal do cancel reservation instead, whatever that means
-                      // also change v delete to cancel if that's the case
-                    >
-                      Cancel
-                    </button>
+                      {canCancel ? (
+                        <button
+                          className="delete-item-button"
+                          onClick={() => handleDeleteReservation(reservationId)}
+                        >
+                          Cancel
+                        </button>
+                      ) : null}
                     </div>
                   </td>
                 </tr>

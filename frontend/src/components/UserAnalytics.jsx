@@ -1,5 +1,5 @@
-
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { fetchAnalytics } from "../lib/analyticsApi";
 
 const DEFAULT_USER_ANALYTICS = Object.freeze({
    registeredUsers: 0,
@@ -11,19 +11,14 @@ function UserAnalytics() {
    const [isLoading, setIsLoading] = useState(true);
    const [loadMessage, setLoadMessage] = useState("");
 
-   // Placeholder loaders for now. Replace each with real API/data logic later.
-   const getRegisteredUsers = useCallback(async () => DEFAULT_USER_ANALYTICS.registeredUsers, []);
-   const getUniqueUsersThisMonth = useCallback(async () => DEFAULT_USER_ANALYTICS.uniqueUsersThisMonth, []);
-
    const loadUserAnalytics = useCallback(async () => {
       setIsLoading(true);
       setLoadMessage("");
 
       try {
-         const [registeredUsers, uniqueUsersThisMonth] = await Promise.all([
-            getRegisteredUsers(),
-            getUniqueUsersThisMonth()
-         ]);
+         const userAnalytics = await fetchAnalytics("users");
+         const registeredUsers = userAnalytics?.total_users;
+         const uniqueUsersThisMonth = userAnalytics?.unique_active_this_month;
 
          setMetrics({
             registeredUsers: Number(registeredUsers) || 0,
@@ -35,7 +30,7 @@ function UserAnalytics() {
       } finally {
          setIsLoading(false);
       }
-   }, [getRegisteredUsers, getUniqueUsersThisMonth]);
+   }, []);
 
    useEffect(() => {
       loadUserAnalytics();
@@ -58,7 +53,7 @@ function UserAnalytics() {
    );
 
    return(
-         <div className="user-analytics-container">
+         <div className="topthree-analytics-container">
             <h2 className="analytics-title">User Analytics</h2>
             {isLoading ? <p className="analytics-status">Loading user metrics...</p> : null}
             {loadMessage ? <p className="analytics-status">{loadMessage}</p> : null}

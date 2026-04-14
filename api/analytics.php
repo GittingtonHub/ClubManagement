@@ -13,6 +13,21 @@
     header("Access-Control-Allow-Methods: GET, OPTIONS");
     include_once 'api.php'; 
 
+    function tableExists(PDO $conn, string $tableName): bool {
+        $stmt = $conn->prepare('SHOW TABLES LIKE :table_name');
+        $stmt->execute([':table_name' => $tableName]);
+        return (bool)$stmt->fetchColumn();
+    }
+
+    function getExistingTableName(PDO $conn, array $candidates): ?string {
+        foreach ($candidates as $candidate) {
+            if (tableExists($conn, $candidate)) {
+                return $candidate;
+            }
+        }
+        return null;
+    }
+
     // Handle preflight OPTIONS request for CORS
     if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
         exit;
@@ -109,28 +124,45 @@
                 ")->fetchAll(PDO::FETCH_ASSOC);
 
                 // Top 3 Staff this month (by assigned shifts)
-                $topStaff = $conn->query("
-                    SELECT s.name, COUNT(rs.reservation_id) as count 
-                    FROM staff s
-                    JOIN ReservationStaff rs ON s.id = rs.staff_id
-                    JOIN reservations r ON rs.reservation_id = r.reservation_id
-                    WHERE r.start_time >= DATE_FORMAT(CURRENT_DATE, '%Y-%m-01') 
-                    AND r.status != 'cancelled'
-                    AND s.removed = 0
-                    GROUP BY s.id, s.name 
-                    ORDER BY count DESC 
-                    LIMIT 3
-                ")->fetchAll(PDO::FETCH_ASSOC);
+                $reservationStaffTable = getExistingTableName($conn, ['ReservationStaff', 'reservation_staff']);
+                if ($reservationStaffTable) {
+                    $topStaff = $conn->query("
+                        SELECT s.name, COUNT(rs.reservation_id) as count 
+                        FROM staff s
+                        JOIN {$reservationStaffTable} rs ON s.id = rs.staff_id
+                        JOIN reservations r ON rs.reservation_id = r.reservation_id
+                        WHERE r.start_time >= DATE_FORMAT(CURRENT_DATE, '%Y-%m-01') 
+                        AND r.status != 'cancelled'
+                        AND s.removed = 0
+                        GROUP BY s.id, s.name 
+                        ORDER BY count DESC 
+                        LIMIT 3
+                    ")->fetchAll(PDO::FETCH_ASSOC);
+                } else {
+                    $topStaff = [];
+                }
 
                 // Top 3 Users this month (by most reservations made)
-                // Note: If your users table uses 'first_name' instead of 'name', adjust the column below.
+                $userColumnsStmt = $conn->query("SHOW COLUMNS FROM users");
+                $userColumns = $userColumnsStmt->fetchAll(PDO::FETCH_COLUMN, 0);
+                $userDisplayExpression = "CAST(u.id AS CHAR)";
+                if (in_array('name', $userColumns, true)) {
+                    $userDisplayExpression = "u.name";
+                } elseif (in_array('username', $userColumns, true)) {
+                    $userDisplayExpression = "u.username";
+                } elseif (in_array('first_name', $userColumns, true) && in_array('last_name', $userColumns, true)) {
+                    $userDisplayExpression = "TRIM(CONCAT_WS(' ', u.first_name, u.last_name))";
+                } elseif (in_array('email', $userColumns, true)) {
+                    $userDisplayExpression = "u.email";
+                }
+
                 $topUsers = $conn->query("
-                    SELECT u.name, COUNT(r.reservation_id) as count 
+                    SELECT {$userDisplayExpression} as name, COUNT(r.reservation_id) as count 
                     FROM users u
                     JOIN reservations r ON u.id = r.user_id
                     WHERE r.start_time >= DATE_FORMAT(CURRENT_DATE, '%Y-%m-01') 
                     AND r.status != 'cancelled'
-                    GROUP BY u.id, u.name 
+                    GROUP BY u.id, {$userDisplayExpression}
                     ORDER BY count DESC 
                     LIMIT 3
                 ")->fetchAll(PDO::FETCH_ASSOC);

@@ -1,5 +1,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { fetchAnalytics } from "../lib/analyticsApi";
 
 const DEFAULT_TOP3_ANALYTICS = Object.freeze({
    top3reservedResources: ["Unavailable", "Unavailable", "Unavailable"],
@@ -23,26 +24,30 @@ function parseTopThreeRows(values) {
    });
 }
 
+function parseNameRows(values) {
+   const safeValues = Array.isArray(values) ? values : [];
+   return safeValues.map((row) => {
+      if (typeof row === "string") {
+         return row;
+      }
+      return String(row?.name ?? "").trim();
+   });
+}
+
 function TopThreeAnalytics() {
    const [metrics, setMetrics] = useState(DEFAULT_TOP3_ANALYTICS);
    const [isLoading, setIsLoading] = useState(true);
    const [loadMessage, setLoadMessage] = useState("");
-
-   // Placeholder loaders for now. Replace each with real API/data logic later.
-   const getTop3reservedResources = useCallback(async () => DEFAULT_TOP3_ANALYTICS.top3reservedResources, []);
-   const getTop3staff = useCallback(async () => DEFAULT_TOP3_ANALYTICS.top3staff, []);
-   const getTop3users = useCallback(async () => DEFAULT_TOP3_ANALYTICS.top3users, []);
 
    const loadTopThreeAnalytics = useCallback(async () => {
       setIsLoading(true);
       setLoadMessage("");
 
       try {
-         const [top3reservedResources, top3staff, top3users] = await Promise.all([
-            getTop3reservedResources(),
-            getTop3staff(),
-            getTop3users()
-         ]);
+         const topThreeAnalytics = await fetchAnalytics("top3");
+         const top3reservedResources = parseNameRows(topThreeAnalytics?.top_resources);
+         const top3staff = parseNameRows(topThreeAnalytics?.top_staff);
+         const top3users = parseNameRows(topThreeAnalytics?.top_users);
 
          setMetrics({
             top3reservedResources: Array.isArray(top3reservedResources) ? top3reservedResources : DEFAULT_TOP3_ANALYTICS.top3reservedResources,
@@ -57,7 +62,7 @@ function TopThreeAnalytics() {
       } finally {
          setIsLoading(false);
       }
-   }, [getTop3reservedResources, getTop3staff, getTop3users]);
+   }, []);
 
    useEffect(() => {
       loadTopThreeAnalytics();
@@ -86,7 +91,7 @@ function TopThreeAnalytics() {
 
    return(
       <>
-         <div className="topthree-analytics-container">
+         <div className="clubevents-analytics-container">
             <h2 className="analytics-title">Your Top Three</h2>
             {isLoading ? <p className="analytics-status">Loading top three metrics...</p> : null}
             {loadMessage ? <p className="analytics-status">{loadMessage}</p> : null} 

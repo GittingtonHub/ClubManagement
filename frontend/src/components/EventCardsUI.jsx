@@ -43,6 +43,11 @@ const normalizeTier = (value) => {
   return normalized === 'VIP' ? 'VIP' : 'GA';
 };
 
+const getRemainingTickets = (eventRow) => {
+  const parsed = Number.parseInt(eventRow?.qty_tickets ?? 0, 10);
+  return Number.isInteger(parsed) ? parsed : 0;
+};
+
 const parseJsonSafely = (text, fallback) => {
   if (!text) {
     return fallback;
@@ -149,6 +154,11 @@ function EventCardsUI() {
   const handleBuyTicket = async (eventRow) => {
     if (!eventRow?.event_id) {
       await DayPilot.Modal.alert('This event does not have a valid event ID yet.');
+      return;
+    }
+
+    if (getRemainingTickets(eventRow) <= 0) {
+      await DayPilot.Modal.alert('This event is sold out.');
       return;
     }
 
@@ -281,9 +291,13 @@ function EventCardsUI() {
           {visibleEvents.map((eventRow) => {
             const eventId = String(eventRow?.event_id ?? '');
             const isSubmitting = isSubmittingEventId === eventId;
+            const remainingTickets = getRemainingTickets(eventRow);
+            const isSoldOut = remainingTickets <= 0;
+            const cardClassName = isSoldOut ? 'event-card event-card-sold-out' : 'event-card';
+            const buyButtonClassName = isSoldOut ? 'event-card-buy-button event-card-buy-button-sold-out' : 'event-card-buy-button';
 
             return (
-              <article key={eventId || `${eventRow?.event_title}-${eventRow?.start_time}`} className="event-card">
+              <article key={eventId || `${eventRow?.event_title}-${eventRow?.start_time}`} className={cardClassName}>
                 <h3 className="event-card-title">{eventRow?.event_title || `Event ${eventId || 'N/A'}`}</h3>
                 <p className="event-card-performer">{eventRow?.performer || 'Unknown performer'}</p>
                 <p className="event-card-time">
@@ -294,14 +308,14 @@ function EventCardsUI() {
                   <span>GA: {formatPrice(eventRow?.ga_ticket_price ?? eventRow?.price)}</span>
                   <span>VIP: {formatPrice(eventRow?.vip_ticket_price)}</span>
                 </div>
-                <p className="event-card-qty">Tickets: {Number.parseInt(eventRow?.qty_tickets ?? 0, 10)}</p>
+                <p className="event-card-qty">Tickets: {remainingTickets}</p>
                 <button
                   type="button"
-                  className="event-card-buy-button"
+                  className={buyButtonClassName}
                   onClick={() => handleBuyTicket(eventRow)}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isSoldOut}
                 >
-                  {isSubmitting ? 'Processing...' : 'Buy Ticket'}
+                  {isSubmitting ? 'Processing...' : isSoldOut ? 'Sold out' : 'Buy Ticket'}
                 </button>
               </article>
             );

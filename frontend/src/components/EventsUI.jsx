@@ -512,6 +512,19 @@ function EventsUI() {
     return 'Unassigned';
   };
 
+  const isEventCancellable = (event) => {
+    if (!event || String(event.status).toLowerCase() === 'cancelled') {
+      return false;
+    }
+
+    const startDate = new Date(event.start_time ?? '');
+    if (Number.isNaN(startDate.getTime())) {
+      return false;
+    }
+
+    return startDate.getTime() >= Date.now();
+  };
+
   return (
     <>
       <div className="table-div events-table-div" id="events-table-div">
@@ -560,16 +573,18 @@ function EventsUI() {
                 <td>{getAssignedStaffLabel(event)}</td>
                 <td className="reservation-actions-cell event-actions-cell">
                   <div className="reservation-actions-buttons event-actions-buttons">
-                    <button
-                      className="delete-item-button delete-event-button"
-                      onClick={() => {
-                        setCancelEventId(event.event_id);
-                        setCancelReason('');
-                        setIsCancelOpen(true);
-                      }}
-                    >
-                      Cancel
-                    </button>
+                    {isEventCancellable(event) ? (
+                      <button
+                        className="delete-item-button delete-event-button"
+                        onClick={() => {
+                          setCancelEventId(event.event_id);
+                          setCancelReason('');
+                          setIsCancelOpen(true);
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    ) : null}
                   </div>
                 </td>
               </tr>

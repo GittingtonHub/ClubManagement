@@ -878,6 +878,11 @@ button.inline {
   min-height: 220px;
 }
 
+.event-card-sold-out {
+  opacity: 0.8;
+  background: rgba(150, 150, 150, 0.2);
+}
+
 .event-card-title {
   margin: 0;
   font-size: 1rem;
@@ -918,6 +923,15 @@ button.inline {
 .event-card-buy-button:disabled {
   opacity: 0.65;
   cursor: not-allowed;
+}
+
+.event-card-buy-button-sold-out {
+  background-color: #6b7280;
+  color: #f4f4f5;
+}
+
+.event-card-buy-button-sold-out:hover {
+  background-color: #6b7280;
 }
 
 .event-search-bar {

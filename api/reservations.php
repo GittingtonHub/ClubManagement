@@ -70,11 +70,12 @@ function resolve_ticket_for_event(PDO $conn, $eventId, $ticketTier): ?array
     try {
         $ticketStmt = $conn->prepare("
             SELECT ticket_id, tier, price
-            FROM tickets
-            WHERE event_id = :event_id
-              AND UPPER(TRIM(tier)) = :tier
-              And e.removed = 0
-              and e.status != 'cancelled'
+            FROM tickets t
+            JOIN events e ON e.event_id = t.event_id
+            WHERE t.event_id = :event_id
+              AND UPPER(TRIM(t.tier)) = :tier
+              AND e.removed = 0
+              AND e.status != 'cancelled'
             LIMIT 1
         ");
         $ticketStmt->execute([
@@ -87,6 +88,88 @@ function resolve_ticket_for_event(PDO $conn, $eventId, $ticketTier): ?array
     } catch (PDOException $e) {
         return null;
     }
+}
+
+function get_event_remaining_tickets_for_update(PDO $conn, int $eventId): ?int
+{
+    if ($eventId <= 0) {
+        return null;
+    }
+
+    $stmt = $conn->prepare("
+        SELECT qty_tickets
+        FROM events
+        WHERE event_id = :event_id
+          AND removed = 0
+          AND status != 'cancelled'
+        FOR UPDATE
+    ");
+    $stmt->execute([':event_id' => $eventId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$row) {
+        return null;
+    }
+
+    return (int)($row['qty_tickets'] ?? 0);
+}
+
+function adjust_event_remaining_tickets(PDO $conn, int $eventId, int $delta): bool
+{
+    if ($eventId <= 0 || $delta === 0) {
+        return true;
+    }
+
+    if ($delta > 0) {
+        $stmt = $conn->prepare("
+            UPDATE events
+            SET qty_tickets = qty_tickets + :delta
+            WHERE event_id = :event_id
+        ");
+        $stmt->execute([
+            ':delta' => $delta,
+            ':event_id' => $eventId
+        ]);
+        return $stmt->rowCount() > 0;
+    }
+
+    $decrement = abs($delta);
+    $stmt = $conn->prepare("
+        UPDATE events
+        SET qty_tickets = qty_tickets - :delta
+        WHERE event_id = :event_id
+          AND qty_tickets >= :delta
+    ");
+    $stmt->execute([
+        ':delta' => $decrement,
+        ':event_id' => $eventId
+    ]);
+    return $stmt->rowCount() > 0;
+}
+
+function get_ticket_reservation_details(PDO $conn, int $reservationId): ?array
+{
+    if ($reservationId <= 0) {
+        return null;
+    }
+
+    $stmt = $conn->prepare("
+        SELECT event_id, quantity
+        FROM ticket_reservations
+        WHERE reservation_id = :reservation_id
+        LIMIT 1
+    ");
+    $stmt->execute([':reservation_id' => $reservationId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$row) {
+        return null;
+    }
+
+    return [
+        'event_id' => (int)($row['event_id'] ?? 0),
+        'quantity' => (int)($row['quantity'] ?? 0)
+    ];
 }
 
 function table_exists(PDO $conn, string $tableName): bool
@@ -159,9 +242,11 @@ if ($method === 'GET') {
                         FROM ReservationStaff rs_filter
                         WHERE rs_filter.reservation_id = r.reservation_id
                           AND rs_filter.staff_id = :uid
-                      )";
+                      ) AND r.start_time >= NOW()";
         } elseif ($sessionRole !== 'admin') {
-            $sql .= " WHERE r.user_id = :uid";
+            $sql .= " WHERE r.user_id = :uid AND r.start_time >= NOW()";
+        } else {
+            $sql .= " WHERE r.start_time >= NOW()";
         }
 
         $sql .= " ORDER BY r.start_time ASC";
@@ -395,32 +480,33 @@ if ($method === 'POST') {
                 exit;
             }
 
-            // CHECK EVENT CAPACITY BEFORE ALLOWING TICKET RESERVATION
-
-            $capStmt = $conn->prepare("SELECT qty_tickets FROM events WHERE event_id = :eid");
-            $capStmt->execute([':eid' => $event_id]);
-            $eventData = $capStmt->fetch(PDO::FETCH_ASSOC);
-            $totalCapacity = $eventData ? (int)$eventData['qty_tickets'] : 0;
-
-            // Calculate how many tickets are already sold (ignoring cancelled ones)
-            $soldStmt = $conn->prepare("
-                SELECT COALESCE(SUM(tr.quantity), 0) as sold
-                FROM ticket_reservations tr
-                JOIN reservations r ON tr.reservation_id = r.reservation_id
-                WHERE tr.event_id = :eid AND r.status != 'cancelled'
-            ");
-            $soldStmt->execute([':eid' => $event_id]);
-            $soldData = $soldStmt->fetch(PDO::FETCH_ASSOC);
-            $ticketsSold = (int)$soldData['sold'];
-
-            // Check if this purchase pushes us over the limit
-            if (($ticketsSold + $quantity) > $totalCapacity) {
+            // qty_tickets is treated as the live remaining inventory.
+            $remainingTickets = get_event_remaining_tickets_for_update($conn, (int)$event_id);
+            if ($remainingTickets === null) {
                 $conn->rollBack();
-                $remaining = max(0, $totalCapacity - $ticketsSold);
-                http_response_code(409); // Conflict
+                http_response_code(404);
                 echo json_encode([
-                    'success' => false, 
-                    'message' => "Not enough tickets available. Only $remaining left."
+                    'success' => false,
+                    'message' => 'Selected event is unavailable.'
+                ]);
+                exit;
+            }
+            if ((int)$quantity > $remainingTickets) {
+                $conn->rollBack();
+                http_response_code(409);
+                echo json_encode([
+                    'success' => false,
+                    'message' => "Not enough tickets available. Only {$remainingTickets} left."
+                ]);
+                exit;
+            }
+
+            if (!adjust_event_remaining_tickets($conn, (int)$event_id, -1 * (int)$quantity)) {
+                $conn->rollBack();
+                http_response_code(409);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Unable to reserve tickets because inventory changed. Please try again.'
                 ]);
                 exit;
             }
@@ -648,7 +734,7 @@ if ($method === 'PUT') {
     try {
         $conn->beginTransaction();
 
-        $existsStmt = $conn->prepare("SELECT user_id, reservation_id FROM reservations WHERE reservation_id = :reservation_id");
+        $existsStmt = $conn->prepare("SELECT user_id, reservation_id, status FROM reservations WHERE reservation_id = :reservation_id");
         $existsStmt->execute([':reservation_id' => $reservation_id]);
         $existingRes = $existsStmt->fetch(PDO::FETCH_ASSOC);
 
@@ -666,6 +752,8 @@ if ($method === 'PUT') {
             echo json_encode(['success' => false, 'message' => 'Forbidden: You do not own this reservation.']);
             exit;
         }
+
+        $existingTicketReservation = get_ticket_reservation_details($conn, (int)$reservation_id);
 
         $resourceStmt = $conn->prepare("SELECT name, type, price FROM resources WHERE id = :rid AND removed = 0");
         $resourceStmt->execute([':rid' => $resource_id]);
@@ -690,6 +778,16 @@ if ($method === 'PUT') {
         $resourceTypeNormalized = strtolower(trim((string)($resource['type'] ?? '')));
         $resourceNameNormalized = strtolower(trim((string)($resource['name'] ?? '')));
         $isTicketResource = $resourceTypeNormalized === 'event_ticket' || strpos($resourceNameNormalized, 'event ticket') !== false;
+
+        if (!$isTicketResource && $existingTicketReservation && (int)($existingTicketReservation['quantity'] ?? 0) > 0) {
+            adjust_event_remaining_tickets(
+                $conn,
+                (int)$existingTicketReservation['event_id'],
+                (int)$existingTicketReservation['quantity']
+            );
+            $conn->prepare("DELETE FROM ticket_reservations WHERE reservation_id = :rid")
+                ->execute([':rid' => $reservation_id]);
+        }
 
         if (!$isTicketResource) {
             $checkSql = "SELECT reservation_id
@@ -808,31 +906,41 @@ if ($method === 'PUT') {
                 exit;
             }
 
-            $capStmt = $conn->prepare("SELECT qty_tickets FROM events WHERE event_id = :eid");
-            $capStmt->execute([':eid' => $event_id]);
-            $eventData = $capStmt->fetch(PDO::FETCH_ASSOC);
-            $totalCapacity = $eventData ? (int)$eventData['qty_tickets'] : 0;
+            if ($existingTicketReservation && (int)($existingTicketReservation['quantity'] ?? 0) > 0) {
+                adjust_event_remaining_tickets(
+                    $conn,
+                    (int)$existingTicketReservation['event_id'],
+                    (int)$existingTicketReservation['quantity']
+                );
+            }
 
-            $soldStmt = $conn->prepare("
-                SELECT COALESCE(SUM(tr.quantity), 0) as sold
-                FROM ticket_reservations tr
-                JOIN reservations r ON tr.reservation_id = r.reservation_id
-                WHERE tr.event_id = :eid AND r.status != 'cancelled' AND tr.reservation_id <> :rid
-            ");
-            $soldStmt->execute([
-                ':eid' => $event_id,
-                ':rid' => $reservation_id
-            ]);
-            $soldData = $soldStmt->fetch(PDO::FETCH_ASSOC);
-            $ticketsSold = (int)$soldData['sold'];
-
-            if(($ticketsSold + $quantity) > $totalCapacity) {
+            $remainingTickets = get_event_remaining_tickets_for_update($conn, (int)$event_id);
+            if ($remainingTickets === null) {
                 $conn->rollBack();
-                $remaining = max(0, $totalCapacity - $ticketsSold);
+                http_response_code(404);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Selected event is unavailable.'
+                ]);
+                exit;
+            }
+
+            if ((int)$quantity > $remainingTickets) {
+                $conn->rollBack();
                 http_response_code(409);
                 echo json_encode([
-                    'success' => false, 
-                    'message' => "Not enough tickets available. Only $remaining left."
+                    'success' => false,
+                    'message' => "Not enough tickets available. Only {$remainingTickets} left."
+                ]);
+                exit;
+            }
+
+            if (!adjust_event_remaining_tickets($conn, (int)$event_id, -1 * (int)$quantity)) {
+                $conn->rollBack();
+                http_response_code(409);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Unable to reserve tickets because inventory changed. Please try again.'
                 ]);
                 exit;
             }
@@ -996,7 +1104,7 @@ if ($method === 'DELETE') {
     try {
         $conn->beginTransaction();
 
-        $existsStmt = $conn->prepare("SELECT user_id FROM reservations WHERE reservation_id = :reservation_id");
+        $existsStmt = $conn->prepare("SELECT user_id, start_time, status FROM reservations WHERE reservation_id = :reservation_id");
         $existsStmt->execute([':reservation_id' => $reservation_id]);
         $existingRes = $existsStmt->fetch(PDO::FETCH_ASSOC);
 
@@ -1055,6 +1163,8 @@ if ($method === 'DELETE') {
             $cancel_reason = 'Cancelled by user';
         }
 
+        $existingTicketReservation = get_ticket_reservation_details($conn, (int)$reservation_id);
+
         $update = $conn->prepare("
             UPDATE reservations
             SET status = 'cancelled',
@@ -1068,6 +1178,15 @@ if ($method === 'DELETE') {
             ':reason' => $cancel_reason,
             ':uid' => $current_user_id
         ]);
+
+        $alreadyCancelled = strtolower((string)($existingRes['status'] ?? '')) === 'cancelled';
+        if (!$alreadyCancelled && $existingTicketReservation && (int)($existingTicketReservation['quantity'] ?? 0) > 0) {
+            adjust_event_remaining_tickets(
+                $conn,
+                (int)$existingTicketReservation['event_id'],
+                (int)$existingTicketReservation['quantity']
+            );
+        }
 
         $conn->commit();
 
