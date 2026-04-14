@@ -8,7 +8,9 @@ INSERT INTO users (id, email, username, password_hash, profile_image, bio) VALUE
 (2, 'jamie.park@example.com', 'jamie.park', '$2y$10$hash', 'jamie.png', 'Regular club visitor'),
 (3, 'taylor.lee@example.com', 'taylor.lee', '$2y$10$hash', 'taylor.png', 'Event promoter'),
 (4, 'morgan.kim@example.com', 'morgan.kim', '$2y$10$hash', 'morgan.png', 'VIP customer'),
-(5, 'casey.chen@example.com', 'casey.chen', '$2y$10$hash', 'casey.png', 'Birthday guest')
+(5, 'casey.chen@example.com', 'casey.chen', '$2y$10$hash', 'casey.png', 'Birthday guest');
+
+INSERT INTO users (id, email, username, password_hash, privilege, profile_image, created_at) VALUES
 (6, 'adminuser@adminuser.com', 'admin', '$2y$10$YqHFpNA8w2eEV1mbcn73a.tnSgOoY3jXxmQPyvqkvrvpNJm8l9Xj2', 'admin', 'default.png', '2026-04-01 04:47:25'),
 (7, 'test1@gmail.com', 'test1', '$2y$10$xMByV0Hvx/pMBKoOTsWixei8UQZPDrO10UFJrfJb7nYypt2TF453m', 'user', 'default.png', '2026-04-01 04:48:00'),
 (8, 'steve@gmail.com', 'steve', '$2y$10$AsErGyGYkUPlkWJDqnvaDu5CJcM/FP7IkS4cPLmsZYNAwAG/H0fTq', 'staff', 'default.png', '2026-04-01 04:48:20'),
