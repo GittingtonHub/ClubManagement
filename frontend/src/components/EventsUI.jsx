@@ -1,7 +1,7 @@
 
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { useEffect, useMemo, useState } from 'react';
-import { dispatchStaffAssignmentEmails } from '../lib/emailDispatch';
+import { dispatchNamedTemplateEmails, dispatchStaffAssignmentEmails } from '../lib/emailDispatch';
 
 
 
@@ -126,6 +126,49 @@ function EventsUI() {
   const [eventsError, setEventsError] = useState('');
   const [availableStaffIds, setAvailableStaffIds] = useState(null);
   const [isAvailabilityLoading, setIsAvailabilityLoading] = useState(false);
+
+  const uniqueUserRecipientsForEvent = async (eventId) => {
+    try {
+      const response = await fetch('/api/reservations.php', {
+        credentials: 'include'
+      });
+      const payload = await response.json().catch(() => []);
+      const rows = Array.isArray(payload) ? payload : [];
+
+      const seen = new Set();
+      const recipients = [];
+
+      rows.forEach((row) => {
+        if (String(row?.event_id) !== String(eventId)) {
+          return;
+        }
+        if (String(row?.status || '').toLowerCase() === 'cancelled') {
+          return;
+        }
+
+        const userId = Number.parseInt(row?.user_id, 10);
+        if (!Number.isInteger(userId)) {
+          return;
+        }
+
+        const key = String(userId);
+        if (seen.has(key)) {
+          return;
+        }
+        seen.add(key);
+
+        recipients.push({
+          id: userId,
+          name: `User #${userId}`
+        });
+      });
+
+      return recipients;
+    } catch (error) {
+      console.error('Failed to fetch event reservation users:', error);
+      return [];
+    }
+  };
   
   const staffById = useMemo(() => {
     const map = new Map();
@@ -464,6 +507,7 @@ function EventsUI() {
     if (!cancelReason) return;
   
     try {
+      const cancelledEvent = events.find((event) => String(event?.event_id) === String(cancelEventId));
       const response = await fetch(
         `/api/events.php?id=${cancelEventId}&reason=${encodeURIComponent(cancelReason)}`,
         {
@@ -477,6 +521,52 @@ function EventsUI() {
       if (!response.ok) {
         setEventsError(payload?.message || 'Failed to cancel event.');
         return;
+      }
+
+      const role = String(localStorage.getItem('userRole') || 'user').trim().toLowerCase();
+      const actorName =
+        localStorage.getItem('userUsername') ||
+        localStorage.getItem('username') ||
+        'User';
+      const currentUserId = Number.parseInt(localStorage.getItem('userId') || '', 10);
+
+      const staffRecipients = Array.isArray(cancelledEvent?.assigned_staff_ids)
+        ? cancelledEvent.assigned_staff_ids.map((staffId) => ({
+            id: `staff-${staffId}`,
+            name: staffById.get(String(staffId)) || `Staff #${staffId}`
+          }))
+        : [];
+      const userRecipients = await uniqueUserRecipientsForEvent(cancelEventId);
+
+      let recipients = [];
+      if (role === 'admin') {
+        recipients = [...userRecipients, ...staffRecipients];
+      } else if (role === 'staff') {
+        recipients = [...userRecipients];
+      } else {
+        recipients = [...staffRecipients];
+      }
+
+      if (Number.isInteger(currentUserId)) {
+        recipients = recipients.filter((recipient) => String(recipient.id) !== String(currentUserId));
+      }
+
+      const eventTitle = cancelledEvent?.event_title || `Event #${cancelEventId}`;
+      const timeWindow = `${cancelledEvent?.start_time || ''} - ${cancelledEvent?.end_time || ''}`;
+      let message = `${eventTitle} was cancelled by ${actorName} (${role}).`;
+      if (role === 'admin' || role === 'staff') {
+        message += ` Reason: ${cancelReason.trim()}`;
+      }
+
+      if (recipients.length > 0) {
+        const emailSummary = await dispatchNamedTemplateEmails({
+          templateType: 'SR-BA',
+          title: `${role.toUpperCase()} Event Cancellation #${cancelEventId}`,
+          timeWindow,
+          message,
+          recipients
+        });
+        console.info('[EMAIL_TRIGGER_FRONTEND] Event cancelled; frontend email dispatch summary:', emailSummary);
       }
   
       setEvents(prev =>

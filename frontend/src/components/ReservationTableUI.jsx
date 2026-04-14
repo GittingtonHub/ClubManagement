@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
+import { dispatchNamedTemplateEmails } from '../lib/emailDispatch';
 
 function ReservationTableUI() {
   const [reservations, setReservations] = useState([]);
@@ -10,6 +11,23 @@ function ReservationTableUI() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [selectedReservationId, setSelectedReservationId] = useState(null);
+
+  const parseStaffIds = (value) => {
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => Number.parseInt(item, 10))
+        .filter(Number.isInteger);
+    }
+
+    if (typeof value === 'string' && value.trim() !== '') {
+      return value
+        .split(',')
+        .map((item) => Number.parseInt(item.trim(), 10))
+        .filter(Number.isInteger);
+    }
+
+    return [];
+  };
 
   const fetchReservations = useCallback(async () => {
     try {
@@ -249,6 +267,11 @@ function ReservationTableUI() {
     }
   
     try {
+      const cancelledReservation = reservations.find((reservation) => {
+        const reservationId = reservation?.reservation_id ?? reservation?.id;
+        return String(reservationId) === String(selectedReservationId);
+      });
+
       const response = await fetch(
         `/api/reservations.php?id=${selectedReservationId}&reason=${encodeURIComponent(cancelReason)}`,
         {
@@ -260,6 +283,54 @@ function ReservationTableUI() {
       console.log("RESPONSE STATUS:", response.status);
   
       if (response.ok) {
+        const role = String(localStorage.getItem('userRole') || 'user').trim().toLowerCase();
+        const actorName =
+          localStorage.getItem('userUsername') ||
+          localStorage.getItem('username') ||
+          'User';
+        const currentUserId = Number.parseInt(localStorage.getItem('userId') || '', 10);
+        const reservationUserId = Number.parseInt(cancelledReservation?.user_id, 10);
+        const staffIds = parseStaffIds(cancelledReservation?.staff_ids);
+
+        const userRecipients = Number.isInteger(reservationUserId)
+          ? [{ id: reservationUserId, name: `User #${reservationUserId}` }]
+          : [];
+        const staffRecipients = staffIds.map((staffId) => ({
+          id: `staff-${staffId}`,
+          name: `Staff #${staffId}`
+        }));
+
+        let recipients = [];
+        if (role === 'admin') {
+          recipients = [...userRecipients, ...staffRecipients];
+        } else if (role === 'staff') {
+          recipients = [...userRecipients];
+        } else {
+          recipients = [...staffRecipients];
+        }
+
+        if (Number.isInteger(currentUserId)) {
+          recipients = recipients.filter((recipient) => String(recipient.id) !== String(currentUserId));
+        }
+
+        const serviceType = cancelledReservation?.service_type || 'reservation';
+        const timeWindow = `${cancelledReservation?.start_time || ''} - ${cancelledReservation?.end_time || ''}`;
+        let message = `Reservation #${selectedReservationId} (${serviceType}) was cancelled by ${actorName} (${role}).`;
+        if (role === 'admin' || role === 'staff') {
+          message += ` Reason: ${cancelReason.trim()}`;
+        }
+
+        if (recipients.length > 0) {
+          const emailSummary = await dispatchNamedTemplateEmails({
+            templateType: 'SR-BU',
+            title: `${role.toUpperCase()} Reservation Cancellation #${selectedReservationId}`,
+            timeWindow,
+            message,
+            recipients
+          });
+          console.info('[EMAIL_TRIGGER_FRONTEND] Reservation cancelled; frontend email dispatch summary:', emailSummary);
+        }
+
         setShowCancelModal(false);
         setCancelReason('');
         setSelectedReservationId(null);
