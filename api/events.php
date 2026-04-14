@@ -388,7 +388,7 @@ function fetch_events(PDO $conn): array
                 FROM ticket_reservations tr
                 LEFT JOIN reservations r ON r.reservation_id = tr.reservation_id
                 {$ticketJoin}
-                WHERE r.start_time >= NOW() AND e.removed = 0 
+                WHERE r.start_time >= NOW() AND (r.status IS NULL OR r.status != 'cancelled')
                 GROUP BY tr.event_id
                 ORDER BY MIN(r.start_time) ASC, tr.event_id ASC
             ";
@@ -447,7 +447,7 @@ function fetch_events(PDO $conn): array
                     e.{$description} AS description,
                     e.{$startTime} AS start_time,
                     e.{$endTime} AS end_time,
-                    e.{$qtyTickets} AS qty_tickets, // need to subtract on how many tickets have been reserved in the reservations table to and prevent overselling
+                    e.{$qtyTickets} AS qty_tickets,
                     e.{$performer} AS performer,
                     {$ticketPriceSelect},
                     COALESCE(GROUP_CONCAT(DISTINCT s.{$staffName} ORDER BY s.{$staffName} SEPARATOR ', '), '') AS assigned_staff_names,
