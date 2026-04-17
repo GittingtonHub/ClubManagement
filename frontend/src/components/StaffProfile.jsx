@@ -445,6 +445,23 @@ function StaffProfile() {
       return { past, today, future };
    }, [reservations, dayBoundaries.todayStartMs, dayBoundaries.tomorrowStartMs]);
 
+   const guestReservations = useMemo(() => {
+      if (!currentUserId) {
+         return [];
+      }
+
+      const normalizedCurrentUserId = String(currentUserId);
+      const filteredReservations = reservations.filter(
+         (reservation) => String(reservation.user_id) === normalizedCurrentUserId
+      );
+
+      filteredReservations.sort(
+         (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+      );
+
+      return filteredReservations;
+   }, [reservations, currentUserId]);
+
    const formatDateTime = (value) => {
       if (!value) {
          return "";
@@ -658,7 +675,7 @@ function StaffProfile() {
          >
 
             <div className="profile-reservations-past">
-               <h3>Today&apos;s Reservations</h3>
+               <h3>Today&apos;s Assigned Reservations</h3>
                {reservationGroups.today.length === 0 ? (
                   <p className="profile-reservation-placeholder">No past reservations.</p>
                ) : (
@@ -697,7 +714,7 @@ function StaffProfile() {
             </div>
 
             <div className="profile-reservations-future">
-               <h3>Future Reservations</h3>
+               <h3>Future Assigned Reservations</h3>
                {reservationGroups.future.length === 0 ? (
                   <p className="profile-reservation-placeholder">No future reservations.</p>
                ) : (
@@ -735,7 +752,59 @@ function StaffProfile() {
                )}
             </div>
          </div>
+         <div
+            className="profile-reservations-container"
+            style={{
+               width: "90%",
+               margin: "16px auto 0",
+               display: "grid",
+               gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+               gap: "16px"
+            }}
+         >
+            <div className="profile-reservations-future">
+               <h3>Your Reservations as a Guest</h3>
+               {guestReservations.length === 0 ? (
+                  <p className="profile-reservation-placeholder">No guest reservations.</p>
+               ) : (
+                  <table className="profile-reservations-table">
+                     <thead>
+                        <tr className="table-header">
+                           <th>Service Type</th>
+                           <th>Start</th>
+                           <th>End</th>
+                           <th>Status</th>
+                           <th>Action</th>
+                        </tr>
+                     </thead>
+                     <tbody>
+                        {guestReservations.map((reservation) => {
+                           const id = reservation.reservation_id ?? reservation.id;
+                           return (
+                              <tr className="table-row" key={id}>
+                                 <td>{reservation.service_type}</td>
+                                 <td>{formatDateTime(reservation.start_time)}</td>
+                                 <td>{formatDateTime(reservation.end_time)}</td>
+                                 <td>{reservation.status}</td>
+                                 <td>
+                                    <button
+                                       type="button"
+                                       className="profile-reservation-action-button"
+                                       onClick={() => handleCancelReservation(id)}
+                                    >
+                                       Cancel
+                                    </button>
+                                 </td>
+                              </tr>
+                           );
+                        })}
+                     </tbody>
+                  </table>
+               )}
+            </div>
+         </div>
          {reservationMessage ? <p className="profile-value">{reservationMessage}</p> : null}
+        
          <Dialog open={isCancelOpen} onClose={() => {}} className="add-item-dialog">
             <div className="add-item-dialog-backdrop" />
             <div className="add-item-dialog-container">
