@@ -13,6 +13,27 @@ if ($method === 'OPTIONS') {
     exit;
 }
 
+session_start();
+
+if(!isset($_SESSION['user_id'])){
+    http_response_code(401);
+    echo json_encode(['success' => false, 'message' => 'Unauthorized: you must log in first']);
+    exit;
+}
+
+if(in_array($metod,['POST','PUT','DELETE'],true)){
+    $user_role = $_SESSION['user']['role'] ?? null;
+    $user_privilege = $_SESSION['user']['privilege'] ?? null;
+
+    if (!in_array($userRole, ['staff', 'admin'], true) && !in_array($userPrivilege, ['staff', 'admin'], true)) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Unauthorized: Only staff and admin users can modify events.']);
+        exit;
+    }
+}
+
+
+
 function table_exists(PDO $conn, string $tableName): bool
 {
     $stmt = $conn->prepare('SHOW TABLES LIKE :table_name');
