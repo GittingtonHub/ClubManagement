@@ -241,12 +241,12 @@ if ($method === 'GET') {
                         SELECT 1
                         FROM ReservationStaff rs_filter
                         WHERE rs_filter.reservation_id = r.reservation_id
-                          AND rs_filter.staff_id = :uid
-                      ) AND r.start_time >= NOW()";
+                        AND rs_filter.staff_id = :uid
+                    )";
         } elseif ($sessionRole !== 'admin') {
-            $sql .= " WHERE r.user_id = :uid AND r.start_time >= NOW()";
+            $sql .= " WHERE r.user_id = :uid";
         } else {
-            $sql .= " WHERE r.start_time >= NOW()";
+            $sql .= " WHERE 1=1";
         }
 
         $sql .= " ORDER BY r.start_time ASC";
@@ -267,6 +267,47 @@ if ($method === 'GET') {
             'message' => 'Unable to retrieve reservations.'
         ]);
     }
+    exit;
+}
+
+// =============================
+// 1.5 UPDATE RATING (PATCH)
+// =============================
+if ($method === 'PATCH') {
+
+    $reservation_id = $_GET['id'] ?? null;
+    $rating = $_GET['rating'] ?? null;
+
+    if (!$reservation_id || $rating === null) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Missing id or rating']);
+        exit;
+    }
+
+    if (!is_numeric($rating) || $rating < 0 || $rating > 5) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Invalid rating']);
+        exit;
+    }
+
+    try {
+        $stmt = $conn->prepare("
+            UPDATE reservations
+            SET rating = :rating
+            WHERE reservation_id = :rid
+        ");
+
+        $stmt->execute([
+            ':rating' => (int)$rating,
+            ':rid' => $reservation_id
+        ]);
+
+        echo json_encode(['success' => true]);
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Failed to update rating']);
+    }
+
     exit;
 }
 
