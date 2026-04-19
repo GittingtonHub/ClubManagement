@@ -1,5 +1,7 @@
 <?php
 
+date_default_timezone_set('America/Chicago');
+
 // CALL THIS FILE TO CONNECT TO THE DATABASE. WHEN POST REMEBER TO SANITIZE FIRST
 // SHOULD NOT BE SHOWN IN FRONTEND, IT WOULD BE A PROBLEM TO THE EVERYTHINGGGG
 require_once __DIR__ . '/config.php';
