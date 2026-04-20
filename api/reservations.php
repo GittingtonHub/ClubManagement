@@ -242,11 +242,11 @@ if ($method === 'GET') {
                         FROM ReservationStaff rs_filter
                         WHERE rs_filter.reservation_id = r.reservation_id
                         AND rs_filter.staff_id = :uid
-                    )";
+                    ) AND r.start_time >= NOW()";
         } elseif ($sessionRole !== 'admin') {
-            $sql .= " WHERE r.user_id = :uid";
+            $sql .= " WHERE r.user_id = :uid AND r.start_time >= NOW()";
         } else {
-            $sql .= " WHERE 1=1";
+            $sql .= " WHERE r.start_time >= NOW()";
         }
 
         $sql .= " ORDER BY r.start_time ASC";
