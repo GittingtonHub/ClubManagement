@@ -4,6 +4,36 @@ header("Access-Control-Allow-Origin: *");
 
 include_once 'api.php';
 
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+if ($method === 'OPTIONS') {
+    exit;
+}
+
+session_start();
+
+# =====================================================
+// GLOBAL SECURITY CHECKS: Admins ONLY
+#=======================================================
+
+// check if user is logged in
+if (!isset($_SESSION['user_id']) && isset($_SESSION['user']['id'])) {
+    $_SESSION['user_id'] = $_SESSION['user']['id'];
+}
+
+// check if they have the right permissions and role
+$userRole = $_SESSION['user']['role'] ?? null;
+$userPrivilege = $_SESSION['user']['privilege'] ?? null;
+
+if ($userRole !== 'admin' && $userPrivilege !== 'admin') {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Forbidden: Admins only']);
+    exit;
+}
+
+
+
+
+
 if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
     // Get JSON input
     $id = $_GET['id'] ?? null;
