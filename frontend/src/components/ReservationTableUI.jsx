@@ -82,8 +82,8 @@ function ReservationTableUI() {
       })));
 
       setSectionOptions(sectionsData.map((s) => ({
-        id: s.section_number,
-        name: String(s.section_number)
+        id: s.table_section_id,
+        name: String(s.section_number ?? s.table_section_id)
       })));
 
       setEventOptions(eventsData.map((e) => ({
@@ -133,7 +133,7 @@ function ReservationTableUI() {
       return [
         base[0],
         base[1],
-        { name: "Section Number", id: "section_number", type: "select", options: sectionOptions },
+        { name: "Section", id: "table_section_id", type: "select", options: sectionOptions },
         { name: "Guest Count", id: "guest_count", type: "number" },
         { name: "Minimum Spend", id: "minimum_spend", type: "number" },
         base[2],
@@ -409,7 +409,7 @@ function ReservationTableUI() {
       status: reservation.status || 'pending',
       start: reservation.start_time,
       end: reservation.end_time,
-      section_number: reservation.section_number ?? '',
+      table_section_id: reservation.table_section_id ?? '',
       guest_count: reservation.guest_count ?? '',
       minimum_spend: reservation.minimum_spend ?? '',
       event_id: reservation.event_id ?? '',
@@ -447,11 +447,11 @@ function ReservationTableUI() {
       };
 
        if (resource.type === "bottle_service") {
-        payload.section_number = modalData.section_number;
+        payload.table_section_id = modalData.table_section_id;
         payload.guest_count = modalData.guest_count;
         payload.minimum_spend = modalData.minimum_spend;
-        if (!payload.section_number || !payload.guest_count || !payload.minimum_spend) {
-          alert('Please fill out section number, guest count, and minimum spend.');
+        if (!payload.table_section_id || !payload.guest_count || !payload.minimum_spend) {
+          alert('Please fill out section, guest count, and minimum spend.');
           continue;
         }
       }

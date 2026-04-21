@@ -485,9 +485,15 @@ INSERT INTO reservations (reservation_id, user_id, resource_id, service_type, st
 -- =========================
 -- SUBTABLES
 -- =========================
+INSERT INTO table_section (section_id, seat_count, section_number) VALUES
+(1, 6, 101),
+(2, 8, 102),
+(3, 10, 103),
+(4, 12, 104);
+
 INSERT INTO bottle_service VALUES
-(1, 101, 6, 1200.00),
-(2, 102, 8, 1500.00);
+(1, 1, 6, 1200.00),
+(2, 2, 8, 1500.00);
 
 -- =========================
 -- STAFF ASSIGNMENTS

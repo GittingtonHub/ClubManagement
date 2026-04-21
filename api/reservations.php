@@ -218,7 +218,8 @@ if ($method === 'GET') {
                res.name AS resource_name, 
                res.type AS resource_type, 
                res.description AS resource_description,
-               bs.section_number,
+               bs.table_section_id,
+               ts.section_number,
                bs.guest_count,
                bs.minimum_spend,
                tr.event_id,
@@ -228,6 +229,7 @@ if ($method === 'GET') {
         FROM reservations r
         JOIN resources res ON r.resource_id = res.id
         LEFT JOIN bottle_service bs ON bs.reservation_id = r.reservation_id
+        LEFT JOIN table_section ts ON ts.section_id = bs.table_section_id
         LEFT JOIN ticket_reservations tr ON tr.reservation_id = r.reservation_id
         LEFT JOIN (
             SELECT reservation_id,
@@ -330,7 +332,7 @@ if ($method === 'POST') {
     $service_type = $input['service_type'] ?? null;
     $start_time = $input['start_time'] ?? null;
     $end_time = $input['end_time'] ?? null;
-    $section_number = $input['section_number'] ?? null;
+    $table_section_id = $input['table_section_id'] ?? null;
     $guest_count = $input['guest_count'] ?? null;
     $minimum_spend = $input['minimum_spend'] ?? null;
     $event_id = $input['event_id'] ?? null;
@@ -442,10 +444,10 @@ if ($method === 'POST') {
         $resolved_ticket_id = null;
 
         if ($resource_Type === 'Bottle Service') {
-            if (!$section_number || !$guest_count || !$minimum_spend) {
+            if (!$table_section_id || !$guest_count || !$minimum_spend) {
                 $conn->rollBack();
                 http_response_code(400);
-                echo json_encode(['success' => false, 'message' => 'Bottle service requires section_number, guest_count, and minimum_spend.']);
+                echo json_encode(['success' => false, 'message' => 'Bottle service requires table_section_id, guest_count, and minimum_spend.']);
                 exit;
             }
             // minimum spend validation based on resource type price
@@ -483,18 +485,18 @@ if ($method === 'POST') {
         ]);
 
         if ($resource_name === 'Bottle Service Silver' || $resource_name === 'Bottle Service Gold') {
-            if (!$section_number || !$guest_count || !$minimum_spend) {
+            if (!$table_section_id || !$guest_count || !$minimum_spend) {
                 $conn->rollBack();
                 http_response_code(400);
-                echo json_encode(['success' => false, 'message' => 'Bottle service requires section_number, guest_count, and minimum_spend.']);
+                echo json_encode(['success' => false, 'message' => 'Bottle service requires table_section_id, guest_count, and minimum_spend.']);
                 exit;
             }
-            $childSql = "INSERT INTO bottle_service (reservation_id, section_number, guest_count, minimum_spend)
+            $childSql = "INSERT INTO bottle_service (reservation_id, table_section_id, guest_count, minimum_spend)
                          VALUES (:rid, :section, :guests, :min_spend)";
             $childStmt = $conn->prepare($childSql);
             $childStmt->execute([
                 ':rid' => $reservation_id,
-                ':section' => $section_number,
+                ':section' => $table_section_id,
                 ':guests' => $guest_count,
                 ':min_spend' => $minimum_spend
             ]);
@@ -741,7 +743,7 @@ if ($method === 'PUT') {
     $status = $input['status'] ?? null;
     $start_time = $input['start_time'] ?? null;
     $end_time = $input['end_time'] ?? null;
-    $section_number = $input['section_number'] ?? null;
+    $table_section_id = $input['table_section_id'] ?? null;
     $guest_count = $input['guest_count'] ?? null;
     $minimum_spend = $input['minimum_spend'] ?? null;
     $event_id = $input['event_id'] ?? null;
@@ -891,10 +893,10 @@ if ($method === 'PUT') {
         $resource_name = $resource['name'];
 
         if ($resource_Type === 'Bottle Service') {
-            if (!$section_number || !$guest_count || !$minimum_spend) {
+            if (!$table_section_id || !$guest_count || !$minimum_spend) {
                 $conn->rollBack();
                 http_response_code(400);
-                echo json_encode(['success' => false, 'message' => 'Bottle service requires section_number, guest_count, and minimum_spend.']);
+                echo json_encode(['success' => false, 'message' => 'Bottle service requires table_section_id, guest_count, and minimum_spend.']);
                 exit;
             }
 
@@ -908,16 +910,16 @@ if ($method === 'PUT') {
             }
 
             // Handle updates or inserts for bottle service
-            $childSql = "INSERT INTO bottle_service (reservation_id, section_number, guest_count, minimum_spend)
+            $childSql = "INSERT INTO bottle_service (reservation_id, table_section_id, guest_count, minimum_spend)
                          VALUES (:rid, :section, :guests, :min_spend)
                          ON DUPLICATE KEY UPDATE
-                            section_number = VALUES(section_number),
+                            table_section_id = VALUES(table_section_id),
                             guest_count = VALUES(guest_count),
                             minimum_spend = VALUES(minimum_spend)";
             $childStmt = $conn->prepare($childSql);
             $childStmt->execute([
                 ':rid' => $reservation_id,
-                ':section' => $section_number,
+                ':section' => $table_section_id,
                 ':guests' => $guest_count,
                 ':min_spend' => $minimum_spend
             ]);

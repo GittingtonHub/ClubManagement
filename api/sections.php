@@ -67,11 +67,15 @@ try {
     if ($sectionsTable !== null) {
         $columns = get_table_columns($conn, $sectionsTable);
         $sectionColumn = pick_column($columns, ['section_number', 'section_no', 'section', 'number', 'name', 'section_id', 'id']);
+        $idColumn = pick_column($columns, ['section_id', 'id']);
         $removedColumn = pick_column($columns, ['removed', 'is_removed', 'deleted']);
 
         if ($sectionColumn !== null) {
             $sectionCol = quote_identifier($sectionColumn);
-            $sql = "SELECT DISTINCT {$sectionCol} AS section_number FROM " . quote_identifier($sectionsTable);
+            $idExpr = $idColumn !== null
+                ? quote_identifier($idColumn)
+                : $sectionCol;
+            $sql = "SELECT DISTINCT {$idExpr} AS table_section_id, {$sectionCol} AS section_number FROM " . quote_identifier($sectionsTable);
             $whereParts = [];
             if ($removedColumn !== null) {
                 $whereParts[] = 'COALESCE(' . quote_identifier($removedColumn) . ', 0) = 0';
@@ -93,7 +97,21 @@ try {
 
     // Backward-compatible fallback: infer options from existing bottle service reservations.
     if (table_exists($conn, 'bottle_service')) {
-        $stmt = $conn->prepare('SELECT DISTINCT section_number FROM bottle_service WHERE section_number IS NOT NULL ORDER BY section_number');
+        if (table_exists($conn, 'table_section')) {
+            $stmt = $conn->prepare('
+                SELECT DISTINCT ts.section_id AS table_section_id, ts.section_number
+                FROM table_section ts
+                INNER JOIN bottle_service bs ON bs.table_section_id = ts.section_id
+                ORDER BY ts.section_number
+            ');
+        } else {
+            $stmt = $conn->prepare('
+                SELECT DISTINCT table_section_id, table_section_id AS section_number
+                FROM bottle_service
+                WHERE table_section_id IS NOT NULL
+                ORDER BY table_section_id
+            ');
+        }
         $stmt->execute();
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode(array_values($rows));

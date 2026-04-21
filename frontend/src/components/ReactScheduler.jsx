@@ -236,7 +236,7 @@ const ReactScheduler = () => {
       return [
         base[0],
         base[1],
-        { name: "Section Number", id: "section_number", type: "select", options: sectionOptions },
+        { name: "Section", id: "table_section_id", type: "select", options: sectionOptions },
         { name: "Guest Count", id: "guest_count", type: "number" },
         { name: "Minimum Spend", id: "minimum_spend", type: "number" },
         base[2],
@@ -355,11 +355,11 @@ const onTimeRangeSelected = async (args) => {
       };
 
       if (selectedResource.name === "Bottle Service Silver" || selectedResource.name === "Bottle Service Gold") {
-        payload.section_number = modalData.section_number;
+        payload.table_section_id = modalData.table_section_id;
         payload.guest_count = modalData.guest_count;
         payload.minimum_spend = modalData.minimum_spend;
-        if (!payload.section_number || !payload.guest_count || !payload.minimum_spend) {
-          alert("Please fill out section number, guest count, and minimum spend.");
+        if (!payload.table_section_id || !payload.guest_count || !payload.minimum_spend) {
+          alert("Please fill out section, guest count, and minimum spend.");
           continue;
         }
       }
@@ -699,7 +699,11 @@ const onTimeRangeSelected = async (args) => {
             end: e.end_time,
             resource: e.resource_id,
             status: e.status,
-            event_id: e.event_id
+            event_id: e.event_id,
+            table_section_id: e.table_section_id,
+            section_number: e.section_number,
+            guest_count: e.guest_count,
+            minimum_spend: e.minimum_spend
           });
           return acc;
         }, []);
@@ -715,8 +719,8 @@ const onTimeRangeSelected = async (args) => {
         const sectionsJson = await sectionsResponse.json();
         const sectionsData = Array.isArray(sectionsJson) ? sectionsJson : [];
         setSectionOptions(sectionsData.map(s => ({
-          name: String(s.section_number),
-          id: s.section_number
+          name: String(s.section_number ?? s.table_section_id),
+          id: s.table_section_id
         })));
 
         const flattenResourceIds = (rows) => {
