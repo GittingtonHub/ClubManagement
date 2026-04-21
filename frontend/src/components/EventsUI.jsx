@@ -188,13 +188,23 @@ function EventsUI() {
     return new Set(availableStaffIds.map((staffId) => String(staffId)));
   }, [availableStaffIds]);
 
+  const hasValidAvailabilityWindow = useMemo(() => {
+    if (!eventForm.start_time || !eventForm.end_time) {
+      return false;
+    }
+
+    const start = new Date(eventForm.start_time);
+    const end = new Date(eventForm.end_time);
+    return !Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && end > start;
+  }, [eventForm.start_time, eventForm.end_time]);
+
   const visibleStaff = useMemo(() => {
-    if (!eventForm.start_time || !eventForm.end_time || availableStaffIdSet === null) {
-      return staff;
+    if (!hasValidAvailabilityWindow || availableStaffIdSet === null) {
+      return [];
     }
 
     return staff.filter((member) => availableStaffIdSet.has(String(member.id)));
-  }, [staff, eventForm.start_time, eventForm.end_time, availableStaffIdSet]);
+  }, [staff, hasValidAvailabilityWindow, availableStaffIdSet]);
 
   const resetEventForm = () => {
     setEventForm(EMPTY_EVENT_FORM);
@@ -263,6 +273,7 @@ function EventsUI() {
 
     if (!eventForm.start_time || !eventForm.end_time) {
       setAvailableStaffIds(null);
+      setIsAvailabilityLoading(false);
       return;
     }
 
@@ -271,6 +282,7 @@ function EventsUI() {
 
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
       setAvailableStaffIds(null);
+      setIsAvailabilityLoading(false);
       return;
     }
 
@@ -305,7 +317,7 @@ function EventsUI() {
       } catch (error) {
         if (error.name !== 'AbortError') {
           console.error('Failed to fetch staff availability:', error);
-          setAvailableStaffIds(null);
+          setAvailableStaffIds([]);
         }
       } finally {
         if (!controller.signal.aborted) {
@@ -825,7 +837,7 @@ function EventsUI() {
 
                 <div style={{ width: '100%', marginBottom: '10px' }}>
                   <p style={{ margin: '0 0 8px 0', fontWeight: 600 }}>Assign Staff</p>
-                  {isAvailabilityLoading && eventForm.start_time && eventForm.end_time && (
+                  {isAvailabilityLoading && hasValidAvailabilityWindow && (
                     <p style={{ margin: '0 0 8px 0', fontSize: '13px' }}>Checking availability...</p>
                   )}
                   <div
@@ -838,9 +850,11 @@ function EventsUI() {
                       background: 'rgba(255, 255, 255, 0.6)'
                     }}
                   >
-                    {visibleStaff.length === 0 ? (
+                    {!hasValidAvailabilityWindow || availableStaffIdSet === null ? (
+                      <p style={{ margin: 0 }}>Loading available staff...</p>
+                    ) : visibleStaff.length === 0 ? (
                       <p style={{ margin: 0 }}>
-                        {staff.length === 0 ? 'No staff available yet.' : 'No staff available for selected time range.'}
+                        No staff available for selected time range.
                       </p>
                     ) : (
                       visibleStaff.map((member) => {

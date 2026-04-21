@@ -6,7 +6,7 @@ import react from '@vitejs/plugin-react'
 //   server: {
 //     proxy: {
 //       "/api": {
-//         target: "http://localhost/ClubManagement",
+//         target: "http://localhost:8000",
 //         changeOrigin: true,
 //         secure: false
 //       }
