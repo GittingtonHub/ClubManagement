@@ -4,6 +4,7 @@ import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { dispatchNamedTemplateEmails } from '../lib/emailDispatch';
 
 function ReservationTableUI() {
+  const [ratingByReservation, setRatingByReservation] = useState({});
   const [reservations, setReservations] = useState([]);
   const [resources, setResources] = useState([]);
   const [sectionOptions, setSectionOptions] = useState([]);
@@ -517,6 +518,7 @@ function ReservationTableUI() {
               <th>End Time</th>
               <th>Created At</th>
               <th>Actions</th>
+              <th>Rating</th>
             </tr>
 
             {reservations.map((reservation, index) => {
@@ -554,6 +556,48 @@ function ReservationTableUI() {
                         </button>
                       ) : null}
                     </div>
+                  </td>
+                  <td>
+                    <select
+                      value={ratingByReservation[reservationId] ?? ''}
+                      onChange={(e) => {
+                        setRatingByReservation(prev => ({
+                          ...prev,
+                          [reservationId]: e.target.value
+                        }));
+                      }}
+                    >
+                      <option value="">Rate</option>
+                      {[0,1,2,3,4,5].map(n => (
+                        <option key={n} value={n}>{n}</option>
+                      ))}
+                    </select>
+
+                    <button
+                      onClick={async () => {
+                        const rating = ratingByReservation[reservationId];
+                        if (rating === undefined || rating === '') return;
+
+                        try {
+                          const res = await fetch(
+                            `/api/reservations.php?id=${reservationId}&rating=${rating}`,
+                            {
+                              method: 'PATCH',
+                              credentials: 'include'
+                            }
+                          );
+
+                          if (!res.ok) {
+                            alert("Failed to save rating");
+                          }
+                        } catch (err) {
+                          console.error(err);
+                          alert("Error saving rating");
+                        }
+                      }}
+                    >
+                      Save
+                    </button>
                   </td>
                 </tr>
               );
