@@ -239,11 +239,16 @@ if ($method === 'GET') {
         ) rs ON r.reservation_id = rs.reservation_id";
 
         if ($sessionRole === 'staff') {
-            $sql .= " WHERE EXISTS (
-                        SELECT 1
-                        FROM ReservationStaff rs_filter
-                        WHERE rs_filter.reservation_id = r.reservation_id
-                        AND rs_filter.staff_id = :uid
+            $sql .= " WHERE (
+                        r.user_id = :uid
+                        OR EXISTS (
+                            SELECT 1
+                            FROM ReservationStaff rs_filter
+                            JOIN staff s_filter ON s_filter.id = rs_filter.staff_id
+                            WHERE rs_filter.reservation_id = r.reservation_id
+                              AND s_filter.user_id = :uid
+                              AND s_filter.removed = 0
+                        )
                     ) AND r.start_time >= NOW()";
         } elseif ($sessionRole !== 'admin') {
             $sql .= " WHERE r.user_id = :uid AND r.start_time >= NOW()";
