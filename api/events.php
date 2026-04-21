@@ -21,11 +21,11 @@ if(!isset($_SESSION['user_id'])){
     exit;
 }
 
-if(in_array($metod,['POST','PUT','DELETE'],true)){
+if (in_array($method, ['POST', 'PUT', 'DELETE'], true)) {
     $user_role = $_SESSION['user']['role'] ?? null;
     $user_privilege = $_SESSION['user']['privilege'] ?? null;
 
-    if (!in_array($userRole, ['staff', 'admin'], true) && !in_array($userPrivilege, ['staff', 'admin'], true)) {
+    if (!in_array($user_role, ['staff', 'admin'], true) && !in_array($user_privilege, ['staff', 'admin'], true)) {
         http_response_code(403);
         echo json_encode(['success' => false, 'message' => 'Unauthorized: Only staff and admin users can modify events.']);
         exit;

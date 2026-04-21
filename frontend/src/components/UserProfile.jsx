@@ -19,6 +19,7 @@ function UserProfile() {
    const [isUploadingImage, setIsUploadingImage] = useState(false);
    const [imageUploadError, setImageUploadError] = useState("");
    const [imageUploadMessage, setImageUploadMessage] = useState("");
+   const [ratingByReservation, setRatingByReservation] = useState({});
 
    const parseStaffIds = (value) => {
       if (Array.isArray(value)) {
@@ -106,6 +107,9 @@ function UserProfile() {
       window.location.href = `/reservations?edit=${id}`;
    };
 
+   const isCancelledReservation = (reservation) =>
+      String(reservation?.status ?? "").toLowerCase() === "cancelled";
+
    const fetchMyReservations = useCallback(async () => {
       if (!currentUserId) {
          setReservations([]);
@@ -184,7 +188,7 @@ function UserProfile() {
             return String(id) === String(reservationId);
          });
 
-         const response = await fetch(`/api/reservations.php?id=${reservationId}`, {
+         const response = await fetch(`/api/reservations.php?id=${reservationId}&reason=${encodeURIComponent(" ")}`, {
             method: "DELETE",
             credentials: "include",
             headers: {
@@ -229,6 +233,41 @@ function UserProfile() {
          setReservationMessage("");
       } catch {
          setReservationMessage("Could not cancel reservation");
+      }
+   };
+
+   const handleSaveRating = async (reservationId) => {
+      const reservation = reservations.find((row) => {
+         const id = row?.reservation_id ?? row?.id;
+         return String(id) === String(reservationId);
+      });
+
+      if (!reservation || isCancelledReservation(reservation)) {
+         return;
+      }
+
+      const rating = ratingByReservation[reservationId];
+      if (rating === undefined || rating === "") {
+         return;
+      }
+
+      try {
+         const response = await fetch(`/api/reservations.php?id=${reservationId}&rating=${rating}`, {
+            method: "PATCH",
+            credentials: "include",
+            headers: {
+               Authorization: `Bearer ${localStorage.getItem("authToken") || ""}`
+            }
+         });
+
+         if (!response.ok) {
+            setReservationMessage("Could not save rating");
+            return;
+         }
+
+         setReservationMessage("");
+      } catch {
+         setReservationMessage("Could not save rating");
       }
    };
 
@@ -555,19 +594,41 @@ function UserProfile() {
                            <th>Start</th>
                            <th>End</th>
                            <th>Actions</th>
+                           <th>Rating</th>
                         </tr>
                      </thead>
                      <tbody>
                         {reservationGroups.today.map((reservation) => {
                            const id = reservation.reservation_id ?? reservation.id;
+                           const isCancelled = isCancelledReservation(reservation);
                            return (
                               <tr className="table-row" key={id}>
                                  <td>{reservation.service_type}</td>
                                  <td>{formatDateTime(reservation.start_time)}</td>
                                  <td>{formatDateTime(reservation.end_time)}</td>
                                  <td>
-                                    <button onClick={() => handleEdit(id)}>Edit</button>
-                                    <button onClick={() => handleCancelReservation(id)}>Cancel</button>
+                                    {!isCancelled ? <button onClick={() => handleEdit(id)}>Edit</button> : null}
+                                    {!isCancelled ? <button onClick={() => handleCancelReservation(id)}>Cancel</button> : null}
+                                 </td>
+                                 <td>
+                                    <select
+                                       value={ratingByReservation[id] ?? ""}
+                                       disabled={isCancelled}
+                                       onChange={(e) => {
+                                          setRatingByReservation((previous) => ({
+                                             ...previous,
+                                             [id]: e.target.value
+                                          }));
+                                       }}
+                                    >
+                                       <option value="">Rate</option>
+                                       {[0, 1, 2, 3, 4, 5].map((value) => (
+                                          <option key={value} value={value}>
+                                             {value}
+                                          </option>
+                                       ))}
+                                    </select>
+                                    <button disabled={isCancelled} onClick={() => handleSaveRating(id)}>Save</button>
                                  </td>
                               </tr>
                            );
@@ -589,24 +650,48 @@ function UserProfile() {
                            <th>Start</th>
                            <th>End</th>
                            <th>Actions</th>
+                           <th>Rating</th>
                         </tr>
                      </thead>
                      <tbody>
                         {reservationGroups.future.map((reservation) => {
                            const id = reservation.reservation_id ?? reservation.id;
+                           const isCancelled = isCancelledReservation(reservation);
                            return (
                               <tr className="table-row" key={id}>
                                  <td>{reservation.service_type}</td>
                                  <td>{formatDateTime(reservation.start_time)}</td>
                                  <td>{formatDateTime(reservation.end_time)}</td>
                                  <td>
-                                    <button
-                                       type="button"
-                                       className="profile-reservation-action-button"
-                                       onClick={() => handleCancelReservation(id)}
+                                    {!isCancelled ? (
+                                       <button
+                                          type="button"
+                                          className="profile-reservation-action-button"
+                                          onClick={() => handleCancelReservation(id)}
+                                       >
+                                          Cancel
+                                       </button>
+                                    ) : null}
+                                 </td>
+                                 <td>
+                                    <select
+                                       value={ratingByReservation[id] ?? ""}
+                                       disabled={isCancelled}
+                                       onChange={(e) => {
+                                          setRatingByReservation((previous) => ({
+                                             ...previous,
+                                             [id]: e.target.value
+                                          }));
+                                       }}
                                     >
-                                       Cancel
-                                    </button>
+                                       <option value="">Rate</option>
+                                       {[0, 1, 2, 3, 4, 5].map((value) => (
+                                          <option key={value} value={value}>
+                                             {value}
+                                          </option>
+                                       ))}
+                                    </select>
+                                    <button disabled={isCancelled} onClick={() => handleSaveRating(id)}>Save</button>
                                  </td>
                               </tr>
                            );

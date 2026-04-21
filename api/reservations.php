@@ -293,6 +293,27 @@ if ($method === 'PATCH') {
     }
 
     try {
+        $statusStmt = $conn->prepare("
+            SELECT status
+            FROM reservations
+            WHERE reservation_id = :rid
+            LIMIT 1
+        ");
+        $statusStmt->execute([':rid' => $reservation_id]);
+        $reservationRow = $statusStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$reservationRow) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Reservation not found']);
+            exit;
+        }
+
+        if (strtolower((string)($reservationRow['status'] ?? '')) === 'cancelled') {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Cannot rate a cancelled reservation']);
+            exit;
+        }
+
         $stmt = $conn->prepare("
             UPDATE reservations
             SET rating = :rating
@@ -1193,16 +1214,16 @@ if ($method === 'DELETE') {
             exit;
         }
 
-        $cancel_reason = trim($_GET['reason'] ?? '');
+        $cancel_reason = isset($_GET['reason']) ? (string)$_GET['reason'] : '';
 
-        if (($sessionRole === 'admin' || $sessionRole === 'staff') && empty($cancel_reason)) {
+        if (($sessionRole === 'admin' || $sessionRole === 'staff') && $cancel_reason === '') {
             $conn->rollBack();
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => 'Cancellation reason is required for staff and admins.']);
             exit;
         }
 
-        if (empty($cancel_reason)) {
+        if ($cancel_reason === '') {
             $cancel_reason = 'Cancelled by user';
         }
 

@@ -9,22 +9,31 @@ if ($method === 'OPTIONS') {
     exit;
 }
 
+$authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+if ($authHeader && preg_match('/Bearer\s+(.+)/i', $authHeader, $matches)) {
+    $sessionToken = trim($matches[1]);
+    if ($sessionToken !== '') {
+        session_id($sessionToken);
+    }
+}
+
 session_start();
 
-# =====================================================
-// GLOBAL SECURITY CHECKS: Admins ONLY
-#=======================================================
-
-// check if user is logged in
 if (!isset($_SESSION['user_id']) && isset($_SESSION['user']['id'])) {
     $_SESSION['user_id'] = $_SESSION['user']['id'];
 }
 
-// check if they have the right permissions and role
+if (!isset($_SESSION['user_id'])) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'message' => 'Unauthorized: you must log in first']);
+    exit;
+}
+
 $userRole = $_SESSION['user']['role'] ?? null;
 $userPrivilege = $_SESSION['user']['privilege'] ?? null;
+$isAdmin = ($userRole === 'admin' || $userPrivilege === 'admin');
 
-if ($userRole !== 'admin' && $userPrivilege !== 'admin') {
+if (in_array($method, ['POST', 'PUT', 'DELETE'], true) && !$isAdmin) {
     http_response_code(403);
     echo json_encode(['success' => false, 'message' => 'Forbidden: Admins only']);
     exit;
