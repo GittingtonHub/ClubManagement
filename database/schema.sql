@@ -79,6 +79,7 @@ CREATE TABLE events (
   end DATETIME NOT NULL,
   qty_tickets INT NOT NULL,
   performer VARCHAR(255),
+  poster_image VARCHAR(255),
   status ENUM('pending','confirmed','cancelled') DEFAULT 'pending',
   cancellation_reason TEXT,
   cancelled_by_user_id INT,
@@ -108,6 +109,7 @@ CREATE TABLE reservations (
   resource_id INT NOT NULL,
   service_type VARCHAR(100) NOT NULL,
   status ENUM('pending','confirmed','cancelled') DEFAULT 'pending',
+  rating INT CHECK (rating >= 0 AND rating <= 5),
   start_time DATETIME NOT NULL,
   end_time DATETIME NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -142,6 +144,7 @@ CREATE TABLE table_section (
   reservation_id INT PRIMARY KEY,
   seat_count INT NOT NULL,
   section_number INT NOT NULL,
+  section_id INT,
   FOREIGN KEY (reservation_id) REFERENCES reservations(reservation_id)
 );
 
