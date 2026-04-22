@@ -109,6 +109,7 @@ function get_events_column_map(PDO $conn): ?array
         'event_id' => pick_column($columns, ['event_id', 'id']),
         'event_title' => pick_column($columns, ['event_title', 'title', 'name']),
         'description' => pick_column($columns, ['description', 'details']),
+        'event_poster' => pick_column($columns, ['poster_image', 'event_poster', 'poster', 'image_path']),
         'start_time' => pick_column($columns, ['start_time', 'start', 'start_at']),
         'end_time' => pick_column($columns, ['end_time', 'end', 'end_at']),
         'qty_tickets' => pick_column($columns, ['qty_tickets', 'ticket_qty', 'quantity', 'tickets_qty']),
@@ -430,6 +431,7 @@ function fetch_events(PDO $conn): array
     $eventId = quote_identifier($eventMap['event_id']);
     $eventTitle = quote_identifier($eventMap['event_title']);
     $description = quote_identifier($eventMap['description']);
+    $eventPoster = $eventMap['event_poster'] ? quote_identifier($eventMap['event_poster']) : null;
     $startTime = quote_identifier($eventMap['start_time']);
     $endTime = quote_identifier($eventMap['end_time']);
     $qtyTickets = quote_identifier($eventMap['qty_tickets']);
@@ -472,6 +474,7 @@ function fetch_events(PDO $conn): array
                     e.{$eventId} AS event_id,
                     e.{$eventTitle} AS event_title,
                     e.{$description} AS description,
+                    " . ($eventPoster ? "e.{$eventPoster}" : "NULL") . " AS event_poster,
                     e.{$startTime} AS start_time,
                     e.{$endTime} AS end_time,
                     e.{$qtyTickets} AS qty_tickets,
@@ -484,7 +487,7 @@ function fetch_events(PDO $conn): array
                 LEFT JOIN staff s ON s.{$staffPk} = es.{$eventStaffStaffId}
                 {$ticketJoin}
                 WHERE e.{$startTime} >= NOW() AND e.removed = 0
-                GROUP BY e.{$eventId}, e.{$eventTitle}, e.{$description}, e.{$startTime}, e.{$endTime}, e.{$qtyTickets}, e.{$performer}
+                GROUP BY e.{$eventId}, e.{$eventTitle}, e.{$description}, " . ($eventPoster ? "e.{$eventPoster}," : "") . " e.{$startTime}, e.{$endTime}, e.{$qtyTickets}, e.{$performer}
                 ORDER BY e.{$startTime} ASC, e.{$eventId} ASC
             ";
 
@@ -498,6 +501,7 @@ function fetch_events(PDO $conn): array
                 e.{$eventId} AS event_id,
                 e.{$eventTitle} AS event_title,
                 e.{$description} AS description,
+                " . ($eventPoster ? "e.{$eventPoster}" : "NULL") . " AS event_poster,
                 e.{$startTime} AS start_time,
                 e.{$endTime} AS end_time,
                 e.{$qtyTickets} AS qty_tickets,
@@ -507,7 +511,7 @@ function fetch_events(PDO $conn): array
                 '' AS assigned_staff_ids
             FROM events e
             {$ticketJoin}
-            GROUP BY e.{$eventId}, e.{$eventTitle}, e.{$description}, e.{$startTime}, e.{$endTime}, e.{$qtyTickets}, e.{$performer}
+            GROUP BY e.{$eventId}, e.{$eventTitle}, e.{$description}, " . ($eventPoster ? "e.{$eventPoster}," : "") . " e.{$startTime}, e.{$endTime}, e.{$qtyTickets}, e.{$performer}
             ORDER BY e.{$startTime} ASC, e.{$eventId} ASC
         ";
 
@@ -546,6 +550,7 @@ if ($method === 'POST') {
     $eventId = $input['event_id'] ?? null;
     $eventTitle = trim((string)($input['event_title'] ?? ''));
     $description = trim((string)($input['description'] ?? ''));
+    $eventPoster = trim((string)($input['event_poster'] ?? ''));
     $performer = trim((string)($input['performer'] ?? ''));
     $startTime = normalize_datetime($input['start_time'] ?? null);
     $endTime = normalize_datetime($input['end_time'] ?? null);
@@ -659,8 +664,7 @@ if ($method === 'POST') {
         }
     }
 
-    $insertSql = sprintf(
-        'INSERT INTO events (%s, %s, %s, %s, %s, %s, %s) VALUES (:event_id, :event_title, :description, :start_time, :end_time, :qty_tickets, :performer)',
+    $insertColumns = [
         quote_identifier($eventMap['event_id']),
         quote_identifier($eventMap['event_title']),
         quote_identifier($eventMap['description']),
@@ -668,13 +672,33 @@ if ($method === 'POST') {
         quote_identifier($eventMap['end_time']),
         quote_identifier($eventMap['qty_tickets']),
         quote_identifier($eventMap['performer'])
+    ];
+    $insertValues = [
+        ':event_id',
+        ':event_title',
+        ':description',
+        ':start_time',
+        ':end_time',
+        ':qty_tickets',
+        ':performer'
+    ];
+
+    if (!empty($eventMap['event_poster'])) {
+        $insertColumns[] = quote_identifier($eventMap['event_poster']);
+        $insertValues[] = ':event_poster';
+    }
+
+    $insertSql = sprintf(
+        'INSERT INTO events (%s) VALUES (%s)',
+        implode(', ', $insertColumns),
+        implode(', ', $insertValues)
     );
 
     try {
         $conn->beginTransaction();
 
         $insertStmt = $conn->prepare($insertSql);
-        $insertStmt->execute([
+        $insertParams = [
             ':event_id' => (int)$eventId,
             ':event_title' => $eventTitle,
             ':description' => $description,
@@ -682,7 +706,11 @@ if ($method === 'POST') {
             ':end_time' => $endTime,
             ':qty_tickets' => (int)$qtyTickets,
             ':performer' => $performer
-        ]);
+        ];
+        if (!empty($eventMap['event_poster'])) {
+            $insertParams[':event_poster'] = $eventPoster === '' ? null : $eventPoster;
+        }
+        $insertStmt->execute($insertParams);
 
         replace_event_ticket_rows($conn, (int)$eventId, $normalizedGaTicketPrice, $normalizedVipTicketPrice);
 
