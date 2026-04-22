@@ -259,9 +259,7 @@ function ReservationTableUI() {
     return startDate.getTime() >= Date.now();
   };
 
-  const submitCancellation = async () => {
-    console.log("CANCEL CLICKED", selectedReservationId);
-  
+  const submitCancellation = async () => {  
     if (!cancelReason.trim()) {
       alert('Please provide a cancellation reason.');
       return;
@@ -280,9 +278,7 @@ function ReservationTableUI() {
           credentials: 'include'
         }
       );
-  
-      console.log("RESPONSE STATUS:", response.status);
-  
+    
       if (response.ok) {
         const role = String(localStorage.getItem('userRole') || 'user').trim().toLowerCase();
         const actorName =
@@ -518,7 +514,6 @@ function ReservationTableUI() {
               <th>End Time</th>
               <th>Created At</th>
               <th>Actions</th>
-              <th>Rating</th>
             </tr>
 
             {reservations.map((reservation, index) => {
@@ -557,48 +552,6 @@ function ReservationTableUI() {
                       ) : null}
                     </div>
                   </td>
-                  <td>
-                    <select
-                      value={ratingByReservation[reservationId] ?? ''}
-                      onChange={(e) => {
-                        setRatingByReservation(prev => ({
-                          ...prev,
-                          [reservationId]: e.target.value
-                        }));
-                      }}
-                    >
-                      <option value="">Rate</option>
-                      {[0,1,2,3,4,5].map(n => (
-                        <option key={n} value={n}>{n}</option>
-                      ))}
-                    </select>
-
-                    <button
-                      onClick={async () => {
-                        const rating = ratingByReservation[reservationId];
-                        if (rating === undefined || rating === '') return;
-
-                        try {
-                          const res = await fetch(
-                            `/api/reservations.php?id=${reservationId}&rating=${rating}`,
-                            {
-                              method: 'PATCH',
-                              credentials: 'include'
-                            }
-                          );
-
-                          if (!res.ok) {
-                            alert("Failed to save rating");
-                          }
-                        } catch (err) {
-                          console.error(err);
-                          alert("Error saving rating");
-                        }
-                      }}
-                    >
-                      Save
-                    </button>
-                  </td>
                 </tr>
               );
             })}
@@ -635,7 +588,7 @@ function ReservationTableUI() {
               </div>
             </Dialog>
 
-            </>
+    </>
   );
 }
 
