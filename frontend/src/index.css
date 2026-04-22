@@ -282,6 +282,12 @@ th, td {
   width: 100%;
 }
 
+.analytics-bottom{
+  margin-top: 16px;
+  display: grid;
+  gap: 1rem;
+}
+
 .analytics-middle {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
