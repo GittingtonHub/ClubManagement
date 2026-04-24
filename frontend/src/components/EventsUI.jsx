@@ -9,6 +9,7 @@ const EMPTY_EVENT_FORM = {
   event_id: '',
   event_title: '',
   description: '',
+  event_poster: '',
   start_time: '',
   end_time: '',
   qty_tickets: '',
@@ -49,6 +50,7 @@ const normalizeEventRow = (event) => {
     event_id: event.event_id ?? '',
     event_title: event.event_title ?? '',
     description: event.description ?? '',
+    event_poster: event.event_poster ?? '',
     start_time: event.start_time ?? '',
     end_time: event.end_time ?? '',
     qty_tickets: event.qty_tickets ?? 0,
@@ -126,6 +128,132 @@ function EventsUI() {
   const [eventsError, setEventsError] = useState('');
   const [availableStaffIds, setAvailableStaffIds] = useState(null);
   const [isAvailabilityLoading, setIsAvailabilityLoading] = useState(false);
+  const [profileImageSrc, setProfileImageSrc] = useState("/url_icon.png");
+  const [isUploadImageOpen, setIsUploadImageOpen] = useState(false);
+  const [selectedImageFile, setSelectedImageFile] = useState(null);
+  const [selectedImagePreview, setSelectedImagePreview] = useState("");
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [imageUploadError, setImageUploadError] = useState("");
+  const [imageUploadMessage, setImageUploadMessage] = useState("");
+  const profileImageUploadEndpoint = import.meta.env.VITE_PROFILE_IMAGE_UPLOAD_ENDPOINT || "";
+  const eventPosterUploadPath = import.meta.env.VITE_EVENT_POSTER_UPLOAD_PATH || "";
+
+
+  const handleOpenUploadModal = () => {
+    setIsUploadImageOpen(true);
+    setImageUploadError("");
+    setImageUploadMessage("");
+  };
+
+  const handleCloseUploadModal = () => {
+    setIsUploadImageOpen(false);
+    setSelectedImageFile(null);
+    setSelectedImagePreview("");
+    setImageUploadError("");
+  };
+
+  const handleImageFileChange = (event) => {
+    const incomingFile = event.target.files?.[0];
+    setImageUploadError("");
+    setImageUploadMessage("");
+
+    if (!incomingFile) {
+        setSelectedImageFile(null);
+        setSelectedImagePreview("");
+        return;
+    }
+
+    if (!incomingFile.type.startsWith("image/")) {
+        setImageUploadError("Please choose a valid image file.");
+        setSelectedImageFile(null);
+        setSelectedImagePreview("");
+        return;
+    }
+
+    const maxFileSizeBytes = 5 * 1024 * 1024;
+    if (incomingFile.size > maxFileSizeBytes) {
+        setImageUploadError("Image must be 5MB or smaller.");
+        setSelectedImageFile(null);
+        setSelectedImagePreview("");
+        return;
+    }
+
+    setSelectedImageFile(incomingFile);
+    setSelectedImagePreview(URL.createObjectURL(incomingFile));
+  };
+
+  useEffect(() => {
+    return () => {
+      if (selectedImagePreview && selectedImagePreview.startsWith("blob:")) {
+        URL.revokeObjectURL(selectedImagePreview);
+      }
+    };
+  }, [selectedImagePreview]);
+
+  const handleUploadEventPoster = async () => {
+    if (!selectedImageFile) {
+        setImageUploadError("Select an image before uploading.");
+        return;
+    }
+
+    setIsUploadingImage(true);
+    setImageUploadError("");
+    setImageUploadMessage("");
+
+    try {
+        const uploadEndpoint = profileImageUploadEndpoint || "/api/upload_avatar.php";
+        const formData = new FormData();
+        formData.append("avatar", selectedImageFile);
+        formData.append("upload_type", "event_poster");
+        if (eventPosterUploadPath) {
+          formData.append("upload_path", eventPosterUploadPath);
+        }
+
+        const response = await fetch(uploadEndpoint, {
+          method: "POST",
+          credentials: "include",
+          body: formData
+        });
+
+        const responseText = await response.text();
+        let data = {};
+        try {
+          data = responseText ? JSON.parse(responseText) : {};
+        } catch {
+          data = {};
+        }
+
+        if (!response.ok) {
+          const fallbackMessage = responseText
+              ? responseText.slice(0, 240)
+              : `Upload failed (${response.status})`;
+          setImageUploadError(data.message || fallbackMessage || "Could not upload event poster.");
+          return;
+        }
+
+        const incomingPosterPath =
+          data.event_poster_path || data.poster_image || data.poster || data.image_path || "";
+        const incomingImageUrl = data.image_url || data.imageUrl || "";
+
+        if (incomingPosterPath) {
+          handleInputChange('event_poster', incomingPosterPath);
+        }
+        if (incomingImageUrl) {
+          setProfileImageSrc(incomingImageUrl);
+        } else if (selectedImagePreview) {
+          setProfileImageSrc(selectedImagePreview);
+        }
+
+        setImageUploadMessage(data.message || "Event poster uploaded.");
+        setIsUploadImageOpen(false);
+        setSelectedImageFile(null);
+        setSelectedImagePreview("");
+    } catch {
+        setImageUploadError("Could not upload event poster.");
+    } finally {
+        setIsUploadingImage(false);
+    }
+  };
 
   const uniqueUserRecipientsForEvent = async (eventId) => {
     try {
@@ -188,19 +316,35 @@ function EventsUI() {
     return new Set(availableStaffIds.map((staffId) => String(staffId)));
   }, [availableStaffIds]);
 
+  const hasValidAvailabilityWindow = useMemo(() => {
+    if (!eventForm.start_time || !eventForm.end_time) {
+      return false;
+    }
+
+    const start = new Date(eventForm.start_time);
+    const end = new Date(eventForm.end_time);
+    return !Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && end > start;
+  }, [eventForm.start_time, eventForm.end_time]);
+
   const visibleStaff = useMemo(() => {
-    if (!eventForm.start_time || !eventForm.end_time || availableStaffIdSet === null) {
-      return staff;
+    if (!hasValidAvailabilityWindow || availableStaffIdSet === null) {
+      return [];
     }
 
     return staff.filter((member) => availableStaffIdSet.has(String(member.id)));
-  }, [staff, eventForm.start_time, eventForm.end_time, availableStaffIdSet]);
+  }, [staff, hasValidAvailabilityWindow, availableStaffIdSet]);
 
   const resetEventForm = () => {
     setEventForm(EMPTY_EVENT_FORM);
     setFormErrors({});
     setAvailableStaffIds(null);
     setIsAvailabilityLoading(false);
+    setProfileImageSrc("/url_icon.png");
+    setImageUploadError("");
+    setImageUploadMessage("");
+    setSelectedImageFile(null);
+    setSelectedImagePreview("");
+    setIsUploadImageOpen(false);
   };
 
   const announceEventsChanged = () => {
@@ -263,6 +407,7 @@ function EventsUI() {
 
     if (!eventForm.start_time || !eventForm.end_time) {
       setAvailableStaffIds(null);
+      setIsAvailabilityLoading(false);
       return;
     }
 
@@ -271,6 +416,7 @@ function EventsUI() {
 
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
       setAvailableStaffIds(null);
+      setIsAvailabilityLoading(false);
       return;
     }
 
@@ -305,7 +451,7 @@ function EventsUI() {
       } catch (error) {
         if (error.name !== 'AbortError') {
           console.error('Failed to fetch staff availability:', error);
-          setAvailableStaffIds(null);
+          setAvailableStaffIds([]);
         }
       } finally {
         if (!controller.signal.aborted) {
@@ -458,6 +604,7 @@ function EventsUI() {
           vip_ticket_price: Number(eventForm.vip_ticket_price),
           ga_ticket_price: Number(eventForm.ga_ticket_price),
           performer: eventForm.performer.trim(),
+          event_poster: eventForm.event_poster || null,
           staff_ids: eventForm.staff_ids
         })
       });
@@ -682,7 +829,7 @@ function EventsUI() {
           </table>
         )}
 
-        <Dialog open={isAddEventOpen} onClose={() => setIsCancelOpen(false)} className="add-item-dialog add-event-dialog">
+        <Dialog open={isAddEventOpen} onClose={() => setIsAddEventOpen(false)} className="add-item-dialog add-event-dialog">
           <div className="add-item-dialog-backdrop add-event-dialog-backdrop" aria-hidden="true" />
           <div className="add-item-dialog-container add-event-dialog-container">
             <DialogPanel className="add-item-dialog-panel add-event-dialog-panel">
@@ -818,14 +965,53 @@ function EventsUI() {
                   onBlur={validateEventForm}
                   rows={4}
                   style={{
+                    marginTop: '10px',
+                    width: '100%',
+                    boxSizing: 'border-box',
                     border: formErrors.description ? '2px solid red' : '1px solid rgba(0, 0, 0, 0.2)'
                   }}
                 />
                 {formErrors.description && <span style={{ color: 'red', fontSize: '14px' }}>{formErrors.description}</span>}
 
                 <div style={{ width: '100%', marginBottom: '10px' }}>
+                  <p style={{ margin: '0 0 8px 0', fontWeight: 600 }}>Upload Event Poster</p>
+                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={handleOpenUploadModal}
+                      style={{ marginTop: '0', marginBottom: '0' }}
+                    >
+                      {eventForm.event_poster ? 'Replace Poster' : 'Upload Poster'}
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    readOnly
+                    value={eventForm.event_poster || 'No poster uploaded yet'}
+                    className="profile-upload-path"
+                  />
+                  {profileImageSrc && profileImageSrc !== '/url_icon.png' ? (
+                    <img
+                      src={profileImageSrc}
+                      alt="Event poster preview"
+                      style={{
+                        display: 'block',
+                        margin: '10px auto 0',
+                        width: 'auto',
+                        height: 'auto',
+                        maxHeight: '220px',
+                        maxWidth: '100%',
+                        borderRadius: '12px'
+                      }}
+                    />
+                  ) : null}
+                  {imageUploadMessage ? <p className="profile-upload-success">{imageUploadMessage}</p> : null}
+                  {imageUploadError ? <p className="profile-upload-error">{imageUploadError}</p> : null}
+                </div>
+
+                <div style={{ width: '100%', marginBottom: '10px' }}>
                   <p style={{ margin: '0 0 8px 0', fontWeight: 600 }}>Assign Staff</p>
-                  {isAvailabilityLoading && eventForm.start_time && eventForm.end_time && (
+                  {isAvailabilityLoading && hasValidAvailabilityWindow && (
                     <p style={{ margin: '0 0 8px 0', fontSize: '13px' }}>Checking availability...</p>
                   )}
                   <div
@@ -838,9 +1024,11 @@ function EventsUI() {
                       background: 'rgba(255, 255, 255, 0.6)'
                     }}
                   >
-                    {visibleStaff.length === 0 ? (
+                    {!hasValidAvailabilityWindow || availableStaffIdSet === null ? (
+                      <p style={{ margin: 0 }}>Loading available staff...</p>
+                    ) : visibleStaff.length === 0 ? (
                       <p style={{ margin: 0 }}>
-                        {staff.length === 0 ? 'No staff available yet.' : 'No staff available for selected time range.'}
+                        No staff available for selected time range.
                       </p>
                     ) : (
                       visibleStaff.map((member) => {
@@ -898,6 +1086,54 @@ function EventsUI() {
           </div>
         </Dialog>
       </div>
+      <Dialog open={isUploadImageOpen} onClose={handleCloseUploadModal} className="add-item-dialog">
+        <div className="add-item-dialog-backdrop" aria-hidden="true" />
+        <div className="add-item-dialog-container">
+          <DialogPanel className="add-item-dialog-panel">
+            <DialogTitle className="add-item-header">Upload Event Poster</DialogTitle>
+            <div className="inner-add-item-container">
+              <p className="profile-upload-modal-subtitle">
+                Select an image file (PNG, JPG, GIF, or WEBP). Maximum file size is 5MB.
+              </p>
+              <input
+                id="event-poster-upload"
+                type="file"
+                accept="image/*"
+                onChange={handleImageFileChange}
+                className="profile-upload-input"
+              />
+              {selectedImageFile ? (
+                <p className="profile-upload-file">Selected: {selectedImageFile.name}</p>
+              ) : null}
+              {selectedImagePreview ? (
+                <img
+                  src={selectedImagePreview}
+                  alt="Selected event poster preview"
+                  style={{
+                    display: 'block',
+                    margin: '10px auto 0',
+                    width: 'auto',
+                    height: 'auto',
+                    maxHeight: '220px',
+                    maxWidth: '100%',
+                    borderRadius: '12px'
+                  }}
+                />
+              ) : null}
+              {imageUploadError ? <span className="profile-upload-error">{imageUploadError}</span> : null}
+
+              <div className="button-group">
+                <button type="button" onClick={handleUploadEventPoster} disabled={isUploadingImage}>
+                  {isUploadingImage ? "Uploading..." : "Upload Poster"}
+                </button>
+                <button type="button" onClick={handleCloseUploadModal} disabled={isUploadingImage}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </DialogPanel>
+        </div>
+      </Dialog>
       <Dialog open={isCancelOpen} onClose={() => {}} className="add-item-dialog">
         <div className="add-item-dialog-backdrop" />
         <div className="add-item-dialog-container">

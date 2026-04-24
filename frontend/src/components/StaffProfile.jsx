@@ -25,6 +25,7 @@ function StaffProfile() {
    const [isUploadingImage, setIsUploadingImage] = useState(false);
    const [imageUploadError, setImageUploadError] = useState("");
    const [imageUploadMessage, setImageUploadMessage] = useState("");
+   const [ratingByReservation, setRatingByReservation] = useState({});
    const [staffDetails, setStaffDetails] = useState({
       employeeId: null,
       role: "",
@@ -221,17 +222,12 @@ function StaffProfile() {
       }
 
       try {
-         const response = await fetch(`/api/reservations.php`, {
-            method: "PUT",
+         const response = await fetch(`/api/reservations.php?id=${reservationId}&reason=${encodeURIComponent(" ")}`, {
+            method: "DELETE",
             credentials: "include",
             headers: {
-               "Content-Type": "application/json",
                Authorization: `Bearer ${localStorage.getItem("authToken") || ""}`
-            },
-            body: JSON.stringify({
-               reservation_id: reservationId,
-               status: "cancelled"
-            })
+            }
          });
 
          if (!response.ok) {
@@ -248,6 +244,44 @@ function StaffProfile() {
          setReservationMessage("");
       } catch {
          setReservationMessage("Could not cancel reservation");
+      }
+   };
+
+   const isCancelledReservation = (reservation) =>
+      String(reservation?.status ?? "").toLowerCase() === "cancelled";
+
+   const handleSaveRating = async (reservationId) => {
+      const reservation = reservations.find((row) => {
+         const id = row?.reservation_id ?? row?.id;
+         return String(id) === String(reservationId);
+      });
+
+      if (!reservation || isCancelledReservation(reservation)) {
+         return;
+      }
+
+      const rating = ratingByReservation[reservationId];
+      if (rating === undefined || rating === "") {
+         return;
+      }
+
+      try {
+         const response = await fetch(`/api/reservations.php?id=${reservationId}&rating=${rating}`, {
+            method: "PATCH",
+            credentials: "include",
+            headers: {
+               Authorization: `Bearer ${localStorage.getItem("authToken") || ""}`
+            }
+         });
+
+         if (!response.ok) {
+            setReservationMessage("Could not save rating");
+            return;
+         }
+
+         setReservationMessage("");
+      } catch {
+         setReservationMessage("Could not save rating");
       }
    };
 
@@ -445,6 +479,45 @@ function StaffProfile() {
       return { past, today, future };
    }, [reservations, dayBoundaries.todayStartMs, dayBoundaries.tomorrowStartMs]);
 
+   const guestReservations = useMemo(() => {
+      if (!currentUserId) {
+         return [];
+      }
+
+      const normalizedCurrentUserId = String(currentUserId);
+      const filteredReservations = reservations.filter(
+         (reservation) => String(reservation.user_id) === normalizedCurrentUserId
+      );
+
+      filteredReservations.sort(
+         (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+      );
+
+      return filteredReservations;
+   }, [reservations, currentUserId]);
+
+   const selectedReservation = useMemo(() => {
+      if (!selectedReservationId) {
+         return null;
+      }
+
+      return (
+         reservations.find((reservation) => {
+            const id = reservation?.reservation_id ?? reservation?.id;
+            return String(id) === String(selectedReservationId);
+         }) ?? null
+      );
+   }, [reservations, selectedReservationId]);
+
+   const formatCurrency = (value) => {
+      if (value === null || value === undefined || value === "") {
+         return "N/A";
+      }
+
+      const parsed = Number.parseFloat(value);
+      return Number.isFinite(parsed) ? `$${parsed.toFixed(2)}` : "N/A";
+   };
+
    const formatDateTime = (value) => {
       if (!value) {
          return "";
@@ -618,12 +691,40 @@ function StaffProfile() {
                         minHeight: "140px",
                         display: "flex",
                         flexDirection: "column",
+                        gap: "14px",
                         justifyContent: "flex-end"
                      }}
                   >
-                     <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", width: "100%" }}>
-                        {/* info about the reservation */}
+                     <div style={{ width: "100%" }}>
+                        {selectedReservation ? (
+                           <div
+                              style={{
+                                 display: "grid",
+                                 gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                                 gap: "8px 16px",
+                                 fontSize: "0.96rem"
+                              }}
+                           >
+                              <p><strong>Reservation ID:</strong> {selectedReservation.reservation_id ?? selectedReservation.id ?? "N/A"}</p>
+                              <p><strong>Status:</strong> {selectedReservation.status || "N/A"}</p>
+                              <p><strong>Service:</strong> {selectedReservation.service_type || "N/A"}</p>
+                              <p><strong>Resource:</strong> {selectedReservation.resource_name || "N/A"}</p>
+                              <p><strong>Start:</strong> {formatDateTime(selectedReservation.start_time) || "N/A"}</p>
+                              <p><strong>End:</strong> {formatDateTime(selectedReservation.end_time) || "N/A"}</p>
 
+                              <p><strong>Event ID:</strong> {selectedReservation.event_id ?? "N/A"}</p>
+                              <p><strong>Ticket Tier:</strong> {selectedReservation.ticket_tier || "N/A"}</p>
+                              <p><strong>Ticket Qty:</strong> {selectedReservation.quantity ?? "N/A"}</p>
+                              <p><strong>Section #:</strong> {selectedReservation.section_number ?? "N/A"}</p>
+                              <p><strong>Guest Count:</strong> {selectedReservation.guest_count ?? "N/A"}</p>
+                              <p><strong>Min Spend:</strong> {formatCurrency(selectedReservation.minimum_spend)}</p>
+                           </div>
+                        ) : (
+                           <p className="profile-reservation-placeholder">Reservation details unavailable.</p>
+                        )}
+                     </div>
+
+                     <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", width: "100%" }}>
                         <button
                            type="button"
                            onClick={() => {
@@ -658,7 +759,7 @@ function StaffProfile() {
          >
 
             <div className="profile-reservations-past">
-               <h3>Today&apos;s Reservations</h3>
+               <h3>Today&apos;s Assigned Reservations</h3>
                {reservationGroups.today.length === 0 ? (
                   <p className="profile-reservation-placeholder">No past reservations.</p>
                ) : (
@@ -685,7 +786,7 @@ function StaffProfile() {
                                        className="profile-reservation-action-button"
                                        onClick={() => handleOpenReservationInfoModal(id)}
                                     >
-                                       &info;
+                                       Info
                                     </button>
                                  </td>
                               </tr>
@@ -697,7 +798,7 @@ function StaffProfile() {
             </div>
 
             <div className="profile-reservations-future">
-               <h3>Future Reservations</h3>
+               <h3>Future Assigned Reservations</h3>
                {reservationGroups.future.length === 0 ? (
                   <p className="profile-reservation-placeholder">No future reservations.</p>
                ) : (
@@ -724,7 +825,7 @@ function StaffProfile() {
                                        className="profile-reservation-action-button"
                                        onClick={() => handleOpenReservationInfoModal(id)}
                                     >
-                                       &info;
+                                       Info
                                     </button>
                                  </td>
                               </tr>
@@ -735,7 +836,83 @@ function StaffProfile() {
                )}
             </div>
          </div>
+         <div
+            className="profile-reservations-container"
+            style={{
+               width: "90%",
+               margin: "16px auto 0",
+               display: "grid",
+               gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+               gap: "16px"
+            }}
+         >
+            <div className="profile-reservations-future">
+               <h3>Your Reservations as a Guest</h3>
+               {guestReservations.length === 0 ? (
+                  <p className="profile-reservation-placeholder">No guest reservations.</p>
+               ) : (
+                  <table className="profile-reservations-table">
+                     <thead>
+                        <tr className="table-header">
+                           <th>Service Type</th>
+                           <th>Start</th>
+                           <th>End</th>
+                           <th>Status</th>
+                           <th>Action</th>
+                           <th>Rating</th>
+                        </tr>
+                     </thead>
+                     <tbody>
+                        {guestReservations.map((reservation) => {
+                           const id = reservation.reservation_id ?? reservation.id;
+                           const isCancelled = isCancelledReservation(reservation);
+                           return (
+                              <tr className="table-row" key={id}>
+                                 <td>{reservation.service_type}</td>
+                                 <td>{formatDateTime(reservation.start_time)}</td>
+                                 <td>{formatDateTime(reservation.end_time)}</td>
+                                 <td>{reservation.status}</td>
+                                 <td>
+                                    {!isCancelled ? (
+                                       <button
+                                          type="button"
+                                          className="profile-reservation-action-button"
+                                          onClick={() => handleCancelReservation(id)}
+                                       >
+                                          Cancel
+                                       </button>
+                                    ) : null}
+                                 </td>
+                                 <td>
+                                    <select
+                                       value={ratingByReservation[id] ?? ""}
+                                       disabled={isCancelled}
+                                       onChange={(e) => {
+                                          setRatingByReservation((previous) => ({
+                                             ...previous,
+                                             [id]: e.target.value
+                                          }));
+                                       }}
+                                    >
+                                       <option value="">Rate</option>
+                                       {[0, 1, 2, 3, 4, 5].map((value) => (
+                                          <option key={value} value={value}>
+                                             {value}
+                                          </option>
+                                       ))}
+                                    </select>
+                                    <button disabled={isCancelled} onClick={() => handleSaveRating(id)}>Save</button>
+                                 </td>
+                              </tr>
+                           );
+                        })}
+                     </tbody>
+                  </table>
+               )}
+            </div>
+         </div>
          {reservationMessage ? <p className="profile-value">{reservationMessage}</p> : null}
+        
          <Dialog open={isCancelOpen} onClose={() => {}} className="add-item-dialog">
             <div className="add-item-dialog-backdrop" />
             <div className="add-item-dialog-container">

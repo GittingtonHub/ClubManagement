@@ -218,7 +218,8 @@ if ($method === 'GET') {
                res.name AS resource_name, 
                res.type AS resource_type, 
                res.description AS resource_description,
-               bs.section_number,
+               bs.table_section_id,
+               ts.section_number,
                bs.guest_count,
                bs.minimum_spend,
                tr.event_id,
@@ -228,6 +229,7 @@ if ($method === 'GET') {
         FROM reservations r
         JOIN resources res ON r.resource_id = res.id
         LEFT JOIN bottle_service bs ON bs.reservation_id = r.reservation_id
+        LEFT JOIN table_section ts ON ts.section_id = bs.table_section_id
         LEFT JOIN ticket_reservations tr ON tr.reservation_id = r.reservation_id
         LEFT JOIN (
             SELECT reservation_id,
@@ -237,12 +239,17 @@ if ($method === 'GET') {
         ) rs ON r.reservation_id = rs.reservation_id";
 
         if ($sessionRole === 'staff') {
-            $sql .= " WHERE EXISTS (
-                        SELECT 1
-                        FROM ReservationStaff rs_filter
-                        WHERE rs_filter.reservation_id = r.reservation_id
-                          AND rs_filter.staff_id = :uid
-                      ) AND r.start_time >= NOW()";
+            $sql .= " WHERE (
+                        r.user_id = :uid
+                        OR EXISTS (
+                            SELECT 1
+                            FROM ReservationStaff rs_filter
+                            JOIN staff s_filter ON s_filter.id = rs_filter.staff_id
+                            WHERE rs_filter.reservation_id = r.reservation_id
+                              AND s_filter.user_id = :uid
+                              AND s_filter.removed = 0
+                        )
+                    ) AND r.start_time >= NOW()";
         } elseif ($sessionRole !== 'admin') {
             $sql .= " WHERE r.user_id = :uid AND r.start_time >= NOW()";
         } else {
@@ -271,6 +278,68 @@ if ($method === 'GET') {
 }
 
 // =============================
+// 1.5 UPDATE RATING (PATCH)
+// =============================
+if ($method === 'PATCH') {
+
+    $reservation_id = $_GET['id'] ?? null;
+    $rating = $_GET['rating'] ?? null;
+
+    if (!$reservation_id || $rating === null) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Missing id or rating']);
+        exit;
+    }
+
+    if (!is_numeric($rating) || $rating < 0 || $rating > 5) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Invalid rating']);
+        exit;
+    }
+
+    try {
+        $statusStmt = $conn->prepare("
+            SELECT status
+            FROM reservations
+            WHERE reservation_id = :rid
+            LIMIT 1
+        ");
+        $statusStmt->execute([':rid' => $reservation_id]);
+        $reservationRow = $statusStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$reservationRow) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Reservation not found']);
+            exit;
+        }
+
+        if (strtolower((string)($reservationRow['status'] ?? '')) === 'cancelled') {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Cannot rate a cancelled reservation']);
+            exit;
+        }
+
+        $stmt = $conn->prepare("
+            UPDATE reservations
+            SET rating = :rating
+            WHERE reservation_id = :rid
+        ");
+
+        $stmt->execute([
+            ':rating' => (int)$rating,
+            ':rid' => $reservation_id
+        ]);
+
+        echo json_encode(['success' => true]);
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Failed to update rating']);
+    }
+
+    exit;
+}
+
+// =============================
 // 2. CREATE RESERVATION (POST)
 // =============================
 if ($method === 'POST') {
@@ -289,7 +358,7 @@ if ($method === 'POST') {
     $service_type = $input['service_type'] ?? null;
     $start_time = $input['start_time'] ?? null;
     $end_time = $input['end_time'] ?? null;
-    $section_number = $input['section_number'] ?? null;
+    $table_section_id = $input['table_section_id'] ?? null;
     $guest_count = $input['guest_count'] ?? null;
     $minimum_spend = $input['minimum_spend'] ?? null;
     $event_id = $input['event_id'] ?? null;
@@ -401,10 +470,10 @@ if ($method === 'POST') {
         $resolved_ticket_id = null;
 
         if ($resource_Type === 'Bottle Service') {
-            if (!$section_number || !$guest_count || !$minimum_spend) {
+            if (!$table_section_id || !$guest_count || !$minimum_spend) {
                 $conn->rollBack();
                 http_response_code(400);
-                echo json_encode(['success' => false, 'message' => 'Bottle service requires section_number, guest_count, and minimum_spend.']);
+                echo json_encode(['success' => false, 'message' => 'Bottle service requires table_section_id, guest_count, and minimum_spend.']);
                 exit;
             }
             // minimum spend validation based on resource type price
@@ -442,18 +511,18 @@ if ($method === 'POST') {
         ]);
 
         if ($resource_name === 'Bottle Service Silver' || $resource_name === 'Bottle Service Gold') {
-            if (!$section_number || !$guest_count || !$minimum_spend) {
+            if (!$table_section_id || !$guest_count || !$minimum_spend) {
                 $conn->rollBack();
                 http_response_code(400);
-                echo json_encode(['success' => false, 'message' => 'Bottle service requires section_number, guest_count, and minimum_spend.']);
+                echo json_encode(['success' => false, 'message' => 'Bottle service requires table_section_id, guest_count, and minimum_spend.']);
                 exit;
             }
-            $childSql = "INSERT INTO bottle_service (reservation_id, section_number, guest_count, minimum_spend)
+            $childSql = "INSERT INTO bottle_service (reservation_id, table_section_id, guest_count, minimum_spend)
                          VALUES (:rid, :section, :guests, :min_spend)";
             $childStmt = $conn->prepare($childSql);
             $childStmt->execute([
                 ':rid' => $reservation_id,
-                ':section' => $section_number,
+                ':section' => $table_section_id,
                 ':guests' => $guest_count,
                 ':min_spend' => $minimum_spend
             ]);
@@ -700,7 +769,7 @@ if ($method === 'PUT') {
     $status = $input['status'] ?? null;
     $start_time = $input['start_time'] ?? null;
     $end_time = $input['end_time'] ?? null;
-    $section_number = $input['section_number'] ?? null;
+    $table_section_id = $input['table_section_id'] ?? null;
     $guest_count = $input['guest_count'] ?? null;
     $minimum_spend = $input['minimum_spend'] ?? null;
     $event_id = $input['event_id'] ?? null;
@@ -850,10 +919,10 @@ if ($method === 'PUT') {
         $resource_name = $resource['name'];
 
         if ($resource_Type === 'Bottle Service') {
-            if (!$section_number || !$guest_count || !$minimum_spend) {
+            if (!$table_section_id || !$guest_count || !$minimum_spend) {
                 $conn->rollBack();
                 http_response_code(400);
-                echo json_encode(['success' => false, 'message' => 'Bottle service requires section_number, guest_count, and minimum_spend.']);
+                echo json_encode(['success' => false, 'message' => 'Bottle service requires table_section_id, guest_count, and minimum_spend.']);
                 exit;
             }
 
@@ -867,16 +936,16 @@ if ($method === 'PUT') {
             }
 
             // Handle updates or inserts for bottle service
-            $childSql = "INSERT INTO bottle_service (reservation_id, section_number, guest_count, minimum_spend)
+            $childSql = "INSERT INTO bottle_service (reservation_id, table_section_id, guest_count, minimum_spend)
                          VALUES (:rid, :section, :guests, :min_spend)
                          ON DUPLICATE KEY UPDATE
-                            section_number = VALUES(section_number),
+                            table_section_id = VALUES(table_section_id),
                             guest_count = VALUES(guest_count),
                             minimum_spend = VALUES(minimum_spend)";
             $childStmt = $conn->prepare($childSql);
             $childStmt->execute([
                 ':rid' => $reservation_id,
-                ':section' => $section_number,
+                ':section' => $table_section_id,
                 ':guests' => $guest_count,
                 ':min_spend' => $minimum_spend
             ]);
@@ -1150,16 +1219,16 @@ if ($method === 'DELETE') {
             exit;
         }
 
-        $cancel_reason = trim($_GET['reason'] ?? '');
+        $cancel_reason = isset($_GET['reason']) ? (string)$_GET['reason'] : '';
 
-        if (($sessionRole === 'admin' || $sessionRole === 'staff') && empty($cancel_reason)) {
+        if (($sessionRole === 'admin' || $sessionRole === 'staff') && $cancel_reason === '') {
             $conn->rollBack();
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => 'Cancellation reason is required for staff and admins.']);
             exit;
         }
 
-        if (empty($cancel_reason)) {
+        if ($cancel_reason === '') {
             $cancel_reason = 'Cancelled by user';
         }
 

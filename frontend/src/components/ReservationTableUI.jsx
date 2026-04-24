@@ -4,6 +4,7 @@ import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { dispatchNamedTemplateEmails } from '../lib/emailDispatch';
 
 function ReservationTableUI() {
+  const [ratingByReservation, setRatingByReservation] = useState({});
   const [reservations, setReservations] = useState([]);
   const [resources, setResources] = useState([]);
   const [sectionOptions, setSectionOptions] = useState([]);
@@ -81,8 +82,8 @@ function ReservationTableUI() {
       })));
 
       setSectionOptions(sectionsData.map((s) => ({
-        id: s.section_number,
-        name: String(s.section_number)
+        id: s.table_section_id,
+        name: String(s.section_number ?? s.table_section_id)
       })));
 
       setEventOptions(eventsData.map((e) => ({
@@ -132,7 +133,7 @@ function ReservationTableUI() {
       return [
         base[0],
         base[1],
-        { name: "Section Number", id: "section_number", type: "select", options: sectionOptions },
+        { name: "Section", id: "table_section_id", type: "select", options: sectionOptions },
         { name: "Guest Count", id: "guest_count", type: "number" },
         { name: "Minimum Spend", id: "minimum_spend", type: "number" },
         base[2],
@@ -258,9 +259,7 @@ function ReservationTableUI() {
     return startDate.getTime() >= Date.now();
   };
 
-  const submitCancellation = async () => {
-    console.log("CANCEL CLICKED", selectedReservationId);
-  
+  const submitCancellation = async () => {  
     if (!cancelReason.trim()) {
       alert('Please provide a cancellation reason.');
       return;
@@ -279,9 +278,7 @@ function ReservationTableUI() {
           credentials: 'include'
         }
       );
-  
-      console.log("RESPONSE STATUS:", response.status);
-  
+    
       if (response.ok) {
         const role = String(localStorage.getItem('userRole') || 'user').trim().toLowerCase();
         const actorName =
@@ -394,6 +391,11 @@ function ReservationTableUI() {
   };
 
   const handleEditReservation = async (reservation) => {
+    if (String(reservation?.status ?? '').toLowerCase() === 'cancelled') {
+      alert('Cancelled reservations cannot be edited.');
+      return;
+    }
+
     const reservationId = reservation.reservation_id ?? reservation.id;
     const resource = resources.find((r) => String(r.id) === String(reservation.resource_id));
 
@@ -408,7 +410,7 @@ function ReservationTableUI() {
       status: reservation.status || 'pending',
       start: reservation.start_time,
       end: reservation.end_time,
-      section_number: reservation.section_number ?? '',
+      table_section_id: reservation.table_section_id ?? '',
       guest_count: reservation.guest_count ?? '',
       minimum_spend: reservation.minimum_spend ?? '',
       event_id: reservation.event_id ?? '',
@@ -446,11 +448,11 @@ function ReservationTableUI() {
       };
 
        if (resource.type === "bottle_service") {
-        payload.section_number = modalData.section_number;
+        payload.table_section_id = modalData.table_section_id;
         payload.guest_count = modalData.guest_count;
         payload.minimum_spend = modalData.minimum_spend;
-        if (!payload.section_number || !payload.guest_count || !payload.minimum_spend) {
-          alert('Please fill out section number, guest count, and minimum spend.');
+        if (!payload.table_section_id || !payload.guest_count || !payload.minimum_spend) {
+          alert('Please fill out section, guest count, and minimum spend.');
           continue;
         }
       }
@@ -517,6 +519,7 @@ function ReservationTableUI() {
             {reservations.map((reservation, index) => {
               const reservationId = reservation.reservation_id ?? reservation.id;
               const canCancel = isReservationCancellable(reservation);
+              const isCancelled = String(reservation.status ?? '').toLowerCase() === 'cancelled';
               return (
                 <tr className="table-row" key={reservationId ?? index}>
                   <td className="table-cell-itemno">{index + 1}</td>
@@ -531,12 +534,14 @@ function ReservationTableUI() {
                   <td>{reservation.created_at ? new Date(reservation.created_at).toLocaleString() : ''}</td>
                   <td className="reservation-actions-cell">
                     <div className="reservation-actions-buttons">
-                      <button
-                        className="edit-item-button"
-                        onClick={() => handleEditReservation(reservation)}
-                      >
-                        Edit
-                      </button>
+                      {!isCancelled ? (
+                        <button
+                          className="edit-item-button"
+                          onClick={() => handleEditReservation(reservation)}
+                        >
+                          Edit
+                        </button>
+                      ) : null}
                       {canCancel ? (
                         <button
                           className="delete-item-button"
@@ -554,7 +559,7 @@ function ReservationTableUI() {
         )}
             </div>
 
-            <Dialog open={showCancelModal} onClose={() => {}} className="add-item-dialog">
+            <Dialog open={showCancelModal} onClose={() => setShowCancelModal(false)} className="add-item-dialog">
               <div className="add-item-dialog-backdrop" />
               <div className="add-item-dialog-container">
                 <DialogPanel className="add-item-dialog-panel">
@@ -583,7 +588,7 @@ function ReservationTableUI() {
               </div>
             </Dialog>
 
-            </>
+    </>
   );
 }
 

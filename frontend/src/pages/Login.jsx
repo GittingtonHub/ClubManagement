@@ -3,7 +3,20 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 
+const parseJsonResponse = async (response) => {
+  const text = await response.text();
+  console.log('Response status:', response.status);
+  console.log('Response text:', text);
 
+  try {
+    return JSON.parse(text);
+  } catch {
+    const contentType = response.headers.get('content-type') || 'unknown';
+    throw new Error(
+      `Expected JSON but got ${contentType}. This usually means /api/* is not reaching PHP and is returning app HTML instead.`
+    );
+  }
+};
 
 function Login() {
   const [email, setEmail] = useState('');
@@ -135,8 +148,7 @@ function Login() {
         })
       });
       
-      console.log('Response status:', response.status);
-      const data = await response.json();
+      const data = await parseJsonResponse(response);
       console.log('Response data:', data);
       
       if (response.ok) {
@@ -161,7 +173,7 @@ function Login() {
       }
     } catch (error) {
       console.log('Error caught:', error);
-      setSignupEmailError('Server error. Please try again.');
+      setSignupEmailError(error.message || 'Server error. Please try again.');
     }
   };
 
@@ -180,10 +192,7 @@ function Login() {
         body: JSON.stringify({ email, password })
       });
     
-      console.log('Response status:', response.status);
-      const text = await response.text();
-      console.log('Response text:', text);
-      const data = JSON.parse(text);
+      const data = await parseJsonResponse(response);
       console.log('Response data:', data);
       
       if (response.ok) {
@@ -201,7 +210,7 @@ function Login() {
         setPasswordError(data.message || 'Login failed');
       }
     } catch (error) {
-      setPasswordError('Server error. Please try again.');
+      setPasswordError(error.message || 'Server error. Please try again.');
       // print error to console for debugging
       console.error('Login error:', error);
     }
