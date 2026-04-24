@@ -1,0 +1,188 @@
+.successful-purchase-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-top: 18px;
+  margin-bottom: 24px;
+}
+
+.success-ticket-content {
+  width: min(920px, 92%);
+  background: rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 1.6rem;
+  box-sizing: border-box;
+}
+
+.success-title {
+  margin-bottom: 14px;
+}
+
+.success-title h1 {
+  margin: 0;
+  font-size: clamp(1.6rem, 3.2vw, 2.1rem);
+}
+
+.success-title p {
+  margin: 6px 0 0;
+  opacity: 0.85;
+}
+
+.success-ticket-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ticket-details-container {
+  border: 1px solid rgba(0, 0, 0, 0.32);
+  border-radius: 12px;
+  padding: 0.9rem;
+  min-height: 120px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.7);
+  align-items: center;
+}
+
+.details-container-table {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+}
+
+.success-details-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: transparent !important;
+  border: none !important;
+  margin: 0;
+  box-shadow: none;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.success-details-table tbody,
+.success-details-table tr {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.success-details-table td {
+  border: none !important;
+  padding: 10px 8px;
+  text-align: center;
+  background: transparent !important;
+  color: #111;
+  font-weight: 600;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.success-details-table td {
+  font-size: 0.95rem;
+}
+
+.details-container-barcode {
+  width: 92px;
+  min-height: 100%;
+  border-left: 1px dashed rgba(0, 0, 0, 0.34);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 12px 8px;
+  overflow: hidden;
+}
+
+.barcode-vertical-wrapper {
+  transform: rotate(90deg) scale(0.7);
+  transform-origin: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ticket-poster-container {
+  width: 100%;
+  min-height: 320px;
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.35);
+  overflow: hidden;
+}
+
+.ticket-poster-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ticket-poster-placeholder {
+  min-height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+.success-go-home-button {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.success-go-home-button button {
+  background-color: blue;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 15px;
+  cursor: pointer;
+}
+
+.success-go-home-button button:hover {
+  background-color: black;
+}
+
+@media (max-width: 900px) {
+  .ticket-details-container {
+    grid-template-columns: 1fr;
+  }
+
+  .details-container-barcode {
+    width: 100%;
+    border-left: none;
+    border-top: 1px dashed rgba(0, 0, 0, 0.34);
+    padding-top: 8px;
+    min-height: 90px;
+  }
+}
+
+@media (max-width: 640px) {
+  .success-details-table tbody,
+  .success-details-table tr {
+    display: block;
+  }
+
+  .success-details-table tr {
+    margin-bottom: 8px;
+  }
+
+  .success-details-table th,
+  .success-details-table td {
+    display: inline-block;
+    width: 50%;
+    box-sizing: border-box;
+    padding: 8px 6px;
+  }
+}

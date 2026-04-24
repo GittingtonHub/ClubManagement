@@ -1,11 +1,12 @@
 import AvailabilityUI from "./AvailabilityUI";
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { dispatchNamedTemplateEmails } from "../lib/emailDispatch";
 
 function StaffProfile() {
-   
+   const navigate = useNavigate();
    const { user } = useAuth();
    const [bio, setBio] = useState("");
    const [savedBio, setSavedBio] = useState("");
@@ -43,6 +44,7 @@ function StaffProfile() {
    const displayUploadPath = profileImageUploadPath || "Server .env (DB_PFP_PATH)";
    const employeeId = staffDetails.employeeId ?? "Unavailable";
    const staffRole = staffDetails.role || "Unavailable";
+   const isAdminView = (localStorage.getItem("userRole") || "").toLowerCase() === "admin";
 
    const formatHourlyRate = (value) => {
       if (value === null || value === undefined || value === "") {
@@ -526,6 +528,24 @@ function StaffProfile() {
       return Number.isNaN(parsed.getTime()) ? "" : parsed.toLocaleString();
    };
 
+   const handleOpenSuccessPagePreview = () => {
+      navigate("/successful-purchase", {
+         state: {
+            successData: {
+               eventId: "EVT-1001",
+               userId: String(currentUserId || userId || "USER-001"),
+               eventTitle: "Admin Test Event",
+               eventSTART: "April 24, 2026 8:00 PM",
+               eventEND: "April 24, 2026 11:00 PM",
+               ticketType: "VIP",
+               ticketPrice: "125.00",
+               performer: "Test Performer",
+               imagePATH: ""
+            }
+         }
+      });
+   };
+
    return (
       <>
          <div className="profile-container">
@@ -623,6 +643,14 @@ function StaffProfile() {
                   </button>
                   <button type="button" onClick={() => setBio(savedBio)} disabled={isSaving}>
                      Cancel
+                  </button>
+               </div>
+            ) : null}
+            
+            {isAdminView ? (
+               <div className="profile-test-buttons-container">
+                  <button type="button" onClick={handleOpenSuccessPagePreview}>
+                     Open Ticket Success Page (Test)
                   </button>
                </div>
             ) : null}

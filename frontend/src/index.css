@@ -693,6 +693,26 @@ button.inline {
   background-color: black;
 }
 
+.profile-test-buttons-container {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.profile-test-buttons-container button {
+  background-color: #0b5e20;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.profile-test-buttons-container button:hover {
+  background-color: #084915;
+}
+
 .profile-reservations-container {
   width: 90%;
   margin: 16px auto 0;
