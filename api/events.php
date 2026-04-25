@@ -639,14 +639,15 @@ if ($method === 'POST') {
     }
 
     $insertSql = sprintf(
-        'INSERT INTO events (%s, %s, %s, %s, %s, %s, %s) VALUES (:event_id, :event_title, :description, :start_time, :end_time, :qty_tickets, :performer)',
+        'INSERT INTO events (%s, %s, %s, %s, %s, %s, %s, %s) VALUES (:event_id, :event_title, :description, :start_time, :end_time, :qty_tickets, :performer, :poster_image)',
         quote_identifier($eventMap['event_id']),
         quote_identifier($eventMap['event_title']),
         quote_identifier($eventMap['description']),
         quote_identifier($eventMap['start_time']),
         quote_identifier($eventMap['end_time']),
         quote_identifier($eventMap['qty_tickets']),
-        quote_identifier($eventMap['performer'])
+        quote_identifier($eventMap['performer']),
+        quote_identifier('poster_image')
     );
 
     try {
@@ -660,7 +661,8 @@ if ($method === 'POST') {
             ':start_time' => $startTime,
             ':end_time' => $endTime,
             ':qty_tickets' => (int)$qtyTickets,
-            ':performer' => $performer
+            ':performer' => $performer,
+            ':poster_image' => $input['poster_image'] ?? null
         ]);
 
         replace_event_ticket_rows($conn, (int)$eventId, $normalizedGaTicketPrice, $normalizedVipTicketPrice);
