@@ -2,6 +2,7 @@ import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { dispatchNamedTemplateEmails } from "../lib/emailDispatch";
+import ReservationTableUI from './ReservationTableUI';
 
 function UserProfile() {
    const { user } = useAuth();
@@ -103,9 +104,9 @@ function UserProfile() {
       };
    }, [selectedImagePreview]);
 
-   const handleEdit = (id) => {
-      window.location.href = `/reservations?edit=${id}`;
-   };
+   // const handleEdit = (id) => {
+   //    window.location.href = `/reservations?edit=${id}`;
+   // };
 
    const isCancelledReservation = (reservation) =>
       String(reservation?.status ?? "").toLowerCase() === "cancelled";
@@ -399,13 +400,13 @@ function UserProfile() {
       return { past, today, future };
    }, [reservations, dayBoundaries.todayStartMs, dayBoundaries.tomorrowStartMs]);
 
-   const formatDateTime = (value) => {
-      if (!value) {
-         return "";
-      }
-      const parsed = new Date(value);
-      return Number.isNaN(parsed.getTime()) ? "" : parsed.toLocaleString();
-   };
+   // const formatDateTime = (value) => {
+   //    if (!value) {
+   //       return "";
+   //    }
+   //    const parsed = new Date(value);
+   //    return Number.isNaN(parsed.getTime()) ? "" : parsed.toLocaleString();
+   // };
 
    return (
       <>
@@ -422,6 +423,12 @@ function UserProfile() {
                {imageUploadMessage ? <p className="profile-upload-success">{imageUploadMessage}</p> : null}
                {imageUploadError ? <p className="profile-upload-error">{imageUploadError}</p> : null}
             </div>
+
+            {reservationMessage ? (
+               <div className="mb-6 p-3 bg-blue-50 text-blue-800 rounded border border-blue-200">
+                  {reservationMessage}
+               </div>
+            ) : null}
 
             <div
                className="profile-details-container"
@@ -552,156 +559,34 @@ function UserProfile() {
             </div>
          </Dialog>
 
-         <div className="profile-reservations-container">
-            <div className="profile-reservations-past">
-               <h3>Past Reservations</h3>
-               {reservationGroups.past.length === 0 ? (
-                  <p className="profile-reservation-placeholder">No past reservations.</p>
-               ) : (
-                  <table className="profile-reservations-table">
-                     <thead>
-                        <tr className="table-header">
-                           <th>Service Type</th>
-                           <th>Start</th>
-                           <th>End</th>
-                        </tr>
-                     </thead>
-                     <tbody>
-                        {reservationGroups.past.map((reservation) => {
-                           const id = reservation.reservation_id ?? reservation.id;
-                           return (
-                              <tr className="table-row" key={id}>
-                                 <td>{reservation.service_type}</td>
-                                 <td>{formatDateTime(reservation.start_time)}</td>
-                                 <td>{formatDateTime(reservation.end_time)}</td>
-                              </tr>
-                           );
-                        })}
-                     </tbody>
-                  </table>
-               )}
-            </div>
-
-            <div className="profile-reservations-today">
-               <h3>Today&apos;s Reservations</h3>
-               {reservationGroups.today.length === 0 ? (
-                  <p className="profile-reservation-placeholder">No reservations for today.</p>
-               ) : (
-                  <table className="profile-reservations-table">
-                     <thead>
-                        <tr className="table-header">
-                           <th>Service Type</th>
-                           <th>Start</th>
-                           <th>End</th>
-                           <th>Actions</th>
-                           <th>Rating</th>
-                        </tr>
-                     </thead>
-                     <tbody>
-                        {reservationGroups.today.map((reservation) => {
-                           const id = reservation.reservation_id ?? reservation.id;
-                           const isCancelled = isCancelledReservation(reservation);
-                           return (
-                              <tr className="table-row" key={id}>
-                                 <td>{reservation.service_type}</td>
-                                 <td>{formatDateTime(reservation.start_time)}</td>
-                                 <td>{formatDateTime(reservation.end_time)}</td>
-                                 <td>
-                                    {!isCancelled ? <button onClick={() => handleEdit(id)}>Edit</button> : null}
-                                    {!isCancelled ? <button onClick={() => handleCancelReservation(id)}>Cancel</button> : null}
-                                 </td>
-                                 <td>
-                                    <select
-                                       value={ratingByReservation[id] ?? ""}
-                                       disabled={isCancelled}
-                                       onChange={(e) => {
-                                          setRatingByReservation((previous) => ({
-                                             ...previous,
-                                             [id]: e.target.value
-                                          }));
-                                       }}
-                                    >
-                                       <option value="">Rate</option>
-                                       {[0, 1, 2, 3, 4, 5].map((value) => (
-                                          <option key={value} value={value}>
-                                             {value}
-                                          </option>
-                                       ))}
-                                    </select>
-                                    <button disabled={isCancelled} onClick={() => handleSaveRating(id)}>Save</button>
-                                 </td>
-                              </tr>
-                           );
-                        })}
-                     </tbody>
-                  </table>
-               )}
-            </div>
-
-            <div className="profile-reservations-future">
-               <h3>Future Reservations</h3>
-               {reservationGroups.future.length === 0 ? (
-                  <p className="profile-reservation-placeholder">No future reservations.</p>
-               ) : (
-                  <table className="profile-reservations-table">
-                     <thead>
-                        <tr className="table-header">
-                           <th>Service Type</th>
-                           <th>Start</th>
-                           <th>End</th>
-                           <th>Actions</th>
-                           <th>Rating</th>
-                        </tr>
-                     </thead>
-                     <tbody>
-                        {reservationGroups.future.map((reservation) => {
-                           const id = reservation.reservation_id ?? reservation.id;
-                           const isCancelled = isCancelledReservation(reservation);
-                           return (
-                              <tr className="table-row" key={id}>
-                                 <td>{reservation.service_type}</td>
-                                 <td>{formatDateTime(reservation.start_time)}</td>
-                                 <td>{formatDateTime(reservation.end_time)}</td>
-                                 <td>
-                                    {!isCancelled ? (
-                                       <button
-                                          type="button"
-                                          className="profile-reservation-action-button"
-                                          onClick={() => handleCancelReservation(id)}
-                                       >
-                                          Cancel
-                                       </button>
-                                    ) : null}
-                                 </td>
-                                 <td>
-                                    <select
-                                       value={ratingByReservation[id] ?? ""}
-                                       disabled={isCancelled}
-                                       onChange={(e) => {
-                                          setRatingByReservation((previous) => ({
-                                             ...previous,
-                                             [id]: e.target.value
-                                          }));
-                                       }}
-                                    >
-                                       <option value="">Rate</option>
-                                       {[0, 1, 2, 3, 4, 5].map((value) => (
-                                          <option key={value} value={value}>
-                                             {value}
-                                          </option>
-                                       ))}
-                                    </select>
-                                    <button disabled={isCancelled} onClick={() => handleSaveRating(id)}>Save</button>
-                                 </td>
-                              </tr>
-                           );
-                        })}
-                     </tbody>
-                  </table>
-               )}
+ {/* --- PASTE THIS NEW GRID SECTION --- */}
+         <div className="max-w-7xl mx-auto mt-8 w-full pb-10" style={{ width: "95%" }}>
+            
+            <h2 className="text-2xl font-bold mb-4 text-gray-800">My Reservations</h2>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+               <ReservationTableUI
+                  title="Today's Reservations"
+                  reservations={reservationGroups.today}
+                  type="today"
+                  onCancel={(id) => handleCancelReservation(id)}
+               />
+               <ReservationTableUI
+                  title="Future Reservations"
+                  reservations={reservationGroups.future}
+                  type="future"
+                  onCancel={(id) => handleCancelReservation(id)}
+               />
+               <ReservationTableUI
+                  title="Past Reservations"
+                  reservations={reservationGroups.past}
+                  type="past"
+                  ratingState={ratingByReservation}
+                  onRatingChange={(id, val) => setRatingByReservation(prev => ({...prev, [id]: val}))}
+                  onSaveRating={handleSaveRating}
+               />
             </div>
          </div>
-         {reservationMessage ? <p className="profile-value">{reservationMessage}</p> : null}
       </>
    );
 }
