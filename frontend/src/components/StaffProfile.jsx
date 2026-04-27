@@ -696,11 +696,11 @@ function StaffProfile() {
          <AvailabilityUI />
 
                {/* --- BOTTOM HALF: START OF THE NEW CLEAN LAYOUT --- */}
-               <div className="max-w-7xl mx-auto mt-8 w-full" style={{ width: "95%" }}>
+               <div className="profile-reservations-layout">
                   
                   {/* --- TOP: 1x2 GRID (ASSIGNED SHIFTS) --- */}
                   <h2 className="text-2xl font-bold mb-4 text-gray-800">My Shifts (Assigned)</h2>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+                  <div className="profile-assigned-grid">
                      <ReservationTableUI title="Today's Assigned" reservations={reservationGroups.today} type="today" isAssigned={true} onInfo={handleOpenReservationInfoModal} />
                      <ReservationTableUI title="Future Assigned" reservations={reservationGroups.future} type="future" isAssigned={true} onInfo={handleOpenReservationInfoModal} />
                   </div>
@@ -710,11 +710,9 @@ function StaffProfile() {
                      </div>
                   ) : null}
 
-                  <hr className="my-10 border-gray-300" />
-
                   {/* --- BOTTOM: 1x3 GRID (GUEST RESERVATIONS) --- */}
                   <h2 className="text-2xl font-bold mb-4 text-gray-800">My Reservations (As Guest)</h2>
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                  <div className="profile-guest-grid">
                      <ReservationTableUI title="Today's Reservations" reservations={guestGroups.today} type="today" onCancel={(id) => handleCancelReservation(id, { skipConfirm: false })} />
                      <ReservationTableUI title="Future Reservations" reservations={guestGroups.future} type="future" onCancel={(id) => handleCancelReservation(id, { skipConfirm: false })} />
                      <ReservationTableUI title="Past Reservations" reservations={guestGroups.past} type="past" ratingState={ratingByReservation} onRatingChange={(id, val) => setRatingByReservation(prev => ({...prev, [id]: val}))} onSaveRating={handleSaveRating} />

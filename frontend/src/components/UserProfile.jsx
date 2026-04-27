@@ -588,11 +588,11 @@ function UserProfile() {
          </Dialog>
 
  {/* --- PASTE THIS NEW GRID SECTION --- */}
-         <div className="max-w-7xl mx-auto mt-8 w-full pb-10" style={{ width: "95%" }}>
+         <div className="profile-reservations-layout" style={{ paddingBottom: "2.5rem" }}>
             
             <h2 className="text-2xl font-bold mb-4 text-gray-800">My Reservations</h2>
             
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div className="profile-guest-grid">
                <ReservationTableUI
                   title="Today's Reservations"
                   reservations={reservationGroups.today}
