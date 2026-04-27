@@ -1,22 +1,11 @@
 import '../styles/home.css';
-import andresImage from '../assets/andres.jpg';
-import ZainabImage from '../assets/zainab.jpg';
-import WillImage from '../assets/will.jpg';
-import JaviImage from '../assets/javi.jpg';
 import Carousel from '../components/Carousel';
 
 function Home() {
-    const teamSlides = [
-        { src: andresImage, alt: 'Andres Serna', caption: 'Andres Serna' },
-        { src: ZainabImage, alt: 'Zainab Amir', caption: 'Zainab Amir' },
-        { src: WillImage, alt: 'Will Mercer', caption: 'Will Mercer' },
-        { src: JaviImage, alt: 'Javier Zavala', caption: 'Javier Zavala' }
-    ];
-
     return (
         <>
             <div className='upcoming-events-section'>
-                <Carousel items={teamSlides} title="Team highlights" />
+                <Carousel title="Upcoming events" />
             </div>
 
             <div className='about-us-section'>
@@ -38,7 +27,7 @@ function Home() {
                             {/* <img src={andresImage} alt="Andres Serna" style={{ width: "100%" }} /> */}
                             <div className="container">
                                 <h2>Andres Serna</h2>
-                                <p>Frontend Developer, Project Logistics</p>
+                                <p>Club Owner</p>
                                 <p>aserna11@stedwards.edu</p>
                                 <p>
                                 <button
@@ -58,7 +47,7 @@ function Home() {
                             {/* <img src={ZainabImage} alt="Zainab Amir" style={{ width: "100%" }} /> */}
                             <div className="container">
                                 <h2>Zainab Amir</h2>
-                                <p>Database Architect</p>
+                                <p>Entertainment Coordinator</p>
                                 <p>zamir@stedwards.edu</p>
                                 <p>
                                 <button
@@ -78,7 +67,7 @@ function Home() {
                             {/* <img src={WillImage} alt="Will Mercer" style={{ width: "100%" }} /> */}
                             <div className="container">
                                 <h2>Will Mercer</h2>
-                                <p>Documentation, Backend Junior Developer</p>
+                                <p>Head of Security</p>
                                 <p>wmercer1@stedwards.edu</p>
                                 <p>
                                 <button
@@ -98,7 +87,7 @@ function Home() {
                             {/* <img src={JaviImage} alt="Javier Zavala" style={{ width: "100%" }} /> */}
                             <div className="container">
                                 <h2>Javier Zavala</h2>
-                                <p>Backend Developer, Web Hosting Specialist</p>
+                                <p>Talent Booking</p>
                                 <p>jzaval10@stedwards.edu</p>
                                 <p>
                                 <button
