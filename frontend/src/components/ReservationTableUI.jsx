@@ -3,8 +3,18 @@ import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { dispatchNamedTemplateEmails } from '../lib/emailDispatch';
 
-function ReservationTableUI() {
-  const [ratingByReservation, setRatingByReservation] = useState({});
+function ReservationTableUI({ 
+  title, 
+  reservations: profileReservations, 
+  type, 
+  isAssigned, 
+  onInfo, 
+  onCancel: profileCancel, 
+  ratingState, 
+  onRatingChange, 
+  onSaveRating 
+}) {
+  // const [ratingByReservation, setRatingByReservation] = useState({});
   const [reservations, setReservations] = useState([]);
   const [resources, setResources] = useState([]);
   const [sectionOptions, setSectionOptions] = useState([]);
@@ -100,12 +110,15 @@ function ReservationTableUI() {
   }, []);
 
   useEffect(() => {
+    // Skip fetching if this is being used in the Profile layout
+    if (type) return; 
+
     fetchReservations();
     fetchFormOptions();
     const handleRefresh = () => fetchReservations();
     window.addEventListener('reservations:changed', handleRefresh);
     return () => window.removeEventListener('reservations:changed', handleRefresh);
-  }, [fetchReservations, fetchFormOptions]);
+  }, [fetchReservations, fetchFormOptions, type]);
 
   const buildReservationForm = useCallback((resource) => {
     const base = [
@@ -246,19 +259,6 @@ function ReservationTableUI() {
     setShowCancelModal(true);
   };
 
-  const isReservationCancellable = (reservation) => {
-    if (!reservation || String(reservation.status).toLowerCase() === 'cancelled') {
-      return false;
-    }
-
-    const startDate = new Date(reservation.start_time ?? '');
-    if (Number.isNaN(startDate.getTime())) {
-      return false;
-    }
-
-    return startDate.getTime() >= Date.now();
-  };
-
   const submitCancellation = async () => {  
     if (!cancelReason.trim()) {
       alert('Please provide a cancellation reason.');
@@ -351,7 +351,7 @@ function ReservationTableUI() {
     }
 
     try {
-      fetch('/api/availability.php', {
+      const response = await fetch('/api/availability.php', {
         credentials: 'include'
       });
 
@@ -495,100 +495,204 @@ function ReservationTableUI() {
     }
   };
 
+  // ==========================================
+  // RENDER LOGIC: PROFILE MODE VS ADMIN MODE
+  // ==========================================
+
+  if (type) {
+    const displayReservations = profileReservations || [];
+
+    if (displayReservations.length === 0) {
+      return (
+        <div className="profile-reservations-future w-full bg-white p-4 rounded shadow-sm border mb-4">
+          <h3 className="text-lg font-bold mb-2">{title}</h3>
+          <p className="profile-reservation-placeholder text-gray-500 italic">No {type} reservations.</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="profile-reservations-future w-full bg-white p-4 rounded shadow-sm border mb-4">
+        <h3 className="text-lg font-bold mb-4 border-b pb-2">{title}</h3>
+        <div className="overflow-x-auto">
+          <table className="profile-reservations-table w-full text-left border-collapse">
+            <thead>
+              <tr className="table-header bg-gray-50 text-gray-700">
+                <th className="p-2 border-b">Service</th>
+                <th className="p-2 border-b">Start</th>
+                <th className="p-2 border-b">End</th>
+                <th className="p-2 border-b">{type === 'past' ? 'Rating' : 'Action'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {displayReservations.map((reservation) => {
+                const id = reservation.reservation_id ?? reservation.id;
+                const isCancelled = String(reservation.status ?? '').toLowerCase() === 'cancelled';
+                
+                return (
+                  <tr className="table-row hover:bg-gray-50 border-b" key={id}>
+                    <td className="p-2">
+                      <div className="font-bold text-sm text-gray-800">{reservation.service_type || '—'}</div>
+                      {reservation.resource_name && (
+                        <div className="text-xs text-gray-500">{reservation.resource_name}</div>
+                      )}
+                    </td>
+                    <td className="p-2 text-sm text-gray-600">
+                      {reservation.start_time ? new Date(reservation.start_time).toLocaleString() : '—'}
+                    </td>
+                    <td className="p-2 text-sm text-gray-600">
+                      {reservation.end_time ? new Date(reservation.end_time).toLocaleString() : '—'}
+                    </td>
+                    <td className="p-2">
+                      {isCancelled ? (
+                        <span className="text-red-600 font-bold text-xs uppercase px-2 py-1 bg-red-50 rounded">
+                          Cancelled
+                        </span>
+                      ) : isAssigned ? (
+                        <button
+                          type="button"
+                          className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+                          onClick={() => onInfo && onInfo(id)}
+                        >
+                          Info
+                        </button>
+                      ) : type === 'past' ? (
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={ratingState?.[id] ?? ""}
+                            onChange={(e) => onRatingChange && onRatingChange(id, e.target.value)}
+                            className="border border-gray-300 rounded p-1 text-sm bg-white"
+                          >
+                            <option value="">Rate</option>
+                            {[1, 2, 3, 4, 5].map((val) => (
+                              <option key={val} value={val}>{val} ⭐</option>
+                            ))}
+                          </select>
+                          <button 
+                            className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+                            onClick={() => onSaveRating && onSaveRating(id)}
+                          >
+                            Save
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className="text-red-600 hover:text-red-800 font-medium text-sm"
+                          onClick={() => profileCancel && profileCancel(id)}
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  // --- ADMIN MODE: Returns your original complex table ---
   return (
-    <>
+    <div>
       <div className="table-div" id="reservations-table-div">
         {reservations.length === 0 ? (
           <p className="no-items-message">No reservations available.</p>
         ) : (
           <table className="inventory-table" id="reservations-table">
-            <tr className="table-header">
-              <th>Reservation No.</th>
-              <th>Reservation ID</th>
-              <th>User ID</th>
-              <th>Service Type</th>
-              <th>Status</th>
-              <th>Cancelled By</th>
-              <th>Reason</th>
-              <th>Start Time</th>
-              <th>End Time</th>
-              <th>Created At</th>
-              <th>Actions</th>
-            </tr>
-
-            {reservations.map((reservation, index) => {
-              const reservationId = reservation.reservation_id ?? reservation.id;
-              const canCancel = isReservationCancellable(reservation);
-              const isCancelled = String(reservation.status ?? '').toLowerCase() === 'cancelled';
-              return (
-                <tr className="table-row" key={reservationId ?? index}>
-                  <td className="table-cell-itemno">{index + 1}</td>
-                  <td>{reservationId}</td>
-                  <td>{reservation.user_id}</td>
-                  <td>{reservation.service_type}</td>
-                  <td>{reservation.status}</td>
-                  <td>{reservation.cancelled_by_user_id || '—'}</td>
-                  <td>{reservation.cancellation_reason || '—'}</td>
-                  <td>{reservation.start_time ? new Date(reservation.start_time).toLocaleString() : ''}</td>
-                  <td>{reservation.end_time ? new Date(reservation.end_time).toLocaleString() : ''}</td>
-                  <td>{reservation.created_at ? new Date(reservation.created_at).toLocaleString() : ''}</td>
-                  <td className="reservation-actions-cell">
-                    <div className="reservation-actions-buttons">
-                      {!isCancelled ? (
-                        <button
-                          className="edit-item-button"
-                          onClick={() => handleEditReservation(reservation)}
-                        >
-                          Edit
-                        </button>
-                      ) : null}
-                      {canCancel ? (
-                        <button
-                          className="delete-item-button"
-                          onClick={() => handleDeleteReservation(reservationId)}
-                        >
-                          Cancel
-                        </button>
-                      ) : null}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
+            <thead>
+              <tr className="table-header">
+                <th>Reservation No.</th>
+                <th>Reservation ID</th>
+                <th>User ID</th>
+                <th>Service Type</th>
+                <th>Status</th>
+                <th>Cancelled By</th>
+                <th>Reason</th>
+                <th>Start Time</th>
+                <th>End Time</th>
+                <th>Created At</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {reservations.map((reservation, index) => {
+                const reservationId = reservation.reservation_id ?? reservation.id;
+                const isCancelled = String(reservation.status ?? '').toLowerCase() === 'cancelled';
+                return (
+                  <tr className="table-row" key={reservationId ?? index}>
+                    <td>{index + 1}</td>
+                    <td>{reservationId}</td>
+                    <td>{reservation.user_id ?? '—'}</td>
+                    <td>{reservation.service_type ?? '—'}</td>
+                    <td>{reservation.status ?? '—'}</td>
+                    <td>{reservation.cancelled_by ?? '—'}</td>
+                    <td>{reservation.cancel_reason ?? '—'}</td>
+                    <td>{reservation.start_time ? new Date(reservation.start_time).toLocaleString() : '—'}</td>
+                    <td>{reservation.end_time ? new Date(reservation.end_time).toLocaleString() : '—'}</td>
+                    <td>{reservation.created_at ? new Date(reservation.created_at).toLocaleString() : '—'}</td>
+                    <td className="reservation-actions-cell">
+                      <div className="reservation-actions-buttons">
+                        {isCancelled ? (
+                          <span className="rating-controls">Cancelled</span>
+                        ) : (
+                          <>
+                            <button
+                              className="edit-item-button"
+                              onClick={() => handleEditReservation(reservation)}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              className="delete-item-button"
+                              onClick={() => handleDeleteReservation(reservationId)}
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
           </table>
         )}
-            </div>
 
-            <Dialog open={showCancelModal} onClose={() => setShowCancelModal(false)} className="add-item-dialog">
-              <div className="add-item-dialog-backdrop" />
-              <div className="add-item-dialog-container">
-                <DialogPanel className="add-item-dialog-panel">
-                  <DialogTitle className="add-item-header">Cancel Reservation</DialogTitle>
+        <Dialog open={showCancelModal} onClose={() => setShowCancelModal(false)} className="add-item-dialog">
+          <div className="add-item-dialog-backdrop" />
+          <div className="add-item-dialog-container">
+            <DialogPanel className="add-item-dialog-panel">
+              <DialogTitle className="add-item-header">Cancel Reservation</DialogTitle>
 
-                  <textarea
-                    placeholder="Enter cancellation reason..."
-                    value={cancelReason}
-                    onChange={(e) => setCancelReason(e.target.value)}
-                    className="add-item-name-input"
-                  />
+              <textarea
+                placeholder="Enter cancellation reason..."
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                className="add-item-name-input"
+              />
 
-                  <div className="button-group">
-                    <button onClick={submitCancellation}>Confirm Cancel</button>
-                    <button
-                      onClick={() => {
-                        setShowCancelModal(false);
-                        setCancelReason('');
-                        setSelectedReservationId(null);
-                      }}
-                    >
-                      Close
-                    </button>
-                  </div>
-                </DialogPanel>
+              <div className="button-group">
+                <button onClick={submitCancellation}>Confirm Cancel</button>
+                <button
+                  onClick={() => {
+                    setShowCancelModal(false);
+                    setCancelReason('');
+                    setSelectedReservationId(null);
+                  }}
+                >
+                  Close
+                </button>
               </div>
-            </Dialog>
-
-    </>
+            </DialogPanel>
+          </div>
+        </Dialog>
+      </div>
+    </div>
   );
 }
 
