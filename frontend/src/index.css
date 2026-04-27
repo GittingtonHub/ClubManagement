@@ -721,6 +721,26 @@ button.inline {
   gap: 16px;
 }
 
+.profile-reservations-layout {
+  width: 95%;
+  max-width: 80rem;
+  margin: 2rem auto 0;
+}
+
+.profile-assigned-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+}
+
+.profile-guest-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
 .profile-reservations-past,
 .profile-reservations-today,
 .profile-reservations-future {
@@ -1305,6 +1325,11 @@ button.inline {
   }
 
   .profile-reservations-container {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-assigned-grid,
+  .profile-guest-grid {
     grid-template-columns: 1fr;
   }
 
