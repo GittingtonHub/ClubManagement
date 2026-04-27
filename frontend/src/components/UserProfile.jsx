@@ -1,10 +1,12 @@
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { dispatchNamedTemplateEmails } from "../lib/emailDispatch";
 import ReservationTableUI from './ReservationTableUI';
 
 function UserProfile() {
+   const navigate = useNavigate();
    const { user } = useAuth();
    const [bio, setBio] = useState("");
    const [savedBio, setSavedBio] = useState("");
@@ -47,6 +49,7 @@ function UserProfile() {
    const profileImageUploadPath = import.meta.env.VITE_PFP_UPLOAD_PATH || "";
    const profileImageUploadEndpoint = import.meta.env.VITE_PROFILE_IMAGE_UPLOAD_ENDPOINT || "";
    const displayUploadPath = profileImageUploadPath || "Server .env (DB_PFP_PATH)";
+   const isAdminView = (localStorage.getItem("userRole") || "").toLowerCase() === "admin";
 
    const [dayBoundaries] = useState(() => {
       const now = new Date();
@@ -107,6 +110,24 @@ function UserProfile() {
    // const handleEdit = (id) => {
    //    window.location.href = `/reservations?edit=${id}`;
    // };
+
+   const handleOpenSuccessPagePreview = () => {
+      navigate("/successful-purchase", {
+         state: {
+            successData: {
+               eventId: "EVT-1001",
+               userId: String(currentUserId || userId || "USER-001"),
+               eventTitle: "Admin Test Event",
+               eventSTART: "April 24, 2026 8:00 PM",
+               eventEND: "April 24, 2026 11:00 PM",
+               ticketType: "VIP",
+               ticketPrice: "125.00",
+               performer: "Test Performer",
+               imagePATH: ""
+            }
+         }
+      });
+   };
 
    const isCancelledReservation = (reservation) =>
       String(reservation?.status ?? "").toLowerCase() === "cancelled";
@@ -501,6 +522,13 @@ function UserProfile() {
                   </button>
                   <button type="button" onClick={() => setBio(savedBio)} disabled={isSaving}>
                      Cancel
+                  </button>
+               </div>
+            ) : null}
+            {isAdminView ? (
+               <div className="profile-test-buttons-container">
+                  <button type="button" onClick={handleOpenSuccessPagePreview}>
+                     Open Ticket Success Page (Test)
                   </button>
                </div>
             ) : null}

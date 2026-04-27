@@ -9,11 +9,13 @@ import Admin from "./pages/Admin";
 import StaffProfile  from './components/StaffProfile';
 import UserProfile from './components/UserProfile';
 import NotFoundPage from './pages/NotFoundPage';
+import SuccessfulPurchase from "./pages/SuccessfulPurchase";
 
 function App() {
+  const normalizedRole = (localStorage.getItem("userRole") || "").toLowerCase();
 
   const userOrStaff = () => {
-    if (localStorage.getItem("userRole") == "staff" || localStorage.getItem("userRole") == "admin") 
+    if (normalizedRole == "staff" || normalizedRole == "admin") 
     {
       return true;
     }
@@ -62,6 +64,7 @@ function App() {
    
           <Route path="/" element={<Home />} />
           <Route path="/home" element={<Home />} />
+          <Route path="/successful-purchase" element={<SuccessfulPurchase />} />
 
           <Route path= "/*"element={<NotFoundPage />} />
         

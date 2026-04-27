@@ -11,6 +11,43 @@ const ROLE_FALLBACKS = {
 
 // TEMP (Sprint testing): disable availability gating so all cells are reservable.
 const ENABLE_AVAILABILITY_BLOCKING = false;
+const SCHEDULER_MODAL_OPTIONS = {
+  theme: "reservation_modal",
+  width: 860,
+  maxHeight: 760,
+  onShow: (args) => {
+    if (args?.root?.classList) {
+      args.root.classList.add("reservation-modal-no-poster");
+    }
+  }
+};
+
+const escapeHtml = (value) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const formatModalDateTime = (value) => {
+  if (!value) {
+    return "N/A";
+  }
+
+  const candidate =
+    value instanceof Date
+      ? value
+      : typeof value?.toDate === "function"
+        ? value.toDate()
+        : new Date(value);
+
+  if (Number.isNaN(candidate.getTime())) {
+    return String(value);
+  }
+
+  return candidate.toLocaleString();
+};
 
 const ReactScheduler = () => {
   const [scheduler, setScheduler] = useState(null);
@@ -220,12 +257,25 @@ const ReactScheduler = () => {
     });
   }, [availabilityByStaffId, eventTimeWindowsById, resources, staffIdsByRole]);
 
-  const buildReservationForm = (resource) => {
+  const buildReservationForm = (resource, modalData = {}) => {
+    const readonlySummary = {
+      resource: resource?.name || "N/A",
+      description: modalData?.resource_description || resource?.description || "N/A",
+      start: formatModalDateTime(modalData?.start),
+      end: formatModalDateTime(modalData?.end)
+    };
+
     const base = [
-      { name: "Resource", id: "resource", type: "select", options: resources, disabled: true },
-      { name: "Description", id: "resource_description", type: "textarea", disabled: true },
-      { name: "Start", id: "start", type: "datetime", disabled: true },
-      { name: "End", id: "end", type: "datetime", disabled: true }
+      {
+        type: "html",
+        cssClass: "reservation-readonly-block",
+        html: `
+          <div class="reservation-readonly-row"><strong>Resource:</strong> ${escapeHtml(readonlySummary.resource)}</div>
+          <div class="reservation-readonly-row"><strong>Description:</strong> ${escapeHtml(readonlySummary.description)}</div>
+          <div class="reservation-readonly-row"><strong>Start:</strong> ${escapeHtml(readonlySummary.start)}</div>
+          <div class="reservation-readonly-row"><strong>End:</strong> ${escapeHtml(readonlySummary.end)}</div>
+        `
+      }
     ];
 
     if (!resource) {
@@ -235,24 +285,18 @@ const ReactScheduler = () => {
     if (resource.name === "Bottle Service Silver" || resource.name === "Bottle Service Gold") {
       return [
         base[0],
-        base[1],
         { name: "Section", id: "table_section_id", type: "select", options: sectionOptions },
         { name: "Guest Count", id: "guest_count", type: "number" },
-        { name: "Minimum Spend", id: "minimum_spend", type: "number" },
-        base[2],
-        base[3]
+        { name: "Minimum Spend", id: "minimum_spend", type: "number" }
       ];
     }
 
     if (resource.name === "Event Ticket GA" || resource.name === "Event Ticket VIP") {
       return [
         base[0],
-        base[1],
         { name: "Event ID", id: "event_id", type: "select", options: eventOptions },
         { name: "Ticket Tier", id: "ticket_tier", type: "select", options: ticketTierOptions },
-        { name: "Quantity", id: "quantity", type: "number" },
-        base[2],
-        base[3]
+        { name: "Quantity", id: "quantity", type: "number" }
       ];
     }
 
@@ -276,12 +320,12 @@ const ReactScheduler = () => {
       event_id: e.data.event_id ?? eventId ?? "",
       ticket_tier: normalizeTicketTier(e.data.ticket_tier ?? defaultTier)
     };
-    const modal = await DayPilot.Modal.form(buildReservationForm(resource), modalData);
+    const modal = await DayPilot.Modal.form(buildReservationForm(resource, modalData), modalData, SCHEDULER_MODAL_OPTIONS);
     if (modal.canceled) {
       return;
     }
 
-    let updatedResourceId = modal.result.resource;
+    let updatedResourceId = modal.result.resource ?? effectiveResourceId;
     if (
       resource &&
       isTicketResource(resource) &&
@@ -342,7 +386,7 @@ const onTimeRangeSelected = async (args) => {
     };
 
     while (true) {
-      const modal = await DayPilot.Modal.form(buildReservationForm(selectedResource), modalData);
+      const modal = await DayPilot.Modal.form(buildReservationForm(selectedResource, modalData), modalData, SCHEDULER_MODAL_OPTIONS);
       if (modal.canceled) return;
       modalData = { ...modalData, ...modal.result };
 

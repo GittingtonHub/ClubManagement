@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 
 function ProtectedRoute({children, requiredRole}) {
   const { isAuthenticated } = useAuth();
+  const normalizedRole = (localStorage.getItem("userRole") || "").toLowerCase();
 
   const token = localStorage.getItem("authToken");
   const userId = localStorage.getItem("userId");
@@ -14,12 +15,12 @@ function ProtectedRoute({children, requiredRole}) {
   console.log(localStorage.getItem("userRole"));
 
 
-  if (requiredRole == "staff" && localStorage.getItem("userRole") != "staff")
+  if (requiredRole == "staff" && normalizedRole != "staff")
   {
     canProceed = false;
   }
 
-  if (localStorage.getItem("userRole") == "admin")
+  if (normalizedRole == "admin")
   {
     console.log("erm");
     canProceed = true;
