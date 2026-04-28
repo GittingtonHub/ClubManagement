@@ -532,18 +532,6 @@ function ReservationTableUI({
                 return (
                   <tr className="table-row hover:bg-gray-50 border-b" key={id}>
                     <td className="p-2">
-                      <div className="font-bold text-sm text-gray-800">{reservation.service_type || '—'}</div>
-                      {reservation.resource_name && (
-                        <div className="text-xs text-gray-500">{reservation.resource_name}</div>
-                      )}
-                    </td>
-                    <td className="p-2 text-sm text-gray-600">
-                      {reservation.start_time ? new Date(reservation.start_time).toLocaleString() : '—'}
-                    </td>
-                    <td className="p-2 text-sm text-gray-600">
-                      {reservation.end_time ? new Date(reservation.end_time).toLocaleString() : '—'}
-                    </td>
-                    <td className="p-2">
                       {isCancelled ? (
                         <span className="text-red-600 font-bold text-xs uppercase px-2 py-1 bg-red-50 rounded">
                           Cancelled
@@ -558,17 +546,21 @@ function ReservationTableUI({
                         </button>
                       ) : type === 'past' ? (
                         <div className="flex items-center gap-2">
-                          <select
-                            value={ratingState?.[id] ?? ""}
-                            onChange={(e) => onRatingChange && onRatingChange(id, e.target.value)}
-                            className="border border-gray-300 rounded p-1 text-sm bg-white"
-                          >
-                            <option value="">Rate</option>
-                            {[1, 2, 3, 4, 5].map((val) => (
-                              <option key={val} value={val}>{val} ⭐</option>
-                            ))}
-                          </select>
-                          <button 
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <span
+                              key={star}
+                              style={{
+                                cursor: "pointer",
+                                fontSize: "18px",
+                                color: (ratingState?.[id] || 0) >= star ? "gold" : "gray"
+                              }}
+                              onClick={() => onRatingChange && onRatingChange(id, star)}
+                            >
+                              ★
+                            </span>
+                          ))}
+
+                          <button
                             className="text-blue-600 hover:text-blue-800 font-medium text-sm"
                             onClick={() => onSaveRating && onSaveRating(id)}
                           >
@@ -584,7 +576,7 @@ function ReservationTableUI({
                           Cancel
                         </button>
                       )}
-                    </td>
+                    </td>                 
                   </tr>
                 );
               })}
