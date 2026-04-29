@@ -16,21 +16,70 @@
 }
 
 .carousel-item {
+   --carousel-item-height: clamp(220px, 40vw, 420px);
+   --main-image-width: calc(var(--carousel-item-height) * 0.75);
    min-width: 100%;
    width: 100%;
    position: relative;
-   height: clamp(220px, 40vw, 420px);
+   height: var(--carousel-item-height);
    display: flex;
    align-items: center;
    justify-content: center;
    transition: transform 0.65s cubic-bezier(0.39, 0.575, 0.565, 1);
 }
 
-.carousel-image {
+.carousel-image-stage {
    width: 100%;
    height: 100%;
+   display: flex;
+   align-items: stretch;
+   justify-content: center;
+   gap: 0;
+   overflow: hidden;
+   isolation: isolate;
+}
+
+.carousel-image {
+   width: var(--main-image-width);
+   height: 100%;
+   flex: 0 0 auto;
    object-fit: cover;
    display: block;
+   z-index: 2;
+}
+
+.carousel-mirror-strip {
+   height: 100%;
+   flex: 0 0 auto;
+   background-repeat: no-repeat;
+   background-size: var(--main-image-width) 100%;
+   opacity: 0.85;
+   z-index: 1;
+   margin-left: -1px;
+   margin-right: -1px;
+}
+
+.carousel-mirror-left {
+   background-position: left center;
+}
+
+.carousel-mirror-right {
+   background-position: right center;
+}
+
+.carousel-mirror-half {
+   width: calc(var(--main-image-width) / 2);
+   filter: blur(5px);
+}
+
+.carousel-mirror-quarter {
+   width: calc(var(--main-image-width) / 4);
+   filter: blur(15px);
+}
+
+.carousel-mirror-eighth {
+   width: calc(var(--main-image-width) / 8);
+   filter: blur(35px);
 }
 
 .carousel-image-placeholder {

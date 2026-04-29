@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { DayPilot } from '@daypilot/daypilot-lite-react';
 import '../styles/carousel.css';
 import { dispatchStaffAssignmentEmails } from '../lib/emailDispatch';
+// const TEST_IMAGE_URL = '/api/private_uploads/posters/7DFBDC06-F371-4C93-BAFA-639BEC2B36F4_4_5005_c.jpeg';
 
 const UPCOMING_EVENT_LIMIT = 4;
 const TIER_OPTIONS = [
@@ -19,6 +20,7 @@ function formatEventDateRange(startValue, endValue) {
 
 function buildEventSlide(eventRow) {
   return {
+    // src: String(eventRow?.path ?? eventRow?.event_poster ?? eventRow?.image_path ?? TEST_IMAGE_URL ?? '').trim(),
     src: String(eventRow?.path ?? eventRow?.event_poster ?? eventRow?.image_path ?? '').trim(),
     alt: eventRow?.event_title ? `${eventRow.event_title} poster` : 'Event poster',
     captionTitle: String(eventRow?.event_title ?? `Event ${eventRow?.event_id ?? ''}`).trim() || 'Upcoming Event',
@@ -323,16 +325,68 @@ function Carousel({ items = [], autoPlay = true, intervalMs = 4500, title = 'Ima
               aria-hidden={!isActive}
             >
               {item.src && !failedImageIndexes.includes(index) ? (
-                <img
-                  src={item.src}
-                  alt={item.alt || `Slide ${index + 1}`}
-                  className="carousel-image"
-                  onError={() => {
-                    setFailedImageIndexes((previous) => (
-                      previous.includes(index) ? previous : [...previous, index]
-                    ));
-                  }}
-                />
+                <div className="carousel-image-stage">
+                  <div
+                    className="carousel-mirror-strip carousel-mirror-left carousel-mirror-eighth"
+                    style={{ backgroundImage: `url("${item.src}")` }}
+                    aria-hidden="true"
+                  />
+                  <div
+                    className="carousel-mirror-strip carousel-mirror-left carousel-mirror-eighth"
+                    style={{ backgroundImage: `url("${item.src}")` }}
+                    aria-hidden="true"
+                  />
+                  <div
+                    className="carousel-mirror-strip carousel-mirror-left carousel-mirror-quarter"
+                    style={{ backgroundImage: `url("${item.src}")` }}
+                    aria-hidden="true"
+                  />
+                  <div
+                    className="carousel-mirror-strip carousel-mirror-left carousel-mirror-quarter"
+                    style={{ backgroundImage: `url("${item.src}")` }}
+                    aria-hidden="true"
+                  />
+                  <div
+                    className="carousel-mirror-strip carousel-mirror-left carousel-mirror-half"
+                    style={{ backgroundImage: `url("${item.src}")` }}
+                    aria-hidden="true"
+                  />
+                  <img
+                    src={item.src}
+                    alt={item.alt || `Slide ${index + 1}`}
+                    className="carousel-image"
+                    onError={() => {
+                      setFailedImageIndexes((previous) => (
+                        previous.includes(index) ? previous : [...previous, index]
+                      ));
+                    }}
+                  />
+                  <div
+                    className="carousel-mirror-strip carousel-mirror-right carousel-mirror-half"
+                    style={{ backgroundImage: `url("${item.src}")` }}
+                    aria-hidden="true"
+                  />
+                  <div
+                    className="carousel-mirror-strip carousel-mirror-right carousel-mirror-quarter"
+                    style={{ backgroundImage: `url("${item.src}")` }}
+                    aria-hidden="true"
+                  />
+                  <div
+                    className="carousel-mirror-strip carousel-mirror-right carousel-mirror-quarter"
+                    style={{ backgroundImage: `url("${item.src}")` }}
+                    aria-hidden="true"
+                  />
+                  <div
+                    className="carousel-mirror-strip carousel-mirror-right carousel-mirror-eighth"
+                    style={{ backgroundImage: `url("${item.src}")` }}
+                    aria-hidden="true"
+                  />
+                  <div
+                    className="carousel-mirror-strip carousel-mirror-right carousel-mirror-eighth"
+                    style={{ backgroundImage: `url("${item.src}")` }}
+                    aria-hidden="true"
+                  />
+                </div>
               ) : (
                 <div className="carousel-image-placeholder">Image coming soon</div>
               )}
