@@ -640,13 +640,13 @@ function StaffProfile() {
                </div>
             ) : null}
             
-            {isAdminView ? (
+            {/* {isAdminView ? (
                <div className="profile-test-buttons-container">
                   <button type="button" onClick={handleOpenSuccessPagePreview}>
                      Open Ticket Success Page (Test)
                   </button>
                </div>
-            ) : null}
+            ) : null} */}
             {bioMessage ? <p className="profile-value">{bioMessage}</p> : null}
          </div>
 

@@ -16,21 +16,70 @@
 }
 
 .carousel-item {
+   --carousel-item-height: clamp(220px, 40vw, 420px);
+   --main-image-width: calc(var(--carousel-item-height) * 0.75);
    min-width: 100%;
    width: 100%;
    position: relative;
-   height: clamp(220px, 40vw, 420px);
+   height: var(--carousel-item-height);
    display: flex;
    align-items: center;
    justify-content: center;
    transition: transform 0.65s cubic-bezier(0.39, 0.575, 0.565, 1);
 }
 
-.carousel-image {
+.carousel-image-stage {
    width: 100%;
    height: 100%;
+   display: flex;
+   align-items: stretch;
+   justify-content: center;
+   gap: 0;
+   overflow: hidden;
+   isolation: isolate;
+}
+
+.carousel-image {
+   width: var(--main-image-width);
+   height: 100%;
+   flex: 0 0 auto;
    object-fit: cover;
    display: block;
+   z-index: 2;
+}
+
+.carousel-mirror-strip {
+   height: 100%;
+   flex: 0 0 auto;
+   background-repeat: no-repeat;
+   background-size: var(--main-image-width) 100%;
+   opacity: 0.85;
+   z-index: 1;
+   margin-left: -1px;
+   margin-right: -1px;
+}
+
+.carousel-mirror-left {
+   background-position: left center;
+}
+
+.carousel-mirror-right {
+   background-position: right center;
+}
+
+.carousel-mirror-half {
+   width: calc(var(--main-image-width) / 2);
+   filter: blur(5px);
+}
+
+.carousel-mirror-quarter {
+   width: calc(var(--main-image-width) / 4);
+   filter: blur(15px);
+}
+
+.carousel-mirror-eighth {
+   width: calc(var(--main-image-width) / 8);
+   filter: blur(35px);
 }
 
 .carousel-image-placeholder {
@@ -47,10 +96,17 @@
    -webkit-backdrop-filter: blur(12px);
 }
 
-.carousel-caption {
+.carousel-caption-row {
    position: absolute;
    left: 14px;
    bottom: 14px;
+   margin: 0;
+   display: inline-flex;
+   align-items: stretch;
+   gap: 8px;
+}
+
+.carousel-caption {
    margin: 0;
    padding: 8px 10px;
    border-radius: 8px;
@@ -67,6 +123,29 @@
 
 .carousel-caption-range {
    font-weight: 400;
+}
+
+.carousel-buy-now-button {
+   align-self: stretch;
+   width: fit-content;
+   border: none;
+   border-radius: 8px;
+   padding: 0 12px;
+   background: #0a66c2;
+   color: #fff;
+   font-size: 0.95rem;
+   font-weight: 700;
+   cursor: pointer;
+   white-space: nowrap;
+}
+
+.carousel-buy-now-button:hover {
+   background: #084f97;
+}
+
+.carousel-buy-now-button:disabled {
+   opacity: 0.65;
+   cursor: not-allowed;
 }
 
 .carousel-nav {
