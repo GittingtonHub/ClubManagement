@@ -1,3 +1,49 @@
+.about-us-section {
+   padding: 50px;
+   text-align: center;
+   color: black;
+   margin: 16px auto;
+   width: 90%;
+   background: rgba(255, 255, 255, 0.2);
+   backdrop-filter: blur(10px);
+   -webkit-backdrop-filter: blur(10px);
+   border-radius: 12px;
+   display: grid;
+   grid-template-columns: repeat(2, minmax(0, 1fr));
+   gap: 24px;
+}
+
+.about-us-section p {
+   width: 90%;
+   margin: 0 auto 16px;
+}
+
+.club-mission,
+.club-awards {
+   background: rgba(255, 255, 255, 0.1);
+   border-radius: 12px;
+   padding: 20px 12px;
+}
+
+.awards-grid {
+   display: grid;
+   grid-template-columns: repeat(2, minmax(0, 1fr));
+   gap: 14px;
+   width: 90%;
+   margin: 0 auto;
+}
+
+.award-card {
+   background: rgba(255, 255, 255, 0.2);
+   border: 1px solid rgba(255, 255, 255, 0.3);
+   backdrop-filter: blur(12px);
+   -webkit-backdrop-filter: blur(12px);
+   border-radius: 12px;
+   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+   padding: 16px;
+   text-align: left;
+}
+
 .contact-section {
    padding: 50px;
    text-align: center;
@@ -69,6 +115,14 @@
 }
 
 @media screen and (max-width: 650px) {
+   .about-us-section {
+      grid-template-columns: 1fr;
+   }
+
+   .awards-grid {
+      grid-template-columns: 1fr;
+   }
+
    .contact-section .column {
       flex-basis: 100%;
       max-width: 100%;

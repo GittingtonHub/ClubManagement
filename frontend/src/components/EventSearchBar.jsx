@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
-const DEFAULT_VISIBLE_EVENTS = 5;
+const DEFAULT_VISIBLE_EVENTS = 40;
 
 const toTimestamp = (value) => {
   const parsedDate = new Date(value);
