@@ -1,11 +1,13 @@
 import AvailabilityUI from "./AvailabilityUI";
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { dispatchNamedTemplateEmails } from "../lib/emailDispatch";
+import ReservationTableUI from './ReservationTableUI';
 
 function StaffProfile() {
-   
+   const navigate = useNavigate();
    const { user } = useAuth();
    const [bio, setBio] = useState("");
    const [savedBio, setSavedBio] = useState("");
@@ -25,6 +27,7 @@ function StaffProfile() {
    const [isUploadingImage, setIsUploadingImage] = useState(false);
    const [imageUploadError, setImageUploadError] = useState("");
    const [imageUploadMessage, setImageUploadMessage] = useState("");
+   const [ratingByReservation, setRatingByReservation] = useState({});
    const [staffDetails, setStaffDetails] = useState({
       employeeId: null,
       role: "",
@@ -42,6 +45,7 @@ function StaffProfile() {
    const displayUploadPath = profileImageUploadPath || "Server .env (DB_PFP_PATH)";
    const employeeId = staffDetails.employeeId ?? "Unavailable";
    const staffRole = staffDetails.role || "Unavailable";
+   const isAdminView = (localStorage.getItem("userRole") || "").toLowerCase() === "admin";
 
    const formatHourlyRate = (value) => {
       if (value === null || value === undefined || value === "") {
@@ -221,17 +225,12 @@ function StaffProfile() {
       }
 
       try {
-         const response = await fetch(`/api/reservations.php`, {
-            method: "PUT",
+         const response = await fetch(`/api/reservations.php?id=${reservationId}&reason=${encodeURIComponent(" ")}`, {
+            method: "DELETE",
             credentials: "include",
             headers: {
-               "Content-Type": "application/json",
                Authorization: `Bearer ${localStorage.getItem("authToken") || ""}`
-            },
-            body: JSON.stringify({
-               reservation_id: reservationId,
-               status: "cancelled"
-            })
+            }
          });
 
          if (!response.ok) {
@@ -248,6 +247,44 @@ function StaffProfile() {
          setReservationMessage("");
       } catch {
          setReservationMessage("Could not cancel reservation");
+      }
+   };
+
+   const isCancelledReservation = (reservation) =>
+      String(reservation?.status ?? "").toLowerCase() === "cancelled";
+
+   const handleSaveRating = async (reservationId) => {
+      const reservation = reservations.find((row) => {
+         const id = row?.reservation_id ?? row?.id;
+         return String(id) === String(reservationId);
+      });
+
+      if (!reservation || isCancelledReservation(reservation)) {
+         return;
+      }
+
+      const rating = ratingByReservation[reservationId];
+      if (rating === undefined || rating === "") {
+         return;
+      }
+
+      try {
+         const response = await fetch(`/api/reservations.php?id=${reservationId}&rating=${rating}`, {
+            method: "PATCH",
+            credentials: "include",
+            headers: {
+               Authorization: `Bearer ${localStorage.getItem("authToken") || ""}`
+            }
+         });
+
+         if (!response.ok) {
+            setReservationMessage("Could not save rating");
+            return;
+         }
+
+         setReservationMessage("");
+      } catch {
+         setReservationMessage("Could not save rating");
       }
    };
 
@@ -445,6 +482,60 @@ function StaffProfile() {
       return { past, today, future };
    }, [reservations, dayBoundaries.todayStartMs, dayBoundaries.tomorrowStartMs]);
 
+   const guestReservations = useMemo(() => {
+      if (!currentUserId) {
+         return [];
+      }
+
+      const normalizedCurrentUserId = String(currentUserId);
+      const filteredReservations = reservations.filter(
+         (reservation) => String(reservation.user_id) === normalizedCurrentUserId
+      );
+
+      filteredReservations.sort(
+         (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+      );
+
+      return filteredReservations;
+   }, [reservations, currentUserId]);
+
+
+   const guestGroups = useMemo(() => {
+      const past = [];
+      const today = [];
+      const future = [];
+      guestReservations.forEach((reservation) => {
+         const startMs = new Date(reservation.start_time).getTime();
+         if (Number.isNaN(startMs)) return;
+         if (startMs < dayBoundaries.todayStartMs) past.push(reservation);
+         else if (startMs < dayBoundaries.tomorrowStartMs) today.push(reservation);
+         else future.push(reservation);
+      });
+      return { past, today, future };
+   }, [guestReservations, dayBoundaries]);
+
+   const selectedReservation = useMemo(() => {
+      if (!selectedReservationId) {
+         return null;
+      }
+
+      return (
+         reservations.find((reservation) => {
+            const id = reservation?.reservation_id ?? reservation?.id;
+            return String(id) === String(selectedReservationId);
+         }) ?? null
+      );
+   }, [reservations, selectedReservationId]);
+
+   const formatCurrency = (value) => {
+      if (value === null || value === undefined || value === "") {
+         return "N/A";
+      }
+
+      const parsed = Number.parseFloat(value);
+      return Number.isFinite(parsed) ? `$${parsed.toFixed(2)}` : "N/A";
+   };
+
    const formatDateTime = (value) => {
       if (!value) {
          return "";
@@ -453,8 +544,27 @@ function StaffProfile() {
       return Number.isNaN(parsed.getTime()) ? "" : parsed.toLocaleString();
    };
 
+   const handleOpenSuccessPagePreview = () => {
+      navigate("/successful-purchase", {
+         state: {
+            successData: {
+               eventId: "EVT-1001",
+               userId: String(currentUserId || userId || "USER-001"),
+               eventTitle: "Admin Test Event",
+               eventSTART: "April 24, 2026 8:00 PM",
+               eventEND: "April 24, 2026 11:00 PM",
+               ticketType: "VIP",
+               ticketPrice: "125.00",
+               performer: "Test Performer",
+               imagePATH: ""
+            }
+         }
+      });
+   };
+
    return (
       <>
+         {/* --- TOP HALF: PROFILE, BIO, AND DETAILS --- */}
          <div className="profile-container">
             <div className="profile-image-container">
                <button type="button" className="profile-image-button" onClick={handleOpenUploadModal}>
@@ -477,37 +587,21 @@ function StaffProfile() {
                <table
                   className="profile-details-table"
                   role="presentation"
-                  style={{
-                     background: "transparent",
-                     backgroundColor: "transparent",
-                     border: "none",
-                     boxShadow: "none",
-                     backdropFilter: "none",
-                     WebkitBackdropFilter: "none",
-                     margin: 0
-                  }}
+                  style={{ background: "transparent", backgroundColor: "transparent", border: "none", boxShadow: "none", backdropFilter: "none", WebkitBackdropFilter: "none", margin: 0 }}
                >
                   <tbody style={{ background: "transparent", border: "none", backdropFilter: "none", WebkitBackdropFilter: "none" }}>
                      <tr style={{ background: "transparent", border: "none", backdropFilter: "none", WebkitBackdropFilter: "none" }}>
                         <td className="profile-details-column" style={{ background: "transparent", border: "none", backdropFilter: "none", WebkitBackdropFilter: "none" }}>
                            <p className="profile-label">Username</p>
-                           <p className="profile-value" id="profile-username">
-                              {username}
-                           </p>
+                           <p className="profile-value" id="profile-username">{username}</p>
 
                            <p className="profile-label">Email</p>
-                           <p className="profile-value" id="profile-email">
-                              {email}
-                           </p>
+                           <p className="profile-value" id="profile-email">{email}</p>
 
                            <p className="profile-label">User ID</p>
-                           <p className="profile-value" id="profile-id">
-                              {userId}
-                           </p>
+                           <p className="profile-value" id="profile-id">{userId}</p>
 
-                           <label className="profile-label" htmlFor="profile-bio">
-                              Biography
-                           </label>
+                           <label className="profile-label" htmlFor="profile-bio">Biography</label>
                            <textarea
                               id="profile-bio"
                               className="profile-bio-input"
@@ -519,24 +613,16 @@ function StaffProfile() {
                         </td>
                         <td className="profile-details-column" style={{ background: "transparent", border: "none", backdropFilter: "none", WebkitBackdropFilter: "none" }}>
                            <p className="profile-label">Employee ID</p>
-                           <p className="profile-value" id="profile-employee-id">
-                              {employeeId}
-                           </p>
+                           <p className="profile-value" id="profile-employee-id">{employeeId}</p>
 
                            <p className="profile-label">Role</p>
-                           <p className="profile-value" id="profile-role">
-                              {staffRole}
-                           </p>
+                           <p className="profile-value" id="profile-role">{staffRole}</p>
 
                            <p className="profile-label">Hourly Rate</p>
-                           <p className="profile-value" id="profile-hourly-rate">
-                              {formatHourlyRate(staffDetails.hourlyRate)}
-                           </p>
+                           <p className="profile-value" id="profile-hourly-rate">{formatHourlyRate(staffDetails.hourlyRate)}</p>
 
                            <p className="profile-label">Contract Type</p>
-                           <p className="profile-value" id="profile-contract-type">
-                              {formatContractType(staffDetails.contractType)}
-                           </p>
+                           <p className="profile-value" id="profile-contract-type">{formatContractType(staffDetails.contractType)}</p>
                         </td>
                      </tr>
                   </tbody>
@@ -553,9 +639,18 @@ function StaffProfile() {
                   </button>
                </div>
             ) : null}
+            
+            {isAdminView ? (
+               <div className="profile-test-buttons-container">
+                  <button type="button" onClick={handleOpenSuccessPagePreview}>
+                     Open Ticket Success Page (Test)
+                  </button>
+               </div>
+            ) : null}
             {bioMessage ? <p className="profile-value">{bioMessage}</p> : null}
          </div>
 
+         {/* --- UPLOAD MODAL --- */}
          <Dialog open={isUploadImageOpen} onClose={handleCloseUploadModal} className="add-item-dialog">
             <div className="add-item-dialog-backdrop" aria-hidden="true" />
             <div className="add-item-dialog-container">
@@ -572,9 +667,7 @@ function StaffProfile() {
                         onChange={handleImageFileChange}
                         className="profile-upload-input"
                      />
-                     <label className="profile-label" htmlFor="profile-image-upload-path">
-                        Upload Path
-                     </label>
+                     <label className="profile-label" htmlFor="profile-image-upload-path">Upload Path</label>
                      <input
                         id="profile-image-upload-path"
                         type="text"
@@ -582,17 +675,8 @@ function StaffProfile() {
                         value={displayUploadPath}
                         className="profile-upload-path"
                      />
-                     {selectedImageFile ? (
-                        <p className="profile-upload-file">Selected: {selectedImageFile.name}</p>
-                     ) : null}
-                     {selectedImagePreview ? (
-                        <img
-                           src={selectedImagePreview}
-                           alt="Selected profile preview"
-                           className="profile-upload-preview"
-                        />
-                     ) : null}
-
+                     {selectedImageFile ? <p className="profile-upload-file">Selected: {selectedImageFile.name}</p> : null}
+                     {selectedImagePreview ? <img src={selectedImagePreview} alt="Selected profile preview" className="profile-upload-preview" /> : null}
                      {imageUploadError ? <span className="profile-upload-error">{imageUploadError}</span> : null}
 
                      <div className="button-group">
@@ -608,156 +692,86 @@ function StaffProfile() {
             </div>
          </Dialog>
 
-         <Dialog open={isReservationInfoOpen} onClose={handleCloseReservationInfoModal} className="add-item-dialog">
-            <div className="add-item-dialog-backdrop" aria-hidden="true" />
-            <div className="add-item-dialog-container">
-               <DialogPanel className="add-item-dialog-panel">
-                  <div
-                     className="inner-add-item-container"
-                     style={{
-                        minHeight: "140px",
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "flex-end"
-                     }}
-                  >
-                     <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", width: "100%" }}>
-                        {/* info about the reservation */}
-
-                        <button
-                           type="button"
-                           onClick={() => {
-                              setCancelReason('');
-                              setIsCancelOpen(true);
-                           }}
-                           >
-                           Request to be removed
-                           </button>
-                        <button type="button" onClick={handleCloseReservationInfoModal}>
-                           OK
-                        </button>
-                     </div>
-                  </div>
-               </DialogPanel>
-            </div>
-         </Dialog>
-
-
          {/* Availability UI */}
          <AvailabilityUI />
 
-         <div
-            className="profile-reservations-container"
-            style={{ 
-               width: "90%",
-               margin: "16px auto 0",
-               display: "grid",
-               gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-               gap: "16px",
-            }}
-         >
-
-            <div className="profile-reservations-past">
-               <h3>Today&apos;s Reservations</h3>
-               {reservationGroups.today.length === 0 ? (
-                  <p className="profile-reservation-placeholder">No past reservations.</p>
-               ) : (
-                  <table className="profile-reservations-table">
-                     <thead>
-                        <tr className="table-header">
-                           <th>Service Type</th>
-                           <th>Start</th>
-                           <th>End</th>
-                           <th>Info</th>
-                        </tr>
-                     </thead>
-                     <tbody>
-                        {reservationGroups.today.map((reservation) => {
-                           const id = reservation.reservation_id ?? reservation.id;
-                           return (
-                              <tr className="table-row" key={id}>
-                                 <td>{reservation.service_type}</td>
-                                 <td>{formatDateTime(reservation.start_time)}</td>
-                                 <td>{formatDateTime(reservation.end_time)}</td>
-                                 <td>
-                                    <button
-                                       type="button"
-                                       className="profile-reservation-action-button"
-                                       onClick={() => handleOpenReservationInfoModal(id)}
-                                    >
-                                       &info;
-                                    </button>
-                                 </td>
-                              </tr>
-                           );
-                        })}
-                     </tbody>
-                  </table>
-               )}
-            </div>
-
-            <div className="profile-reservations-future">
-               <h3>Future Reservations</h3>
-               {reservationGroups.future.length === 0 ? (
-                  <p className="profile-reservation-placeholder">No future reservations.</p>
-               ) : (
-                  <table className="profile-reservations-table">
-                     <thead>
-                        <tr className="table-header">
-                           <th>Service Type</th>
-                           <th>Start</th>
-                           <th>End</th>
-                           <th>Info</th>
-                        </tr>
-                     </thead>
-                     <tbody>
-                        {reservationGroups.future.map((reservation) => {
-                           const id = reservation.reservation_id ?? reservation.id;
-                           return (
-                              <tr className="table-row" key={id}>
-                                 <td>{reservation.service_type}</td>
-                                 <td>{formatDateTime(reservation.start_time)}</td>
-                                 <td>{formatDateTime(reservation.end_time)}</td>
-                                 <td>
-                                    <button
-                                       type="button"
-                                       className="profile-reservation-action-button"
-                                       onClick={() => handleOpenReservationInfoModal(id)}
-                                    >
-                                       &info;
-                                    </button>
-                                 </td>
-                              </tr>
-                           );
-                        })}
-                     </tbody>
-                  </table>
-               )}
-            </div>
-         </div>
-         {reservationMessage ? <p className="profile-value">{reservationMessage}</p> : null}
-         <Dialog open={isCancelOpen} onClose={() => {}} className="add-item-dialog">
-            <div className="add-item-dialog-backdrop" />
-            <div className="add-item-dialog-container">
-               <DialogPanel className="add-item-dialog-panel">
-                  <DialogTitle className="add-item-header">Request Removal</DialogTitle>
-
-                  <textarea
-                  placeholder="Enter reason..."
-                  value={cancelReason}
-                  onChange={(e) => setCancelReason(e.target.value)}
-                  className="add-item-name-input"
-                  />
-
-                  <div className="button-group">
-                  <button onClick={handleRequestRemoval}>Submit</button>
-                  <button onClick={() => setIsCancelOpen(false)}>Close</button>
+               {/* --- BOTTOM HALF: START OF THE NEW CLEAN LAYOUT --- */}
+               <div className="profile-reservations-layout">
+                  
+                  {/* --- TOP: 1x2 GRID (ASSIGNED SHIFTS) --- */}
+                  <h2 className="text-2xl font-bold mb-4 text-gray-800">My Shifts (Assigned)</h2>
+                  <div className="profile-assigned-grid">
+                     <ReservationTableUI title="Today's Assigned" reservations={reservationGroups.today} type="today" isAssigned={true} onInfo={handleOpenReservationInfoModal} />
+                     <ReservationTableUI title="Future Assigned" reservations={reservationGroups.future} type="future" isAssigned={true} onInfo={handleOpenReservationInfoModal} />
                   </div>
-               </DialogPanel>
-            </div>
-         </Dialog>
-      </>
-   );
-}
+                  {reservationMessage ? (
+                     <div className="mb-6 p-3 bg-blue-50 text-blue-800 rounded border border-blue-200">
+                        {reservationMessage}
+                     </div>
+                  ) : null}
+
+                  {/* --- BOTTOM: 1x3 GRID (GUEST RESERVATIONS) --- */}
+                  <h2 className="text-2xl font-bold mb-4 text-gray-800">My Reservations (As Guest)</h2>
+                  <div className="profile-guest-grid">
+                     <ReservationTableUI title="Today's Reservations" reservations={guestGroups.today} type="today" onCancel={(id) => handleCancelReservation(id, { skipConfirm: false })} />
+                     <ReservationTableUI title="Future Reservations" reservations={guestGroups.future} type="future" onCancel={(id) => handleCancelReservation(id, { skipConfirm: false })} />
+                     <ReservationTableUI title="Past Reservations" reservations={guestGroups.past} type="past" ratingState={ratingByReservation} onRatingChange={(id, val) => setRatingByReservation(prev => ({...prev, [id]: val}))} onSaveRating={handleSaveRating} />
+                  </div>
+                  
+               </div>
+
+               {/* --- INFO DIALOG --- */}
+               <Dialog open={isReservationInfoOpen} onClose={handleCloseReservationInfoModal} className="add-item-dialog">
+                  <div className="add-item-dialog-backdrop" aria-hidden="true" />
+                  <div className="add-item-dialog-container">
+                     <DialogPanel className="add-item-dialog-panel">
+                        <div className="inner-add-item-container" style={{ minHeight: "140px", display: "flex", flexDirection: "column", gap: "14px", justifyContent: "flex-end" }}>
+                           <div style={{ width: "100%" }}>
+                              {selectedReservation ? (
+                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "8px 16px", fontSize: "0.96rem" }}>
+                                    <p><strong>Reservation ID:</strong> {selectedReservation.reservation_id ?? selectedReservation.id ?? "N/A"}</p>
+                                    <p><strong>Status:</strong> {selectedReservation.status || "N/A"}</p>
+                                    <p><strong>Service:</strong> {selectedReservation.service_type || "N/A"}</p>
+                                    <p><strong>Resource:</strong> {selectedReservation.resource_name || "N/A"}</p>
+                                    <p><strong>Start:</strong> {formatDateTime(selectedReservation.start_time) || "N/A"}</p>
+                                    <p><strong>End:</strong> {formatDateTime(selectedReservation.end_time) || "N/A"}</p>
+                                    <p><strong>Event ID:</strong> {selectedReservation.event_id ?? "N/A"}</p>
+                                    <p><strong>Ticket Tier:</strong> {selectedReservation.ticket_tier || "N/A"}</p>
+                                    <p><strong>Ticket Qty:</strong> {selectedReservation.quantity ?? "N/A"}</p>
+                                    <p><strong>Section #:</strong> {selectedReservation.section_number ?? "N/A"}</p>
+                                    <p><strong>Guest Count:</strong> {selectedReservation.guest_count ?? "N/A"}</p>
+                                    <p><strong>Min Spend:</strong> {formatCurrency(selectedReservation.minimum_spend)}</p>
+                                 </div>
+                              ) : (
+                                 <p className="profile-reservation-placeholder">Reservation details unavailable.</p>
+                              )}
+                           </div>
+
+                           <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", width: "100%" }}>
+                              <button type="button" onClick={() => { setCancelReason(''); setIsCancelOpen(true); }}>Request to be removed</button>
+                              <button type="button" onClick={handleCloseReservationInfoModal}>OK</button>
+                           </div>
+                        </div>
+                     </DialogPanel>
+                  </div>
+               </Dialog>
+
+               {/* --- CANCEL DIALOG --- */}
+               <Dialog open={isCancelOpen} onClose={() => setIsCancelOpen(false)} className="add-item-dialog">
+                  <div className="add-item-dialog-backdrop" />
+                  <div className="add-item-dialog-container">
+                     <DialogPanel className="add-item-dialog-panel">
+                        <DialogTitle className="add-item-header">Request Removal</DialogTitle>
+                        <textarea placeholder="Enter reason..." value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} className="add-item-name-input" />
+                        <div className="button-group">
+                           <button onClick={handleRequestRemoval}>Submit</button>
+                           <button onClick={() => setIsCancelOpen(false)}>Close</button>
+                        </div>
+                     </DialogPanel>
+                  </div>
+               </Dialog>
+            </>
+         );
+   }
 
 export default StaffProfile;

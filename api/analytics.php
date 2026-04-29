@@ -224,7 +224,62 @@
                     ]
                 ]);
                 break;
+            
+            // ---------------------------------------------------------
+            // ACTION 5: RATINGS & REVIEWS 
+            // ---------------------------------------------------------
+            case 'ratings':
+                // Overall Average Rating & Total Ratings Count
+                $overallStmt = $conn->query("
+                    SELECT 
+                        ROUND(AVG(rating), 1) as average_rating, 
+                        COUNT(rating) as total_ratings 
+                    FROM reservations 
+                    WHERE rating IS NOT NULL
+                ");
+                $overallStats = $overallStmt->fetch(PDO::FETCH_ASSOC);
 
+                // Average Rating by Service Type (e.g., Bottle Service vs Event Ticket)
+                $byServiceStmt = $conn->query("
+                    SELECT 
+                        service_type, 
+                        ROUND(AVG(rating), 1) as average_rating, 
+                        COUNT(rating) as total_ratings 
+                    FROM reservations 
+                    WHERE rating IS NOT NULL 
+                    GROUP BY service_type 
+                    ORDER BY average_rating DESC
+                ");
+                $byServiceStats = $byServiceStmt->fetchAll(PDO::FETCH_ASSOC);
+
+                // The 5 Most Recent Ratings
+                $recentStmt = $conn->query("
+                    SELECT 
+                        r.reservation_id, 
+                        r.service_type, 
+                        r.rating, 
+                        u.username, 
+                        r.start_time 
+                    FROM reservations r
+                    JOIN users u ON r.user_id = u.id
+                    WHERE r.rating IS NOT NULL
+                    ORDER BY r.start_time DESC
+                    LIMIT 5
+                ");
+                $recentRatings = $recentStmt->fetchAll(PDO::FETCH_ASSOC);
+
+                echo json_encode([
+                    'success' => true, 
+                    'data' => [
+                        'overall' => [
+                            'average' => (float)$overallStats['average_rating'],
+                            'total_count' => (int)$overallStats['total_ratings']
+                        ],
+                        'by_service' => $byServiceStats,
+                        'recent_ratings' => $recentRatings
+                    ]
+                ]);
+                break;
             // ---------------------------------------------------------
             // DEFAULT FALLBACK
             // ---------------------------------------------------------

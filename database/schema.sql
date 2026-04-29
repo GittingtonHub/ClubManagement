@@ -13,9 +13,9 @@ DROP TABLE IF EXISTS EventStaff;
 DROP TABLE IF EXISTS tickets;
 DROP TABLE IF EXISTS events;
 
+DROP TABLE IF EXISTS bottle_service;
 DROP TABLE IF EXISTS table_section;
 DROP TABLE IF EXISTS ticket_reservations;
-DROP TABLE IF EXISTS bottle_service;
 DROP TABLE IF EXISTS reservations;
 DROP TABLE IF EXISTS resources;
 DROP TABLE IF EXISTS availability;
@@ -123,12 +123,19 @@ CREATE TABLE reservations (
 -- =========================
 -- RESERVATION SUBTYPES
 -- =========================
+CREATE TABLE table_section (
+  section_id INT AUTO_INCREMENT PRIMARY KEY,
+  seat_count INT NOT NULL,
+  section_number INT NOT NULL UNIQUE
+);
+
 CREATE TABLE bottle_service (
   reservation_id INT PRIMARY KEY,
-  section_number INT NOT NULL,
+  table_section_id INT NOT NULL,
   guest_count INT NOT NULL,
   minimum_spend DECIMAL(8,2) NOT NULL CHECK (minimum_spend >= 0),
-  FOREIGN KEY (reservation_id) REFERENCES reservations(reservation_id)
+  FOREIGN KEY (reservation_id) REFERENCES reservations(reservation_id),
+  FOREIGN KEY (table_section_id) REFERENCES table_section(section_id)
 );
 
 CREATE TABLE ticket_reservations (
@@ -138,14 +145,6 @@ CREATE TABLE ticket_reservations (
   quantity INT NOT NULL CHECK (quantity >= 0),
   FOREIGN KEY (reservation_id) REFERENCES reservations(reservation_id),
   FOREIGN KEY (event_id) REFERENCES events(event_id)
-);
-
-CREATE TABLE table_section (
-  reservation_id INT PRIMARY KEY,
-  seat_count INT NOT NULL,
-  section_number INT NOT NULL,
-  section_id INT,
-  FOREIGN KEY (reservation_id) REFERENCES reservations(reservation_id)
 );
 
 -- =========================

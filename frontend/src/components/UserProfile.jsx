@@ -1,9 +1,12 @@
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { dispatchNamedTemplateEmails } from "../lib/emailDispatch";
+import ReservationTableUI from './ReservationTableUI';
 
 function UserProfile() {
+   const navigate = useNavigate();
    const { user } = useAuth();
    const [bio, setBio] = useState("");
    const [savedBio, setSavedBio] = useState("");
@@ -19,6 +22,7 @@ function UserProfile() {
    const [isUploadingImage, setIsUploadingImage] = useState(false);
    const [imageUploadError, setImageUploadError] = useState("");
    const [imageUploadMessage, setImageUploadMessage] = useState("");
+   const [ratingByReservation, setRatingByReservation] = useState({});
 
    const parseStaffIds = (value) => {
       if (Array.isArray(value)) {
@@ -45,6 +49,7 @@ function UserProfile() {
    const profileImageUploadPath = import.meta.env.VITE_PFP_UPLOAD_PATH || "";
    const profileImageUploadEndpoint = import.meta.env.VITE_PROFILE_IMAGE_UPLOAD_ENDPOINT || "";
    const displayUploadPath = profileImageUploadPath || "Server .env (DB_PFP_PATH)";
+   const isAdminView = (localStorage.getItem("userRole") || "").toLowerCase() === "admin";
 
    const [dayBoundaries] = useState(() => {
       const now = new Date();
@@ -102,9 +107,30 @@ function UserProfile() {
       };
    }, [selectedImagePreview]);
 
-   const handleEdit = (id) => {
-      window.location.href = `/reservations?edit=${id}`;
+   // const handleEdit = (id) => {
+   //    window.location.href = `/reservations?edit=${id}`;
+   // };
+
+   const handleOpenSuccessPagePreview = () => {
+      navigate("/successful-purchase", {
+         state: {
+            successData: {
+               eventId: "EVT-1001",
+               userId: String(currentUserId || userId || "USER-001"),
+               eventTitle: "Admin Test Event",
+               eventSTART: "April 24, 2026 8:00 PM",
+               eventEND: "April 24, 2026 11:00 PM",
+               ticketType: "VIP",
+               ticketPrice: "125.00",
+               performer: "Test Performer",
+               imagePATH: ""
+            }
+         }
+      });
    };
+
+   const isCancelledReservation = (reservation) =>
+      String(reservation?.status ?? "").toLowerCase() === "cancelled";
 
    const fetchMyReservations = useCallback(async () => {
       if (!currentUserId) {
@@ -184,7 +210,7 @@ function UserProfile() {
             return String(id) === String(reservationId);
          });
 
-         const response = await fetch(`/api/reservations.php?id=${reservationId}`, {
+         const response = await fetch(`/api/reservations.php?id=${reservationId}&reason=${encodeURIComponent(" ")}`, {
             method: "DELETE",
             credentials: "include",
             headers: {
@@ -229,6 +255,41 @@ function UserProfile() {
          setReservationMessage("");
       } catch {
          setReservationMessage("Could not cancel reservation");
+      }
+   };
+
+   const handleSaveRating = async (reservationId) => {
+      const reservation = reservations.find((row) => {
+         const id = row?.reservation_id ?? row?.id;
+         return String(id) === String(reservationId);
+      });
+
+      if (!reservation || isCancelledReservation(reservation)) {
+         return;
+      }
+
+      const rating = ratingByReservation[reservationId];
+      if (rating === undefined || rating === "") {
+         return;
+      }
+
+      try {
+         const response = await fetch(`/api/reservations.php?id=${reservationId}&rating=${rating}`, {
+            method: "PATCH",
+            credentials: "include",
+            headers: {
+               Authorization: `Bearer ${localStorage.getItem("authToken") || ""}`
+            }
+         });
+
+         if (!response.ok) {
+            setReservationMessage("Could not save rating");
+            return;
+         }
+
+         setReservationMessage("");
+      } catch {
+         setReservationMessage("Could not save rating");
       }
    };
 
@@ -360,13 +421,13 @@ function UserProfile() {
       return { past, today, future };
    }, [reservations, dayBoundaries.todayStartMs, dayBoundaries.tomorrowStartMs]);
 
-   const formatDateTime = (value) => {
-      if (!value) {
-         return "";
-      }
-      const parsed = new Date(value);
-      return Number.isNaN(parsed.getTime()) ? "" : parsed.toLocaleString();
-   };
+   // const formatDateTime = (value) => {
+   //    if (!value) {
+   //       return "";
+   //    }
+   //    const parsed = new Date(value);
+   //    return Number.isNaN(parsed.getTime()) ? "" : parsed.toLocaleString();
+   // };
 
    return (
       <>
@@ -383,6 +444,12 @@ function UserProfile() {
                {imageUploadMessage ? <p className="profile-upload-success">{imageUploadMessage}</p> : null}
                {imageUploadError ? <p className="profile-upload-error">{imageUploadError}</p> : null}
             </div>
+
+            {reservationMessage ? (
+               <div className="mb-6 p-3 bg-blue-50 text-blue-800 rounded border border-blue-200">
+                  {reservationMessage}
+               </div>
+            ) : null}
 
             <div
                className="profile-details-container"
@@ -458,6 +525,13 @@ function UserProfile() {
                   </button>
                </div>
             ) : null}
+            {isAdminView ? (
+               <div className="profile-test-buttons-container">
+                  <button type="button" onClick={handleOpenSuccessPagePreview}>
+                     Open Ticket Success Page (Test)
+                  </button>
+               </div>
+            ) : null}
             {bioMessage ? <p className="profile-value">{bioMessage}</p> : null}
          </div>
 
@@ -513,110 +587,34 @@ function UserProfile() {
             </div>
          </Dialog>
 
-         <div className="profile-reservations-container">
-            <div className="profile-reservations-past">
-               <h3>Past Reservations</h3>
-               {reservationGroups.past.length === 0 ? (
-                  <p className="profile-reservation-placeholder">No past reservations.</p>
-               ) : (
-                  <table className="profile-reservations-table">
-                     <thead>
-                        <tr className="table-header">
-                           <th>Service Type</th>
-                           <th>Start</th>
-                           <th>End</th>
-                        </tr>
-                     </thead>
-                     <tbody>
-                        {reservationGroups.past.map((reservation) => {
-                           const id = reservation.reservation_id ?? reservation.id;
-                           return (
-                              <tr className="table-row" key={id}>
-                                 <td>{reservation.service_type}</td>
-                                 <td>{formatDateTime(reservation.start_time)}</td>
-                                 <td>{formatDateTime(reservation.end_time)}</td>
-                              </tr>
-                           );
-                        })}
-                     </tbody>
-                  </table>
-               )}
-            </div>
-
-            <div className="profile-reservations-today">
-               <h3>Today&apos;s Reservations</h3>
-               {reservationGroups.today.length === 0 ? (
-                  <p className="profile-reservation-placeholder">No reservations for today.</p>
-               ) : (
-                  <table className="profile-reservations-table">
-                     <thead>
-                        <tr className="table-header">
-                           <th>Service Type</th>
-                           <th>Start</th>
-                           <th>End</th>
-                           <th>Actions</th>
-                        </tr>
-                     </thead>
-                     <tbody>
-                        {reservationGroups.today.map((reservation) => {
-                           const id = reservation.reservation_id ?? reservation.id;
-                           return (
-                              <tr className="table-row" key={id}>
-                                 <td>{reservation.service_type}</td>
-                                 <td>{formatDateTime(reservation.start_time)}</td>
-                                 <td>{formatDateTime(reservation.end_time)}</td>
-                                 <td>
-                                    <button onClick={() => handleEdit(id)}>Edit</button>
-                                    <button onClick={() => handleCancelReservation(id)}>Cancel</button>
-                                 </td>
-                              </tr>
-                           );
-                        })}
-                     </tbody>
-                  </table>
-               )}
-            </div>
-
-            <div className="profile-reservations-future">
-               <h3>Future Reservations</h3>
-               {reservationGroups.future.length === 0 ? (
-                  <p className="profile-reservation-placeholder">No future reservations.</p>
-               ) : (
-                  <table className="profile-reservations-table">
-                     <thead>
-                        <tr className="table-header">
-                           <th>Service Type</th>
-                           <th>Start</th>
-                           <th>End</th>
-                           <th>Actions</th>
-                        </tr>
-                     </thead>
-                     <tbody>
-                        {reservationGroups.future.map((reservation) => {
-                           const id = reservation.reservation_id ?? reservation.id;
-                           return (
-                              <tr className="table-row" key={id}>
-                                 <td>{reservation.service_type}</td>
-                                 <td>{formatDateTime(reservation.start_time)}</td>
-                                 <td>{formatDateTime(reservation.end_time)}</td>
-                                 <td>
-                                    <button
-                                       type="button"
-                                       className="profile-reservation-action-button"
-                                       onClick={() => handleCancelReservation(id)}
-                                    >
-                                       Cancel
-                                    </button>
-                                 </td>
-                              </tr>
-                           );
-                        })}
-                     </tbody>
-                  </table>
-               )}
+ {/* --- PASTE THIS NEW GRID SECTION --- */}
+         <div className="profile-reservations-layout" style={{ paddingBottom: "2.5rem" }}>
+            
+            <h2 className="text-2xl font-bold mb-4 text-gray-800">My Reservations</h2>
+            
+            <div className="profile-guest-grid">
+               <ReservationTableUI
+                  title="Today's Reservations"
+                  reservations={reservationGroups.today}
+                  type="today"
+                  onCancel={(id) => handleCancelReservation(id)}
+               />
+               <ReservationTableUI
+                  title="Future Reservations"
+                  reservations={reservationGroups.future}
+                  type="future"
+                  onCancel={(id) => handleCancelReservation(id)}
+               />
+               <ReservationTableUI
+                  title="Past Reservations"
+                  reservations={reservationGroups.past}
+                  type="past"
+                  ratingState={ratingByReservation}
+                  onRatingChange={(id, val) => setRatingByReservation(prev => ({...prev, [id]: val}))}
+                  onSaveRating={handleSaveRating}
+               />
             </div>
          </div>
-         {reservationMessage ? <p className="profile-value">{reservationMessage}</p> : null}
       </>
    );
 }

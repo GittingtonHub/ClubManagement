@@ -1,4 +1,4 @@
-.about-section {
+.contact-section {
    padding: 50px;
    text-align: center;
    background-color: #474e5d;
@@ -11,14 +11,14 @@
    border-radius: 12px;
 }
 
-.about-section .row {
+.contact-section .row {
    display: flex;
    flex-wrap: wrap;
    justify-content: center;
    gap: 16px;
 }
 
-.about-section .column {
+.contact-section .column {
    float: none;
    width: 100%;
    flex: 0 1 280px;
@@ -26,29 +26,29 @@
    padding: 0;
 }
 
-.about-section .card {
+.contact-section .card {
    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
    margin: 8px;
    background: rgba(255, 255, 255, 0.1);
    border-radius: 12px;
 }
 
-.about-section .container {
-   padding: 0 16px;
+.contact-section .container {
+   padding: 18px 16px 0;
 }
 
-.about-section .container::after,
-.about-section .row::after {
+.contact-section .container::after,
+.contact-section .row::after {
    content: "";
    clear: both;
    display: table;
 }
 
-.about-section .title {
+.contact-section .title {
    color: #b3b3b3;
 }
 
-.about-section .button {
+.contact-section .button {
    border: none;
    outline: 0;
    display: inline-block;
@@ -62,14 +62,14 @@
    font-size: 17px;
 }
 
-.about-section .button:hover {
+.contact-section .button:hover {
    background-color: black;
    color: white;
    border-radius: 12px;
 }
 
 @media screen and (max-width: 650px) {
-   .about-section .column {
+   .contact-section .column {
       flex-basis: 100%;
       max-width: 100%;
    }
