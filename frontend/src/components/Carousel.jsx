@@ -1,10 +1,91 @@
 import { useEffect, useMemo, useState } from 'react';
 import '../styles/carousel.css';
 
+const UPCOMING_EVENT_LIMIT = 4;
+
+function formatEventDateRange(startValue, endValue) {
+  const start = startValue ? new Date(startValue) : null;
+  const end = endValue ? new Date(endValue) : null;
+  const startText = start && !Number.isNaN(start.getTime()) ? start.toLocaleString() : 'TBD';
+  const endText = end && !Number.isNaN(end.getTime()) ? end.toLocaleString() : 'TBD';
+  return `${startText} - ${endText}`;
+}
+
+function buildEventSlide(eventRow) {
+  return {
+    src: String(eventRow?.path ?? eventRow?.event_poster ?? eventRow?.image_path ?? '').trim(),
+    alt: eventRow?.event_title ? `${eventRow.event_title} poster` : 'Event poster',
+    captionTitle: String(eventRow?.event_title ?? `Event ${eventRow?.event_id ?? ''}`).trim() || 'Upcoming Event',
+    captionRange: formatEventDateRange(eventRow?.start_time, eventRow?.end_time)
+  };
+}
+
 function Carousel({ items = [], autoPlay = true, intervalMs = 4500, title = 'Image carousel' }) {
-  const safeItems = useMemo(() => (Array.isArray(items) ? items.filter(Boolean) : []), [items]);
+  const [eventSlides, setEventSlides] = useState([]);
+  const [failedImageIndexes, setFailedImageIndexes] = useState([]);
   const [activeIndex, setActiveIndex] = useState(0);
+  const hasManualItems = Array.isArray(items) && items.length > 0;
+
+  useEffect(() => {
+    if (hasManualItems) {
+      return undefined;
+    }
+
+    let isMounted = true;
+
+    const loadUpcomingEvents = async () => {
+      try {
+        const response = await fetch('/api/events.php', {
+          method: 'GET',
+          credentials: 'include'
+        });
+        if (!response.ok) {
+          throw new Error('Unable to load events');
+        }
+
+        const payload = await response.json();
+        const allEvents = Array.isArray(payload) ? payload : [];
+        const nowMs = Date.now();
+
+        const upcomingEvents = allEvents
+          .filter((eventRow) => {
+            const parsedStart = new Date(eventRow?.start_time ?? '').getTime();
+            return Number.isFinite(parsedStart) && parsedStart >= nowMs;
+          })
+          .sort((left, right) => new Date(left?.start_time ?? '').getTime() - new Date(right?.start_time ?? '').getTime())
+          .slice(0, UPCOMING_EVENT_LIMIT)
+          .map(buildEventSlide);
+
+        if (isMounted) {
+          setEventSlides(upcomingEvents);
+        }
+      } catch {
+        if (isMounted) {
+          setEventSlides([]);
+        }
+      }
+    };
+
+    loadUpcomingEvents();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [hasManualItems]);
+
+  const safeItems = useMemo(() => {
+    if (hasManualItems) {
+      return items.filter(Boolean);
+    }
+    return eventSlides.filter(Boolean);
+  }, [hasManualItems, items, eventSlides]);
+
   const normalizedIndex = safeItems.length > 0 ? activeIndex % safeItems.length : 0;
+
+  useEffect(() => {
+    setFailedImageIndexes([]);
+    setActiveIndex(0);
+  }, [safeItems.length]);
 
   useEffect(() => {
     if (!autoPlay || safeItems.length <= 1) {
@@ -38,12 +119,30 @@ function Carousel({ items = [], autoPlay = true, intervalMs = 4500, title = 'Ima
           return (
             <article
               className={`carousel-item ${isActive ? 'is-active' : ''}`}
-              key={`${item.src || 'slide'}-${index}`}
+              key={`${item.src || item.captionTitle || 'slide'}-${index}`}
               style={{ transform: `translateX(-${normalizedIndex * 100}%)` }}
               aria-hidden={!isActive}
             >
-              <img src={item.src} alt={item.alt || `Slide ${index + 1}`} className="carousel-image" />
-              {item.caption ? <p className="carousel-caption">{item.caption}</p> : null}
+              {item.src && !failedImageIndexes.includes(index) ? (
+                <img
+                  src={item.src}
+                  alt={item.alt || `Slide ${index + 1}`}
+                  className="carousel-image"
+                  onError={() => {
+                    setFailedImageIndexes((previous) => (
+                      previous.includes(index) ? previous : [...previous, index]
+                    ));
+                  }}
+                />
+              ) : (
+                <div className="carousel-image-placeholder">Image coming soon</div>
+              )}
+              {(item.captionTitle || item.captionRange || item.caption) ? (
+                <p className="carousel-caption">
+                  <strong className="carousel-caption-title">{item.captionTitle || item.caption}</strong>
+                  {item.captionRange ? <span className="carousel-caption-range">{item.captionRange}</span> : null}
+                </p>
+              ) : null}
             </article>
           );
         })}

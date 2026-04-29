@@ -109,7 +109,7 @@ function get_events_column_map(PDO $conn): ?array
         'event_id' => pick_column($columns, ['event_id', 'id']),
         'event_title' => pick_column($columns, ['event_title', 'title', 'name']),
         'description' => pick_column($columns, ['description', 'details']),
-        'event_poster' => pick_column($columns, ['poster_image', 'event_poster', 'poster', 'image_path']),
+        'event_poster' => pick_column($columns, ['path', 'poster_image', 'event_poster', 'poster', 'image_path']),
         'start_time' => pick_column($columns, ['start_time', 'start', 'start_at']),
         'end_time' => pick_column($columns, ['end_time', 'end', 'end_at']),
         'qty_tickets' => pick_column($columns, ['qty_tickets', 'ticket_qty', 'quantity', 'tickets_qty']),
