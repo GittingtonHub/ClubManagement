@@ -792,6 +792,7 @@ function EventsUI() {
               <th>End</th>
               <th>Qty Tickets</th>
               <th>Assigned Staff</th>
+              <th>Poster</th>
               <th>Actions</th>
             </tr>
 
@@ -808,6 +809,17 @@ function EventsUI() {
                 <td>{formatDateTime(event.end_time)}</td>
                 <td>{Number.parseInt(event.qty_tickets ?? 0, 10)}</td>
                 <td>{getAssignedStaffLabel(event)}</td>
+                <td>
+                  {event.poster_image ? (
+                    <img
+                      src={event.poster_image}
+                      alt="Poster"
+                      style={{ width: "80px", borderRadius: "6px" }}
+                    />
+                  ) : (
+                    "-"
+                  )}
+                </td>
                 <td className="reservation-actions-cell event-actions-cell">
                   <div className="reservation-actions-buttons event-actions-buttons">
                     {isEventCancellable(event) ? (
