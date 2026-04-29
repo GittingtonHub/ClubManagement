@@ -47,10 +47,17 @@
    -webkit-backdrop-filter: blur(12px);
 }
 
-.carousel-caption {
+.carousel-caption-row {
    position: absolute;
    left: 14px;
    bottom: 14px;
+   margin: 0;
+   display: inline-flex;
+   align-items: stretch;
+   gap: 8px;
+}
+
+.carousel-caption {
    margin: 0;
    padding: 8px 10px;
    border-radius: 8px;
@@ -67,6 +74,29 @@
 
 .carousel-caption-range {
    font-weight: 400;
+}
+
+.carousel-buy-now-button {
+   align-self: stretch;
+   width: fit-content;
+   border: none;
+   border-radius: 8px;
+   padding: 0 12px;
+   background: #0a66c2;
+   color: #fff;
+   font-size: 0.95rem;
+   font-weight: 700;
+   cursor: pointer;
+   white-space: nowrap;
+}
+
+.carousel-buy-now-button:hover {
+   background: #084f97;
+}
+
+.carousel-buy-now-button:disabled {
+   opacity: 0.65;
+   cursor: not-allowed;
 }
 
 .carousel-nav {
