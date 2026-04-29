@@ -406,74 +406,54 @@ INSERT INTO resources (id, name, type, price, description) VALUES
 (4, 'Event Ticket GA', 'event_ticket', 60.00, 'General admission event ticket');
 
 -- =========================
--- EVENTS (SHIFTED TO MIDNIGHT END)
+-- EVENTS (ALL AFTER 2026-05-01)
 -- =========================
-INSERT INTO events (title, description, start, end, qty_tickets, performer) VALUES
-('Week 1 Friday Night', 'EDM Night', '2026-03-27 19:00:00', '2026-03-28 00:00:00', 100, 'DJ Nova'),
-('Week 1 Saturday Night', 'Hip Hop Night', '2026-03-28 19:00:00', '2026-03-29 00:00:00', 120, 'DJ Blaze'),
-('Week 2 Friday Night', 'EDM Night', '2026-04-03 19:00:00', '2026-04-04 00:00:00', 100, 'DJ Nova'),
-('Week 2 Saturday Night', 'Latin Night', '2026-04-04 19:00:00', '2026-04-05 00:00:00', 120, 'DJ Rico'),
-('Week 3 Friday Night', 'EDM Night', '2026-04-10 19:00:00', '2026-04-11 00:00:00', 100, 'DJ Nova'),
-('Week 3 Saturday Night', 'Hip Hop Night', '2026-04-11 19:00:00', '2026-04-12 00:00:00', 120, 'DJ Blaze'),
-('Week 4 Friday Night', 'EDM Night', '2026-04-17 19:00:00', '2026-04-18 00:00:00', 100, 'DJ Nova'),
-('Week 4 Saturday Night', 'Latin Night', '2026-04-18 19:00:00', '2026-04-19 00:00:00', 120, 'DJ Rico'),
-('Week 5 Friday Night', 'EDM Night', '2026-04-24 19:00:00', '2026-04-25 00:00:00', 100, 'DJ Nova'),
-('Week 5 Saturday Night', 'Hip Hop Night', '2026-04-25 19:00:00', '2026-04-26 00:00:00', 120, 'DJ Blaze'),
-('Week 6 Friday Night', 'EDM Night', '2026-05-01 19:00:00', '2026-05-02 00:00:00', 100, 'DJ Nova'),
-('Week 6 Saturday Night', 'Latin Night', '2026-05-02 19:00:00', '2026-05-03 00:00:00', 120, 'DJ Rico'),
-('Week 7 Friday Night', 'EDM Night', '2026-05-08 19:00:00', '2026-05-09 00:00:00', 100, 'DJ Nova'),
-('Week 7 Saturday Night', 'Hip Hop Night', '2026-05-09 19:00:00', '2026-05-10 00:00:00', 120, 'DJ Blaze'),
-('Week 8 Friday Night', 'EDM Night', '2026-05-15 19:00:00', '2026-05-16 00:00:00', 100, 'DJ Nova'),
-('Week 8 Saturday Night', 'Latin Night', '2026-05-16 19:00:00', '2026-05-17 00:00:00', 120, 'DJ Rico'),
-('Week 9 Friday Night', 'EDM Night', '2026-05-22 19:00:00', '2026-05-23 00:00:00', 100, 'DJ Nova'),
-('Week 9 Saturday Night', 'Hip Hop Night', '2026-05-23 19:00:00', '2026-05-24 00:00:00', 120, 'DJ Blaze'),
-('Week 10 Friday Night', 'EDM Night', '2026-05-29 19:00:00', '2026-05-30 00:00:00', 100, 'DJ Nova'),
-('Week 10 Saturday Night', 'Latin Night', '2026-05-30 19:00:00', '2026-05-31 00:00:00', 120, 'DJ Rico');
+INSERT INTO events (title, description, start, end, qty_tickets, performer, poster_image) VALUES
+('Neon Harbor Launch', 'A high-energy kickoff built around layered synth drops, waterfront-inspired visuals, and a gradual tempo climb designed to keep the floor full from open to close.', '2026-05-02 21:00:00', '2026-05-02 23:59:00', 115, 'DJ Vibe', 'api/private_uploads/posters/7DFBDC06-F371-4C93-BAFA-639BEC2B36F4_4_5005_c.jpeg'),
+('Midnight Skyline Sessions', 'An after-dark skyline set featuring melodic house transitions, immersive lighting cues, and a curated sequence that balances big-room peaks with smooth groove resets.', '2026-05-08 22:00:00', '2026-05-08 23:59:00', 105, 'DJ Blaze', 'api/private_uploads/posters/9C3971BE-8535-43D8-92D1-9CFFB0DC91DD_4_5005_c.jpeg'),
+('Rhythm District Block Party', 'A district-style party format that blends hip-hop classics, modern club edits, and call-and-response moments to create a social, high-participation weekend atmosphere.', '2026-05-09 21:00:00', '2026-05-09 23:59:00', 130, 'DJ Pulse', 'api/private_uploads/posters/48F117DC-1FC2-4CF8-9315-27443933D7E7_4_5005_c.jpeg'),
+('Lunar Pulse Friday', 'A moonlit Friday takeover focused on progressive rhythm arcs, dynamic low-end control, and seamless transitions that reward listeners who stay deep into the night.', '2026-05-15 22:00:00', '2026-05-15 23:59:00', 98, 'DJ Echo', 'api/private_uploads/posters/57D9F761-78AB-40CE-BC1C-F93E43561B6E_4_5005_c.jpeg'),
+('Velvet Frequency Night', 'A polished dance program centered on warm percussion, vocal-forward remixes, and a balanced pacing strategy that supports both casual guests and dedicated dancers.', '2026-05-16 21:00:00', '2026-05-16 23:59:00', 140, 'DJ Rico', 'api/private_uploads/posters/71E4B3DE-1FF9-4DA2-AC8B-68DDBF85AD22_4_5005_c.jpeg'),
+('Afterhours Atlas', 'A global-sound rotation that moves through regional club influences, textured transitions, and crowd-reactive sequencing to deliver a travel-inspired late-night experience.', '2026-05-22 22:00:00', '2026-05-22 23:59:00', 110, 'DJ Blaze', 'api/private_uploads/posters/579C5A5F-66E4-481D-97CE-C63D1560F7E5_1_201_a.jpeg'),
+('Citrus Circuit Saturday', 'A bright and playful Saturday card with uptempo house grooves, pop-electronic fusions, and synchronized visual accents designed for high replay value and social sharing.', '2026-05-23 21:00:00', '2026-05-23 23:59:00', 125, 'DJ Vibe', 'api/private_uploads/posters/4425F649-4628-445E-B18E-5B1055A72B81_1_201_a.jpeg'),
+('Noir Bass Society', 'A darker sonic profile with precise bass architecture, stripped-back breakdowns, and tension-building transitions that create a cinematic, underground club narrative.', '2026-05-29 22:00:00', '2026-05-29 23:59:00', 90, 'DJ Nova', 'api/private_uploads/posters/788807D3-9103-46E1-8E28-22F0A87F958D_4_5005_c.jpeg'),
+('Electric Garden Social', 'A lush weekend social featuring percussive world-house layers, melodic motifs, and deliberate set pacing that encourages long-form dancing and repeat floor engagement.', '2026-05-30 21:00:00', '2026-05-30 23:59:00', 150, 'DJ Pulse', 'api/private_uploads/posters/18862230-7A53-4EBD-B7E1-068CBB0C7C56_4_5005_c.jpeg'),
+('Pulsewave Confidential', 'A members-style nightlife concept with selective anthem moments, tightly mixed club edits, and a polished progression built for premium weekend demand.', '2026-06-05 22:00:00', '2026-06-05 23:59:00', 112, 'DJ Echo', 'api/private_uploads/posters/56023575-C263-4EB3-95C0-2CD061EFE4F1_1_201_a.jpeg'),
+('Chrome Midnight Collective', 'A sleek and modern dance floor experience driven by metallic synth textures, measured drops, and precision cueing that keeps momentum steady across the full runtime.', '2026-06-06 21:00:00', '2026-06-06 23:59:00', 122, 'DJ Rico', 'api/private_uploads/posters/A0FBE8F7-17D4-4A86-80A1-09D39261BFAC_4_5005_c.jpeg'),
+('Sunset to Strobe', 'A transition-themed event that starts with groove-forward warmups and evolves into high-intensity strobe-set peaks, balancing accessibility with late-night energy.', '2026-06-12 22:00:00', '2026-06-12 23:59:00', 102, 'DJ Blaze', 'api/private_uploads/posters/A9042E71-EDFB-41EB-8343-4CD21965452A_4_5005_c.jpeg'),
+('Harborline Heat', 'A summer-leaning headline event with extended rhythm pockets, festival-style vocal cuts, and carefully spaced impact moments to sustain crowd excitement hour by hour.', '2026-06-13 21:00:00', '2026-06-13 23:59:00', 138, 'DJ Vibe', 'api/private_uploads/posters/B382D045-735C-4B3E-8614-6738B3B072F6_4_5005_c.jpeg'),
+('Frequency Foundry', 'An industrial-inspired audio journey that blends raw percussion loops, modern club sequencing, and refined transitions for a bold, immersive nightlife texture.', '2026-06-19 22:00:00', '2026-06-19 23:59:00', 108, 'DJ Nova', 'api/private_uploads/posters/B8676EE9-0148-4BB5-BB31-AE21D47025E1_4_5005_c.jpeg'),
+('Prism Nights Vol. 1', 'A color-forward dance concept that combines genre-crossing edits, bright harmonic layering, and crowd-responsive pacing to keep the room visually and musically engaged.', '2026-06-20 21:00:00', '2026-06-20 23:59:00', 145, 'DJ Pulse', 'api/private_uploads/posters/C4D35976-1633-4A2B-A412-53AB2B26B852_4_5005_c.jpeg'),
+('Citylight Continuum', 'A continuity-driven set architecture with motif callbacks, deep groove sections, and carefully timed anthem lifts that reward guests from first track to final close.', '2026-06-26 22:00:00', '2026-06-26 23:59:00', 96, 'DJ Echo', 'api/private_uploads/posters/C9196136-B7E6-4A21-8000-67E7D0FEF5DE_1_201_a.jpeg'),
+('High Tide Reverb', 'A coastal-energy weekend card featuring punchy drums, rhythmic switch-ups, and dance-ready hooks structured to maintain floor density throughout the late set.', '2026-06-27 21:00:00', '2026-06-27 23:59:00', 132, 'DJ Rico', 'api/private_uploads/posters/E78F210E-440B-4F0A-9C19-7D76BCD107F4_4_5005_c.jpeg'),
+('Liberty Bassline Weekend', 'A holiday-adjacent special with celebratory sequencing, high-recognition edits, and broad-appeal transitions tuned for full-house weekend turnout and repeat attendance.', '2026-07-03 22:00:00', '2026-07-03 23:59:00', 155, 'DJ Blaze', 'api/private_uploads/posters/EF07AAE4-4D4F-4DF2-9035-D6FB96E11015_4_5005_c.jpeg'),
+('Fireworks and Four-on-the-Floor', 'A patriotic weekend blend of peak-time house, energetic sing-along moments, and disciplined pacing to support crowd flow during one of the season''s busiest nights.', '2026-07-04 21:00:00', '2026-07-04 23:59:00', 165, 'DJ Vibe', 'api/private_uploads/posters/F6B71E80-995D-4EDF-8032-CC320F1EA3D4_4_5005_c.jpeg'),
+('Aurora Closing Circuit', 'A finale-format event featuring euphoric builds, controlled tempo shifts, and emotionally resonant closing tracks that leave guests with a memorable end-of-series experience.', '2026-07-10 22:00:00', '2026-07-10 23:59:00', 118, 'DJ Nova', 'api/private_uploads/posters/F418903C-7326-402D-B687-27CA3B96FDFA_4_5005_c.jpeg');
 
 -- =========================
 -- TICKETS
 -- =========================
 INSERT INTO tickets (tier, price, event_id) VALUES
-('GA', 60.00, 1),
-('VIP', 120.00, 1),
-('GA', 70.00, 2),
-('VIP', 150.00, 2),
-('GA', 60.00, 3),
-('VIP', 120.00, 3),
-('GA', 70.00, 4),
-('VIP', 150.00, 4),
-('GA', 60.00, 5),
-('VIP', 120.00, 5),
-('GA', 70.00, 6),
-('VIP', 150.00, 6),
-('GA', 60.00, 7),
-('VIP', 120.00, 7),
-('GA', 70.00, 8),
-('VIP', 150.00, 8),
-('GA', 60.00, 9),
-('VIP', 120.00, 9),
-('GA', 70.00, 10),
-('VIP', 150.00, 10),
-('GA', 60.00, 11),
-('VIP', 120.00, 11),
-('GA', 70.00, 12),
-('VIP', 150.00, 12),
-('GA', 60.00, 13),
-('VIP', 120.00, 13),
-('GA', 70.00, 14),
-('VIP', 150.00, 14),
-('GA', 60.00, 15),
-('VIP', 120.00, 15),
-('GA', 70.00, 16),
-('VIP', 150.00, 16),
-('GA', 60.00, 17),
-('VIP', 120.00, 17),
-('GA', 70.00, 18),
-('VIP', 150.00, 18),
-('GA', 60.00, 19),
-('VIP', 120.00, 19),
-('GA', 70.00, 20),
-('VIP', 150.00, 20);
+('GA', 55.00, 1), ('VIP', 135.00, 1),
+('GA', 62.00, 2), ('VIP', 145.00, 2),
+('GA', 58.00, 3), ('VIP', 138.00, 3),
+('GA', 68.00, 4), ('VIP', 160.00, 4),
+('GA', 72.00, 5), ('VIP', 172.00, 5),
+('GA', 61.00, 6), ('VIP', 149.00, 6),
+('GA', 64.00, 7), ('VIP', 154.00, 7),
+('GA', 52.00, 8), ('VIP', 130.00, 8),
+('GA', 75.00, 9), ('VIP', 180.00, 9),
+('GA', 66.00, 10), ('VIP', 158.00, 10),
+('GA', 59.00, 11), ('VIP', 142.00, 11),
+('GA', 63.00, 12), ('VIP', 150.00, 12),
+('GA', 71.00, 13), ('VIP', 170.00, 13),
+('GA', 57.00, 14), ('VIP', 136.00, 14),
+('GA', 74.00, 15), ('VIP', 176.00, 15),
+('GA', 54.00, 16), ('VIP', 132.00, 16),
+('GA', 69.00, 17), ('VIP', 165.00, 17),
+('GA', 78.00, 18), ('VIP', 190.00, 18),
+('GA', 82.00, 19), ('VIP', 205.00, 19),
+('GA', 67.00, 20), ('VIP', 162.00, 20);
 
 -- =========================
 -- RESERVATIONS (FIXED IDS)
@@ -562,16 +542,26 @@ INSERT INTO ReservationStaff VALUES
 
 -- Event staffing to match reservation/event load
 INSERT INTO EventStaff (event_id, staff_id) VALUES
-(3, 2), (3, 12), (3, 4),
-(4, 8), (4, 13), (4, 5),
-(5, 2), (5, 14), (5, 6),
-(6, 8), (6, 15), (6, 4),
-(7, 2), (7, 16), (7, 5),
-(8, 8), (8, 17), (8, 6),
-(9, 2), (9, 18), (9, 4),
-(10, 7), (10, 12), (10, 5),
-(11, 2), (11, 13), (11, 6),
-(12, 8), (12, 14), (12, 4);
+(1, 9), (1, 12), (1, 5),
+(2, 7), (2, 12), (2, 4),
+(3, 11), (3, 13), (3, 6),
+(4, 10), (4, 14), (4, 5),
+(5, 8), (5, 15), (5, 4),
+(6, 7), (6, 16), (6, 6),
+(7, 9), (7, 17), (7, 5),
+(8, 2), (8, 18), (8, 4),
+(9, 11), (9, 13), (9, 6),
+(10, 10), (10, 12), (10, 5),
+(11, 8), (11, 14), (11, 4),
+(12, 7), (12, 15), (12, 6),
+(13, 9), (13, 16), (13, 5),
+(14, 2), (14, 17), (14, 4),
+(15, 11), (15, 18), (15, 6),
+(16, 10), (16, 13), (16, 5),
+(17, 8), (17, 12), (17, 4),
+(18, 7), (18, 14), (18, 6),
+(19, 9), (19, 15), (19, 5),
+(20, 2), (20, 16), (20, 4);
 
 -- User reminder notifications (10 minutes before start)
 INSERT INTO user_notifications (user_id, reservation_id, notify_at) VALUES
