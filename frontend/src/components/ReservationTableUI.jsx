@@ -528,13 +528,16 @@ function ReservationTableUI({
               {displayReservations.map((reservation) => {
                 const id = reservation.reservation_id ?? reservation.id;
                 const isCancelled = String(reservation.status ?? '').toLowerCase() === 'cancelled';
+                const serviceTypeText = String(reservation.service_type ?? '').trim();
+                const resourceNameText = String(reservation.resource_name ?? '').trim();
+                const showResourceName = resourceNameText && resourceNameText !== serviceTypeText;
                 
                 return (
                   <tr className="table-row hover:bg-gray-50 border-b" key={id}>
                     <td className="p-2">
-                      <div className="font-bold text-sm text-gray-800">{reservation.service_type || '—'}</div>
-                      {reservation.resource_name && (
-                        <div className="text-xs text-gray-500">{reservation.resource_name}</div>
+                      <div className="font-bold text-sm text-gray-800">{serviceTypeText || '—'}</div>
+                      {showResourceName && (
+                        <div className="text-xs text-gray-500">{resourceNameText}</div>
                       )}
                     </td>
                     <td className="p-2 text-sm text-gray-600">
