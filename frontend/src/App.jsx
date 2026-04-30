@@ -65,6 +65,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/home" element={<Home />} />
           <Route path="/successful-purchase" element={<SuccessfulPurchase />} />
+          <Route path="/successful-purchase/:ticketId" element={<SuccessfulPurchase />} />
 
           <Route path= "/*"element={<NotFoundPage />} />
         

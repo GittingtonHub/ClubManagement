@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { DayPilot } from '@daypilot/daypilot-lite-react';
+import { useNavigate } from 'react-router-dom';
 import '../styles/carousel.css';
 import { dispatchStaffAssignmentEmails } from '../lib/emailDispatch';
 // const TEST_IMAGE_URL = '/api/private_uploads/posters/7DFBDC06-F371-4C93-BAFA-639BEC2B36F4_4_5005_c.jpeg';
@@ -19,9 +20,28 @@ function formatEventDateRange(startValue, endValue) {
 }
 
 function buildEventSlide(eventRow) {
+  const rawPoster = String(eventRow?.path ?? eventRow?.event_poster ?? eventRow?.image_path ?? '').trim();
+  const resolvedPoster = (() => {
+    if (!rawPoster) {
+      return '';
+    }
+    if (/^https?:\/\//i.test(rawPoster)) {
+      return rawPoster;
+    }
+    if (!rawPoster.includes('/')) {
+      const normalizedFileName = rawPoster.replace(/\\/g, '/').replace(/^\/+/, '');
+      return `${window.location.origin}/api/private_uploads/posters/${normalizedFileName}`;
+    }
+    const normalizedPath = rawPoster
+      .replace(/^(\.\/)+/, '')
+      .replace(/^\/+/, '')
+      .replace(/\\/g, '/');
+    return `${window.location.origin}/${normalizedPath}`;
+  })();
+
   return {
     // src: String(eventRow?.path ?? eventRow?.event_poster ?? eventRow?.image_path ?? TEST_IMAGE_URL ?? '').trim(),
-    src: String(eventRow?.path ?? eventRow?.event_poster ?? eventRow?.image_path ?? '').trim(),
+    src: resolvedPoster,
     alt: eventRow?.event_title ? `${eventRow.event_title} poster` : 'Event poster',
     captionTitle: String(eventRow?.event_title ?? `Event ${eventRow?.event_id ?? ''}`).trim() || 'Upcoming Event',
     captionRange: formatEventDateRange(eventRow?.start_time, eventRow?.end_time),
@@ -57,6 +77,7 @@ const formatDateTime = (value) => {
 };
 
 function Carousel({ items = [], autoPlay = true, intervalMs = 4500, title = 'Image carousel' }) {
+  const navigate = useNavigate();
   const [eventSlides, setEventSlides] = useState([]);
   const [failedImageIndexes, setFailedImageIndexes] = useState([]);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -193,6 +214,10 @@ function Carousel({ items = [], autoPlay = true, intervalMs = 4500, title = 'Ima
     if (/^https?:\/\//i.test(raw)) {
       return raw;
     }
+    if (!raw.includes('/')) {
+      const normalizedFileName = raw.replace(/\\/g, '/').replace(/^\/+/, '');
+      return `${window.location.origin}/api/private_uploads/posters/${normalizedFileName}`;
+    }
     const normalizedPath = raw
       .replace(/^(\.\/)+/, '')
       .replace(/^\/+/, '')
@@ -302,8 +327,12 @@ function Carousel({ items = [], autoPlay = true, intervalMs = 4500, title = 'Ima
 
       setBuyModalData(null);
       setBuyModalError('');
-      await DayPilot.Modal.alert('Ticket reservation submitted successfully.');
       window.dispatchEvent(new Event('reservations:changed'));
+      if (reservationId) {
+        navigate(`/successful-purchase/${reservationId}`);
+      } else {
+        await DayPilot.Modal.alert('Ticket reservation submitted successfully, but no receipt ID was returned.');
+      }
     } catch {
       setBuyModalError('Could not reserve ticket.');
     } finally {

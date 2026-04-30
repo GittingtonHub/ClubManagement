@@ -1,6 +1,6 @@
 import "../styles/success.css";
 import { useMemo, useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom"; // Swapped useLocation for useParams
+import { useParams, useNavigate } from "react-router-dom";
 import Barcode from "react-barcode";
 
 const DEFAULT_SUCCESS_PAGE_VALUES = Object.freeze({
@@ -16,21 +16,22 @@ const DEFAULT_SUCCESS_PAGE_VALUES = Object.freeze({
 });
 
 function normalizeSuccessData(rawData = {}) {
-   const eventId = String(rawData?.eventId ?? rawData?.event_id ?? DEFAULT_SUCCESS_PAGE_VALUES.eventId);
-   const userId = String(rawData?.userId ?? rawData?.user_id ?? DEFAULT_SUCCESS_PAGE_VALUES.userId);
-   const eventTitle = String(rawData?.eventTitle ?? rawData?.event_name ?? rawData?.event_title ?? DEFAULT_SUCCESS_PAGE_VALUES.eventTitle);
-   const eventSTART = String(rawData?.eventSTART ?? rawData?.event_start ?? rawData?.start ?? DEFAULT_SUCCESS_PAGE_VALUES.eventSTART);
-   const eventEND = String(rawData?.eventEND ?? rawData?.event_end ?? rawData?.end ?? DEFAULT_SUCCESS_PAGE_VALUES.eventEND);
-   const ticketType = String(rawData?.ticketType ?? rawData?.ticket_type ?? DEFAULT_SUCCESS_PAGE_VALUES.ticketType);
+   // console.log("[SuccessfulPurchase] normalizeSuccessData input JSON:", JSON.stringify(rawData));
+   const eventId = String(rawData?.event_id ?? rawData?.eventId ?? DEFAULT_SUCCESS_PAGE_VALUES.eventId);
+   const userId = String(rawData?.user_id ?? rawData?.userId ?? DEFAULT_SUCCESS_PAGE_VALUES.userId);
+   const eventTitle = String(rawData?.event_title ?? rawData?.event_name ?? rawData?.eventTitle ?? DEFAULT_SUCCESS_PAGE_VALUES.eventTitle);
+   const eventSTART = String(rawData?.event_start ?? rawData?.start ?? rawData?.eventSTART ?? DEFAULT_SUCCESS_PAGE_VALUES.eventSTART);
+   const eventEND = String(rawData?.event_end ?? rawData?.end ?? rawData?.eventEND ?? DEFAULT_SUCCESS_PAGE_VALUES.eventEND);
+   const ticketType = String(rawData?.ticket_type ?? rawData?.ticketType ?? DEFAULT_SUCCESS_PAGE_VALUES.ticketType);
    const performer = String(rawData?.performer ?? rawData?.performers ?? DEFAULT_SUCCESS_PAGE_VALUES.performer);
-   const imagePATH = String(rawData?.imagePATH ?? rawData?.image_path ?? rawData?.poster ?? DEFAULT_SUCCESS_PAGE_VALUES.imagePATH);
+   const imagePATH = String(rawData?.image_path ?? rawData?.poster ?? rawData?.imagePATH ?? DEFAULT_SUCCESS_PAGE_VALUES.imagePATH);
 
-   const parsedPrice = Number.parseFloat(rawData?.ticketPrice ?? rawData?.price ?? rawData?.ticket_price);
+   const parsedPrice = Number.parseFloat(rawData?.ticket_price ?? rawData?.price ?? rawData?.ticketPrice);
    const ticketPrice = Number.isFinite(parsedPrice)
       ? parsedPrice.toFixed(2)
-      : String(rawData?.ticketPrice ?? rawData?.ticket_price ?? DEFAULT_SUCCESS_PAGE_VALUES.ticketPrice);
+      : String(rawData?.ticket_price ?? rawData?.ticketPrice ?? DEFAULT_SUCCESS_PAGE_VALUES.ticketPrice);
 
-   return {
+   const normalized = {
       eventId,
       userId,
       eventTitle,
@@ -42,29 +43,70 @@ function normalizeSuccessData(rawData = {}) {
       imagePATH,
       barcodeValue: `${eventId}${userId}`
    };
+
+   // console.log("[SuccessfulPurchase] normalizeSuccessData output JSON:", JSON.stringify(normalized));
+   return normalized;
+}
+
+function resolvePosterUrl(value) {
+   const raw = String(value ?? "").trim();
+   if (!raw) {
+      return "";
+   }
+   if (/^https?:\/\//i.test(raw)) {
+      return raw;
+   }
+   if (!raw.includes("/")) {
+      const normalizedFileName = raw.replace(/\\/g, "/").replace(/^\/+/, "");
+      return `${window.location.origin}/api/private_uploads/posters/${normalizedFileName}`;
+   }
+   const normalizedPath = raw
+      .replace(/^(\.\/)+/, "")
+      .replace(/^\/+/, "")
+      .replace(/\\/g, "/");
+   return `${window.location.origin}/${normalizedPath}`;
 }
 
 function SuccessfulPurchase() {
    const navigate = useNavigate();
-   const { ticketId } = useParams(); // Grabs the ID from the URL (e.g., /success/123)
+   const { ticketId } = useParams();
 
    const [rawData, setRawData] = useState(null);
    const [loading, setLoading] = useState(true);
    const [error, setError] = useState(null);
 
-   // Fetch data from the backend when the page loads
    useEffect(() => {
-      fetch(`http://localhost/ClubManagement/backend/get_ticket_details.php?id=${ticketId}`)
+      // console.log("[SuccessfulPurchase] loader effect start", { ticketId });
+      if (!ticketId) {
+         // console.warn("[SuccessfulPurchase] missing ticketId param");
+         setError("Missing receipt ID.");
+         setLoading(false);
+         return;
+      }
+
+      const detailsUrl = `/api/get_ticket_details.php?id=${ticketId}`;
+      // console.log("[SuccessfulPurchase] fetching ticket details:", detailsUrl);
+      fetch(`/api/get_ticket_details.php?id=${ticketId}`, {
+         credentials: "include"
+      })
          .then(res => {
+            // console.log("[SuccessfulPurchase] fetch response status:", {
+            //    ok: res.ok,
+            //    status: res.status,
+            //    statusText: res.statusText
+            // });
             if (!res.ok) throw new Error("Could not find ticket details.");
             return res.json();
          })
          .then(data => {
+            // console.log("[SuccessfulPurchase] fetch response JSON:", data);
             if (data.error) throw new Error(data.error);
             setRawData(data);
+            // console.log("[SuccessfulPurchase] rawData set successfully");
             setLoading(false);
          })
          .catch(err => {
+            // console.error("[SuccessfulPurchase] loader failed:", err);
             setError(err.message);
             setLoading(false);
          });
@@ -72,11 +114,18 @@ function SuccessfulPurchase() {
 
    // Process the fetched data through your normalizer
    const successPageValues = useMemo(() => {
-      return normalizeSuccessData({
+      const mergedData = {
          ...DEFAULT_SUCCESS_PAGE_VALUES,
          ...rawData
-      });
+      };
+      // console.log("[SuccessfulPurchase] merged data before normalize JSON:", JSON.stringify(mergedData));
+      return normalizeSuccessData(mergedData);
    }, [rawData]);
+
+   // console.log(
+   //    "[SuccessfulPurchase] render snapshot:",
+   //    `title=${successPageValues.eventTitle} | start=${successPageValues.eventSTART} | end=${successPageValues.eventEND} | tier=${successPageValues.ticketType} | price=${successPageValues.ticketPrice} | performer=${successPageValues.performer} | imagePATH=${successPageValues.imagePATH}`
+   // );
 
    // Show a loading or error message if needed
    if (loading) {
@@ -135,7 +184,7 @@ function SuccessfulPurchase() {
 
                <div className="ticket-poster-container">
                   {successPageValues.imagePATH ? (
-                     <img src={successPageValues.imagePATH} alt={`${successPageValues.eventTitle} poster`} className="ticket-poster-image" />
+                     <img src={resolvePosterUrl(successPageValues.imagePATH)} alt={`${successPageValues.eventTitle} poster`} className="ticket-poster-image" />
                   ) : (
                      <div className="ticket-poster-placeholder">Poster coming soon</div>
                   )}
