@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DayPilot } from "@daypilot/daypilot-lite-react";
+import { useNavigate } from 'react-router-dom';
 import EventSearchBar from './EventSearchBar';
 import { dispatchStaffAssignmentEmails } from '../lib/emailDispatch';
 
@@ -60,6 +61,7 @@ const parseJsonSafely = (text, fallback) => {
 };
 
 function EventCardsUI() {
+  const navigate = useNavigate();
   const [events, setEvents] = useState([]);
   const [filteredEvents, setFilteredEvents] = useState([]);
   const [ticketResourcesByTier, setTicketResourcesByTier] = useState({ GA: null, VIP: null });
@@ -208,6 +210,10 @@ function EventCardsUI() {
     if (/^https?:\/\//i.test(raw)) {
       return raw;
     }
+    if (!raw.includes('/')) {
+      const normalizedFileName = raw.replace(/\\/g, '/').replace(/^\/+/, '');
+      return `${window.location.origin}/api/private_uploads/posters/${normalizedFileName}`;
+    }
     const normalizedPath = raw
       .replace(/^(\.\/)+/, '')
       .replace(/^\/+/, '')
@@ -281,8 +287,12 @@ function EventCardsUI() {
 
       setBuyModalData(null);
       setBuyModalError('');
-      await DayPilot.Modal.alert('Ticket reservation submitted successfully.');
       window.dispatchEvent(new Event('reservations:changed'));
+      if (reservationId) {
+        navigate(`/successful-purchase/${reservationId}`);
+      } else {
+        await DayPilot.Modal.alert('Ticket reservation submitted successfully, but no receipt ID was returned.');
+      }
     } catch (error) {
       console.error('Failed to submit ticket reservation:', error);
       setBuyModalError('Could not reserve ticket.');
