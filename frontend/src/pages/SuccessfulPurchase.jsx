@@ -16,7 +16,7 @@ const DEFAULT_SUCCESS_PAGE_VALUES = Object.freeze({
 });
 
 function normalizeSuccessData(rawData = {}) {
-   console.log("[SuccessfulPurchase] normalizeSuccessData input JSON:", JSON.stringify(rawData));
+   // console.log("[SuccessfulPurchase] normalizeSuccessData input JSON:", JSON.stringify(rawData));
    const eventId = String(rawData?.event_id ?? rawData?.eventId ?? DEFAULT_SUCCESS_PAGE_VALUES.eventId);
    const userId = String(rawData?.user_id ?? rawData?.userId ?? DEFAULT_SUCCESS_PAGE_VALUES.userId);
    const eventTitle = String(rawData?.event_title ?? rawData?.event_name ?? rawData?.eventTitle ?? DEFAULT_SUCCESS_PAGE_VALUES.eventTitle);
@@ -44,7 +44,7 @@ function normalizeSuccessData(rawData = {}) {
       barcodeValue: `${eventId}${userId}`
    };
 
-   console.log("[SuccessfulPurchase] normalizeSuccessData output JSON:", JSON.stringify(normalized));
+   // console.log("[SuccessfulPurchase] normalizeSuccessData output JSON:", JSON.stringify(normalized));
    return normalized;
 }
 
@@ -76,37 +76,37 @@ function SuccessfulPurchase() {
    const [error, setError] = useState(null);
 
    useEffect(() => {
-      console.log("[SuccessfulPurchase] loader effect start", { ticketId });
+      // console.log("[SuccessfulPurchase] loader effect start", { ticketId });
       if (!ticketId) {
-         console.warn("[SuccessfulPurchase] missing ticketId param");
+         // console.warn("[SuccessfulPurchase] missing ticketId param");
          setError("Missing receipt ID.");
          setLoading(false);
          return;
       }
 
       const detailsUrl = `/api/get_ticket_details.php?id=${ticketId}`;
-      console.log("[SuccessfulPurchase] fetching ticket details:", detailsUrl);
+      // console.log("[SuccessfulPurchase] fetching ticket details:", detailsUrl);
       fetch(`/api/get_ticket_details.php?id=${ticketId}`, {
          credentials: "include"
       })
          .then(res => {
-            console.log("[SuccessfulPurchase] fetch response status:", {
-               ok: res.ok,
-               status: res.status,
-               statusText: res.statusText
-            });
+            // console.log("[SuccessfulPurchase] fetch response status:", {
+            //    ok: res.ok,
+            //    status: res.status,
+            //    statusText: res.statusText
+            // });
             if (!res.ok) throw new Error("Could not find ticket details.");
             return res.json();
          })
          .then(data => {
-            console.log("[SuccessfulPurchase] fetch response JSON:", data);
+            // console.log("[SuccessfulPurchase] fetch response JSON:", data);
             if (data.error) throw new Error(data.error);
             setRawData(data);
-            console.log("[SuccessfulPurchase] rawData set successfully");
+            // console.log("[SuccessfulPurchase] rawData set successfully");
             setLoading(false);
          })
          .catch(err => {
-            console.error("[SuccessfulPurchase] loader failed:", err);
+            // console.error("[SuccessfulPurchase] loader failed:", err);
             setError(err.message);
             setLoading(false);
          });
@@ -118,14 +118,14 @@ function SuccessfulPurchase() {
          ...DEFAULT_SUCCESS_PAGE_VALUES,
          ...rawData
       };
-      console.log("[SuccessfulPurchase] merged data before normalize JSON:", JSON.stringify(mergedData));
+      // console.log("[SuccessfulPurchase] merged data before normalize JSON:", JSON.stringify(mergedData));
       return normalizeSuccessData(mergedData);
    }, [rawData]);
 
-   console.log(
-      "[SuccessfulPurchase] render snapshot:",
-      `title=${successPageValues.eventTitle} | start=${successPageValues.eventSTART} | end=${successPageValues.eventEND} | tier=${successPageValues.ticketType} | price=${successPageValues.ticketPrice} | performer=${successPageValues.performer} | imagePATH=${successPageValues.imagePATH}`
-   );
+   // console.log(
+   //    "[SuccessfulPurchase] render snapshot:",
+   //    `title=${successPageValues.eventTitle} | start=${successPageValues.eventSTART} | end=${successPageValues.eventEND} | tier=${successPageValues.ticketType} | price=${successPageValues.ticketPrice} | performer=${successPageValues.performer} | imagePATH=${successPageValues.imagePATH}`
+   // );
 
    // Show a loading or error message if needed
    if (loading) {
