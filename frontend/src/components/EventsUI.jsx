@@ -544,6 +544,10 @@ function EventsUI() {
       errors.ga_ticket_price = 'GA ticket price must be a non-negative number.';
     }
 
+    if (!Array.isArray(eventForm.staff_ids) || eventForm.staff_ids.length === 0) {
+      errors.staff_ids = 'At least one staff member must be assigned.';
+    }
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -578,6 +582,14 @@ function EventsUI() {
         staff_ids: Array.from(selected)
       };
     });
+
+    if (formErrors.staff_ids) {
+      setFormErrors((previous) => {
+        const next = { ...previous };
+        delete next.staff_ids;
+        return next;
+      });
+    }
   };
 
   const handleAddEvent = async () => {
@@ -1016,7 +1028,7 @@ function EventsUI() {
                   )}
                   <div
                     style={{
-                      border: '1px solid rgba(0, 0, 0, 0.2)',
+                      border: formErrors.staff_ids ? '2px solid red' : '1px solid rgba(0, 0, 0, 0.2)',
                       borderRadius: '8px',
                       padding: '10px',
                       maxHeight: '180px',
@@ -1066,6 +1078,9 @@ function EventsUI() {
                       })
                     )}
                   </div>
+                  {formErrors.staff_ids && (
+                    <span style={{ color: 'red', fontSize: '14px' }}>{formErrors.staff_ids}</span>
+                  )}
                 </div>
 
                 <div className="button-group">
