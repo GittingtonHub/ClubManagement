@@ -145,6 +145,7 @@
 
 .carousel-buy-now-button:disabled {
    opacity: 0.65;
+   background: #8a8f98;
    cursor: not-allowed;
 }
 

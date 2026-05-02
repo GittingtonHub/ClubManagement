@@ -76,6 +76,11 @@ const formatDateTime = (value) => {
   return parsedDate.toLocaleString();
 };
 
+const getRemainingTickets = (eventRow) => {
+  const parsed = Number.parseInt(eventRow?.qty_tickets ?? 0, 10);
+  return Number.isInteger(parsed) ? parsed : 0;
+};
+
 function Carousel({ items = [], autoPlay = true, intervalMs = 4500, title = 'Image carousel' }) {
   const navigate = useNavigate();
   const [eventSlides, setEventSlides] = useState([]);
@@ -244,6 +249,10 @@ function Carousel({ items = [], autoPlay = true, intervalMs = 4500, title = 'Ima
       await DayPilot.Modal.alert('This event does not have a valid event ID yet.');
       return;
     }
+    if (getRemainingTickets(eventRow) <= 0) {
+      await DayPilot.Modal.alert('This event is sold out.');
+      return;
+    }
     if (!eventRow?.start_time || !eventRow?.end_time) {
       await DayPilot.Modal.alert('This event is missing start/end times.');
       return;
@@ -346,6 +355,8 @@ function Carousel({ items = [], autoPlay = true, intervalMs = 4500, title = 'Ima
         <div className="carousel-container">
         {safeItems.map((item, index) => {
           const isActive = index === normalizedIndex;
+          const remainingTickets = getRemainingTickets(item?.eventData);
+          const isSoldOut = remainingTickets <= 0;
           return (
             <article
               className={`carousel-item ${isActive ? 'is-active' : ''}`}
@@ -430,9 +441,9 @@ function Carousel({ items = [], autoPlay = true, intervalMs = 4500, title = 'Ima
                   type="button"
                   className="carousel-buy-now-button"
                   onClick={() => handleBuyTicket(item)}
-                  disabled={Boolean(isSubmittingEventId)}
+                  disabled={Boolean(isSubmittingEventId) || isSoldOut}
                 >
-                  Buy Now
+                  {isSoldOut ? 'Sold Out' : 'Buy Now'}
                 </button>
               </div>
             </article>
