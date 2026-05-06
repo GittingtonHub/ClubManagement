@@ -249,11 +249,11 @@ if ($method === 'GET') {
                               AND s_filter.user_id = :uid
                               AND s_filter.removed = 0
                         )
-                    ) AND r.start_time >= NOW()";
+                    )";
         } elseif ($sessionRole !== 'admin') {
-            $sql .= " WHERE r.user_id = :uid AND r.start_time >= NOW()";
+            $sql .= " WHERE r.user_id = :uid";
         } else {
-            $sql .= " WHERE r.start_time >= NOW()";
+            $sql .= "";
         }
 
         $sql .= " ORDER BY r.start_time ASC";
@@ -284,14 +284,17 @@ if ($method === 'PATCH') {
 
     $reservation_id = $_GET['id'] ?? null;
     $rating = $_GET['rating'] ?? null;
+    error_log('[reservations.php][PATCH rating] request received | session_user_id=' . ($current_user_id ?? 'null') . ' | reservation_id=' . json_encode($reservation_id) . ' | rating=' . json_encode($rating));
 
     if (!$reservation_id || $rating === null) {
+        error_log('[reservations.php][PATCH rating] missing required params');
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'Missing id or rating']);
         exit;
     }
 
     if (!is_numeric($rating) || $rating < 0 || $rating > 5) {
+        error_log('[reservations.php][PATCH rating] invalid rating value=' . json_encode($rating));
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'Invalid rating']);
         exit;
@@ -306,14 +309,17 @@ if ($method === 'PATCH') {
         ");
         $statusStmt->execute([':rid' => $reservation_id]);
         $reservationRow = $statusStmt->fetch(PDO::FETCH_ASSOC);
+        error_log('[reservations.php][PATCH rating] reservation lookup result=' . json_encode($reservationRow));
 
         if (!$reservationRow) {
+            error_log('[reservations.php][PATCH rating] reservation not found');
             http_response_code(404);
             echo json_encode(['success' => false, 'message' => 'Reservation not found']);
             exit;
         }
 
         if (strtolower((string)($reservationRow['status'] ?? '')) === 'cancelled') {
+            error_log('[reservations.php][PATCH rating] reservation is cancelled');
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => 'Cannot rate a cancelled reservation']);
             exit;
@@ -329,9 +335,12 @@ if ($method === 'PATCH') {
             ':rating' => (int)$rating,
             ':rid' => $reservation_id
         ]);
+        error_log('[reservations.php][PATCH rating] update executed | rowCount=' . $stmt->rowCount());
 
+        error_log('[reservations.php][PATCH rating] success');
         echo json_encode(['success' => true]);
     } catch (PDOException $e) {
+        error_log('[reservations.php][PATCH rating] PDOException: ' . $e->getMessage());
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => 'Failed to update rating']);
     }
