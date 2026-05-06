@@ -313,7 +313,6 @@ function UserProfile() {
             ...prev,
             [reservationId]: String(rating)
          }));
-         setReservationMessage("Rating saved.");
          window.alert("Successfully saved rating.");
       } catch {
          setReservationMessage("Could not save rating");
