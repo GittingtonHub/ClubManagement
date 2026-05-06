@@ -66,7 +66,8 @@
                 $uniqueUsersStmt = $conn->query("
                     SELECT COUNT(DISTINCT user_id) as active_this_month 
                     FROM reservations 
-                    WHERE start_time >= DATE_FORMAT(CURRENT_DATE, '%Y-%m-01') 
+                    WHERE start_time >= DATE_FORMAT(CURRENT_DATE, '%Y-%m-01')
+                    AND start_time < DATE_FORMAT(DATE_ADD(CURRENT_DATE, INTERVAL 1 MONTH), '%Y-%m-01')
                     AND status != 'cancelled'
                 ");
                 $activeUsers = $uniqueUsersStmt->fetch(PDO::FETCH_ASSOC)['active_this_month'];
@@ -94,7 +95,8 @@
                 $monthlyStmt = $conn->query("
                     SELECT COUNT(*) as monthly_total 
                     FROM reservations 
-                    WHERE start_time >= DATE_FORMAT(CURRENT_DATE, '%Y-%m-01') 
+                    WHERE start_time >= DATE_FORMAT(CURRENT_DATE, '%Y-%m-01')
+                    AND start_time < DATE_FORMAT(DATE_ADD(CURRENT_DATE, INTERVAL 1 MONTH), '%Y-%m-01')
                     AND status != 'cancelled'
                 ");
                 $monthlyTotal = $monthlyStmt->fetch(PDO::FETCH_ASSOC)['monthly_total'];
@@ -116,7 +118,8 @@
                 $topResources = $conn->query("
                     SELECT service_type as name, COUNT(*) as count 
                     FROM reservations 
-                    WHERE start_time >= DATE_FORMAT(CURRENT_DATE, '%Y-%m-01') 
+                    WHERE start_time >= DATE_FORMAT(CURRENT_DATE, '%Y-%m-01')
+                    AND start_time < DATE_FORMAT(DATE_ADD(CURRENT_DATE, INTERVAL 1 MONTH), '%Y-%m-01')
                     AND status != 'cancelled' 
                     GROUP BY service_type 
                     ORDER BY count DESC 
@@ -131,7 +134,8 @@
                         FROM staff s
                         JOIN {$reservationStaffTable} rs ON s.id = rs.staff_id
                         JOIN reservations r ON rs.reservation_id = r.reservation_id
-                        WHERE r.start_time >= DATE_FORMAT(CURRENT_DATE, '%Y-%m-01') 
+                        WHERE r.start_time >= DATE_FORMAT(CURRENT_DATE, '%Y-%m-01')
+                        AND r.start_time < DATE_FORMAT(DATE_ADD(CURRENT_DATE, INTERVAL 1 MONTH), '%Y-%m-01')
                         AND r.status != 'cancelled'
                         AND s.removed = 0
                         GROUP BY s.id, s.name 
@@ -160,7 +164,8 @@
                     SELECT {$userDisplayExpression} as name, COUNT(r.reservation_id) as count 
                     FROM users u
                     JOIN reservations r ON u.id = r.user_id
-                    WHERE r.start_time >= DATE_FORMAT(CURRENT_DATE, '%Y-%m-01') 
+                    WHERE r.start_time >= DATE_FORMAT(CURRENT_DATE, '%Y-%m-01')
+                    AND r.start_time < DATE_FORMAT(DATE_ADD(CURRENT_DATE, INTERVAL 1 MONTH), '%Y-%m-01')
                     AND r.status != 'cancelled'
                     GROUP BY u.id, {$userDisplayExpression}
                     ORDER BY count DESC 
@@ -191,6 +196,7 @@
                     FROM reservations 
                     WHERE status = 'cancelled' 
                     AND start_time >= DATE_FORMAT(CURRENT_DATE, '%Y-%m-01')
+                    AND start_time < DATE_FORMAT(DATE_ADD(CURRENT_DATE, INTERVAL 1 MONTH), '%Y-%m-01')
                 ");
                 $monthlyCancellations = $monthlyCancellationsStmt->fetch(PDO::FETCH_ASSOC)['monthly_total'];
 
@@ -200,6 +206,7 @@
                     FROM reservations 
                     WHERE status = 'cancelled' 
                     AND start_time >= DATE_FORMAT(CURRENT_DATE, '%Y-%m-01')
+                    AND start_time < DATE_FORMAT(DATE_ADD(CURRENT_DATE, INTERVAL 1 MONTH), '%Y-%m-01')
                     GROUP BY service_type 
                     ORDER BY count DESC
                 ")->fetchAll(PDO::FETCH_ASSOC);
@@ -210,6 +217,7 @@
                     FROM reservations 
                     WHERE status = 'cancelled' 
                     AND start_time >= DATE_FORMAT(CURRENT_DATE, '%Y-%m-01')
+                    AND start_time < DATE_FORMAT(DATE_ADD(CURRENT_DATE, INTERVAL 1 MONTH), '%Y-%m-01')
                     GROUP BY cancellation_reason 
                     ORDER BY count DESC
                 ")->fetchAll(PDO::FETCH_ASSOC);
