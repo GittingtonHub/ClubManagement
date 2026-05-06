@@ -20,10 +20,22 @@ function RatingAnalytics() {
       try {
          const ratingAnalytics = await fetchAnalytics("ratings");
 
-         const allTimeAvgRating = ratingAnalytics?.all_time_avg_rating;
-         const monthlyAvgRating = ratingAnalytics?.monthly_avg_rating;
-         const highestRatingThisMonth = ratingAnalytics?.highest_rating_this_month;
-         const lowestRatingThisMonth = ratingAnalytics?.lowest_rating_this_month;
+         const allTimeAvgRating = ratingAnalytics?.overall?.average;
+         const byService = Array.isArray(ratingAnalytics?.by_service) ? ratingAnalytics.by_service : [];
+         const serviceAverages = byService
+            .map((row) => Number(row?.average_rating))
+            .filter((value) => Number.isFinite(value));
+         const highestRatingThisMonth = serviceAverages.length > 0 ? Math.max(...serviceAverages) : 0;
+         const lowestRatingThisMonth = serviceAverages.length > 0 ? Math.min(...serviceAverages) : 0;
+
+         const currentMonthPrefix = new Date().toISOString().slice(0, 7);
+         const monthlyRatings = (Array.isArray(ratingAnalytics?.recent_ratings) ? ratingAnalytics.recent_ratings : [])
+            .filter((row) => String(row?.start_time ?? "").startsWith(currentMonthPrefix))
+            .map((row) => Number(row?.rating))
+            .filter((value) => Number.isFinite(value));
+         const monthlyAvgRating = monthlyRatings.length > 0
+            ? monthlyRatings.reduce((sum, value) => sum + value, 0) / monthlyRatings.length
+            : 0;
 
          setMetrics({
             allTimeAvgRating: Number(allTimeAvgRating) || 0,

@@ -562,7 +562,7 @@ function ReservationTableUI({
                       ) : type === 'past' ? (
                         <div className="flex items-center gap-2">
                           <select
-                            value={ratingState?.[id] ?? ""}
+                            value={ratingState?.[id] ?? (reservation?.rating != null ? String(reservation.rating) : "")}
                             onChange={(e) => onRatingChange && onRatingChange(id, e.target.value)}
                             className="border border-gray-300 rounded p-1 text-sm bg-white"
                           >

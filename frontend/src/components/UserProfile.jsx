@@ -160,6 +160,16 @@ function UserProfile() {
             (reservation) => String(reservation.user_id) === String(currentUserId)
          );
          setReservations(myReservations);
+         setRatingByReservation(
+            myReservations.reduce((acc, reservation) => {
+               const reservationId = reservation?.reservation_id ?? reservation?.id;
+               const existingRating = reservation?.rating;
+               if (reservationId != null && existingRating != null && existingRating !== "") {
+                  acc[reservationId] = String(existingRating);
+               }
+               return acc;
+            }, {})
+         );
          setReservationMessage("");
       } catch {
          setReservations([]);
@@ -287,7 +297,23 @@ function UserProfile() {
             return;
          }
 
-         setReservationMessage("");
+         setReservations((previousReservations) =>
+            previousReservations.map((row) => {
+               const id = row?.reservation_id ?? row?.id;
+               if (String(id) !== String(reservationId)) {
+                  return row;
+               }
+               return {
+                  ...row,
+                  rating: Number(rating)
+               };
+            })
+         );
+         setRatingByReservation((prev) => ({
+            ...prev,
+            [reservationId]: String(rating)
+         }));
+         window.alert("Successfully saved rating.");
       } catch {
          setReservationMessage("Could not save rating");
       }
